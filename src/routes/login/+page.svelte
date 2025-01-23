@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { capital as capitalStore, token as tokenStore, user } from '$lib/stores';
+  import { capital as capitalStore, mapCenter, token as tokenStore, user } from '$lib/stores';
   import { API_HOST } from '$lib/constants';
 
   let identifier = '';
@@ -34,6 +34,7 @@
       tokenStore.set(token);
       user.set({ email, username, userId });
       capitalStore.set(capital);
+      mapCenter.set({ x: capital.startX + 2, y: capital.startY + 2 });
 
       goto('/game');
     } catch (error) {

@@ -25,11 +25,26 @@
   };
 
   const visibleTiles = derived([map, mapCenter], ([$map, $mapCenter]) => {
-    const { x: cx, y: cy } = $mapCenter;
-    const startX = Math.max(0, cx - xRadius);
-    const endX = Math.min($map.length - 1, cx + xRadius);
-    const startY = Math.max(0, cy - yRadius);
-    const endY = Math.min($map[0].length - 1, cy + yRadius);
+    let { x: cx, y: cy } = $mapCenter;
+    let startX = cx - xRadius;
+    let endX = cx + xRadius;
+    let startY = cy - yRadius;
+    let endY = cy + yRadius;
+
+    if (startX < 0) {
+      endX += Math.abs(startX);
+      startX = 0;
+    } else if (endX >= $map.length) {
+      startX -= endX - $map.length + 1;
+      endX = $map.length - 1;
+    }
+    if (startY < 0) {
+      endY += Math.abs(startY);
+      startY = 0;
+    } else if (endY >= $map[0].length) {
+      startY -= endY - $map[0].length + 1;
+      endY = $map[0].length - 1;
+    }
 
     return $map.slice(startY, endY + 1).map((row) => row.slice(startX, endX + 1));
   });
