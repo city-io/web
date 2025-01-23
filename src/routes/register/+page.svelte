@@ -110,7 +110,7 @@
           </button>
           <p class="text-sm font-light">
             Already have an account?
-            <button class="font-medium text-blue-600" on:click={currentPage.set(Page.LOGIN)}> Sign in </button>
+            <button class="font-medium text-blue-600" on:click={() => goto('/login')}> Sign in </button>
           </p>
         </form>
       </div>
