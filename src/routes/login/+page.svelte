@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { token as tokenStore, user } from '$lib/stores';
+  import { capital as capitalStore, token as tokenStore, user } from '$lib/stores';
   import { API_HOST } from '$lib/constants';
 
   let identifier = '';
@@ -30,9 +30,10 @@
         return;
       }
 
-      const { token, userId, email, username } = await response.json();
+      const { token, userId, email, username, capital } = await response.json();
       tokenStore.set(token);
-      user.set({ email, username });
+      user.set({ email, username, userId });
+      capitalStore.set(capital);
 
       goto('/game');
     } catch (error) {

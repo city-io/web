@@ -1,12 +1,66 @@
 <script lang="ts">
-  import { token } from '$lib/stores';
-
+  import { WS_HOST } from '$lib/constants';
+  import { capital, map, mapCenter, token, user, ws } from '$lib/stores';
   import { goto } from '$app/navigation';
 
+  import { derived } from 'svelte/store';
+  const xRadius = 4;
+  const yRadius = 3;
+
   const logout = async () => {
+    if ($ws) {
+      $ws.close();
+      ws.set(null);
+    }
     token.set(undefined);
+    user.set(undefined);
+    capital.set(undefined);
     goto('/login');
   };
+
+  const getMapTiles = () => {
+    if ($ws) {
+      $ws.send(JSON.stringify({ req: 'map', data: { x: $capital.startX + 2, y: $capital.startY + 2, radius: 5 } }));
+    }
+  };
+
+  const visibleTiles = derived([map, mapCenter], ([$map, $mapCenter]) => {
+    const { x: cx, y: cy } = $mapCenter;
+    const startX = Math.max(0, cx - xRadius);
+    const endX = Math.min($map.length - 1, cx + xRadius);
+    const startY = Math.max(0, cy - yRadius);
+    const endY = Math.min($map[0].length - 1, cy + yRadius);
+
+    return $map.slice(startY, endY + 1).map((row) => row.slice(startX, endX + 1));
+  });
+
+  getMapTiles();
+
+  $: console.log($visibleTiles);
 </script>
 
-<button on:click={logout}>Logout</button>
+<div class="flex h-screen w-screen gap-1 overflow-hidden">
+  <div class="map-container flex h-full overflow-hidden">
+    <div class="grid gap-1" style="grid-template-columns: repeat(9, minmax(0, 1fr));">
+      {#each $visibleTiles as row}
+        {#each row as tile}
+          <div class="tile flex h-32 w-36 items-center justify-center border border-gray-400 bg-gray-200">
+            {#if tile.building}
+              <div class="text-xs text-gray-600">{tile.building.type}</div>
+            {:else if tile.city}
+              <div class="text-xs text-gray-600">{tile.city.type}</div>
+            {:else}
+              {tile.x}, {tile.y}
+            {/if}
+          </div>
+        {/each}
+      {/each}
+    </div>
+  </div>
+  <div class="sidebar flex-1 bg-gray-100">
+    <div class="flex items-center justify-between p-4">
+      <div class="text-lg font-semibold">Sidebar</div>
+      <button class="text-sm text-gray-600" on:click={logout}>Logout</button>
+    </div>
+  </div>
+</div>
