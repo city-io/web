@@ -1,6 +1,6 @@
 <script lang="ts">
   import { WS_CODE, WS_HOST } from '$lib/constants';
-  import { capital, map, token, ws } from '$lib/stores';
+  import { capital, map, token, user, ws } from '$lib/stores';
 
   import { goto } from '$app/navigation';
 
@@ -26,14 +26,16 @@
       const message = JSON.parse(event.data);
       switch (message.msg) {
         case WS_CODE.MAP:
-          console.log('Received map');
           const tiles = message.data;
           for (const tile of tiles) {
             $map[tile.y][tile.x] = tile;
           }
           break;
+        case WS_CODE.USER:
+          const userData = message.data;
+          user.set(userData);
+          break;
         case WS_CODE.PONG:
-          console.log('Received pong');
           break;
         default:
           console.error('Unknown message:', message);
@@ -51,7 +53,7 @@
 
     setInterval(() => {
       if (websocket.readyState === WebSocket.OPEN) {
-        websocket.send(JSON.stringify({ req: 'ping' }));
+        websocket.send(JSON.stringify({ req: WS_CODE.PING }));
       }
     }, 30000);
   });

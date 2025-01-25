@@ -1,49 +1,6 @@
 import { writable } from 'svelte/store';
 
-export interface User {
-  userId: number;
-  username: string;
-  email: string;
-  createdAt: string;
-  updatedAt: string;
-}
-
-export interface City {
-  cityId: number;
-  name: string;
-  startX: number;
-  startY: number;
-}
-
-export interface Building {
-  buildingId: string;
-  cityId: string;
-  type: string;
-  x: number;
-  y: number;
-  constructionEnd: Date;
-}
-
-export interface Army {
-  armyId: string;
-  tileX: number;
-  tileY: number;
-  owner: string;
-  size: number;
-  fromX: number;
-  fromY: number;
-  toX: number;
-  toY: number;
-  marchActive: boolean;
-}
-
-export interface MapTile {
-  x: number;
-  y: number;
-  city?: City;
-  building?: Building;
-  armies?: Map<string, Army[]>;
-}
+import type { City, MapTile, User } from './types';
 
 export const token = writable<string | undefined>(typeof window !== 'undefined' ? (localStorage.getItem('jwt-token') as string | undefined) : '');
 token.subscribe((val) => {

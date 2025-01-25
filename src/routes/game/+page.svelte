@@ -50,8 +50,6 @@
   });
 
   getMapTiles();
-
-  $: console.log($visibleTiles);
 </script>
 
 <div class="flex h-screen w-screen gap-1 overflow-hidden">
@@ -74,7 +72,9 @@
   </div>
   <div class="sidebar flex-1 bg-gray-100">
     <div class="flex items-center justify-between p-4">
-      <div class="text-lg font-semibold">Sidebar</div>
+      <div class="text-lg">{$user.username}</div>
+      <div class="text-sm text-gray-600">Gold: {$user.gold}</div>
+      <div class="text-sm text-gray-600">Food: {$user.food}</div>
       <button class="text-sm text-gray-600" on:click={logout}>Logout</button>
     </div>
   </div>
