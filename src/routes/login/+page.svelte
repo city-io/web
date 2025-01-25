@@ -1,6 +1,6 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
-  import { capital as capitalStore, mapCenter, token as tokenStore, user } from '$lib/stores';
+  import { capital as capitalStore, email as emailStore, mapCenter, token as tokenStore, user, userId as userIdStore } from '$lib/stores';
   import { API_HOST } from '$lib/constants';
 
   let identifier = '';
@@ -32,7 +32,9 @@
 
       const { token, userId, email, username, capital } = await response.json();
       tokenStore.set(token);
-      user.set({ email, username, userId });
+      user.set({ username });
+      emailStore.set(email);
+      userIdStore.set(userId);
       capitalStore.set(capital);
       mapCenter.set({ x: capital.startX + 2, y: capital.startY + 2 });
 

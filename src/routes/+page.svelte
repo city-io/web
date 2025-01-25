@@ -1,6 +1,6 @@
 <script lang="ts">
   import { API_HOST } from '$lib/constants';
-  import { capital as capitalStore, mapCenter, token, user } from '$lib/stores';
+  import { capital as capitalStore, email as emailStore, mapCenter, token, user, userId as userIdStore } from '$lib/stores';
 
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
@@ -14,7 +14,9 @@
 
     if (response.ok) {
       const { capital, email, username, userId } = await response.json();
-      user.set({ email, username, userId });
+      user.set({ username });
+      userIdStore.set(userId);
+      emailStore.set(email);
       capitalStore.set(capital);
       mapCenter.set({ x: capital.startX + 2, y: capital.startY + 2 });
 

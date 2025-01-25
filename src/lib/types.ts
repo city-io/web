@@ -1,6 +1,4 @@
 export interface User {
-  userId: number;
-  email: string;
   username: string;
   gold: number;
   food: number;

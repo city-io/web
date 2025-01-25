@@ -6,6 +6,8 @@ export const token = writable<string | undefined>(typeof window !== 'undefined' 
 token.subscribe((val) => {
   if (typeof window !== 'undefined') localStorage.setItem('jwt-token', val ?? '');
 });
+export const userId = writable<string | undefined>('');
+export const email = writable<string | undefined>('');
 
 export let ws = writable<WebSocket | null>(null);
 

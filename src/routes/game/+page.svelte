@@ -1,6 +1,6 @@
 <script lang="ts">
   import { WS_CODE, WS_HOST } from '$lib/constants';
-  import { capital, map, mapCenter, token, user, ws } from '$lib/stores';
+  import { capital, email, userId, map, mapCenter, token, user, ws } from '$lib/stores';
   import { goto } from '$app/navigation';
 
   import { derived } from 'svelte/store';
