@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { WS_HOST } from '$lib/constants';
+  import { WS_CODE, WS_HOST } from '$lib/constants';
   import { capital, map, mapCenter, token, user, ws } from '$lib/stores';
   import { goto } from '$app/navigation';
 
@@ -20,7 +20,7 @@
 
   const getMapTiles = () => {
     if ($ws) {
-      $ws.send(JSON.stringify({ req: 'map', data: { x: $capital.startX + 2, y: $capital.startY + 2, radius: 5 } }));
+      $ws.send(JSON.stringify({ req: WS_CODE.REQ_MAP, data: { x: $capital.startX + 2, y: $capital.startY + 2, radius: 5 } }));
     }
   };
 
