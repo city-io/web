@@ -31,9 +31,11 @@
   });
 
   const convertToCanvas = (x: number, y: number) => {
+    const canvasY = y * tileSize / 2;
+    const canvasX = x * tileSize + (canvasY % 2) * tileSize / 2;
     return {
-      x: x * tileSize + (y % 2) * tileSize / 2,
-      y: y * tileSize / 2,
+      x: canvasX,
+      y: canvasY,
     };
   };
 
@@ -205,19 +207,20 @@
 
     container.on("pointermove", (event) => {
       if (container.dragging) {
+        const center = getCenter();
+        // add camera restrictions
         const newPosition = event.data.global.clone();
         container.x = container.containerStart.x + (newPosition.x - container.dragStart.x);
         container.y = container.containerStart.y + (newPosition.y - container.dragStart.y);
 
-        const center = getCenter();
         if (Math.abs(center.x - $lastMapFetch.x) > fetchThreshold || Math.abs(center.y - $lastMapFetch.y) > fetchThreshold) {
           console.log(`Center: ${center.x}, ${center.y}`);
           getMapTiles(center);
           lastMapFetch.set(center);
         }
-          loadVisibleTiles();
+        loadVisibleTiles();
 
-        mapCenter.set(getCenter());
+        mapCenter.set(center);
       }
     });
 
@@ -240,5 +243,6 @@
       <div class="text-sm text-gray-600">Food: {$user.food}</div>
       <button class="text-sm text-gray-600" on:click={logout}>Logout</button>
     </div>
+    <p>Map Center: {$mapCenter.x}, {$mapCenter.y}</p>
   </div>
 </div>
