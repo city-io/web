@@ -3,23 +3,24 @@
   import { capital, email, lastMapFetch, map, mapCenter, token, user, userId, ws } from "$lib/stores";
   import { goto } from "$app/navigation";
   import { onMount } from "svelte";
-  import { Application, Container, Graphics, Text, TextStyle } from 'pixi.js';
+  import { Application, Assets, Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js';
 
   let app: Application;
   let container: Container;
 
-  const tileSize = 64; // Tile size (64x64)
+  const tileSize = 130; // Tile size (64x64)
   let visibleWidth = 9 * tileSize;
-  let visibleHeight = 7 * tileSize;
+  let visibleHeight = 6 * tileSize;
 
   const minZoom = 0.5;
   const maxZoom = 2;
   let currentZoom = 1;
 
-  const fetchThreshold = 1;;
+  const fetchThreshold = 1;
 
   onMount(async () => {
     await initializePixi();
+    getMapTiles({ x: 6, y: 6 });
     getMapTiles($mapCenter);
 
     return () => {
@@ -29,21 +30,32 @@
     };
   });
 
-  // $: console.log($mapCenter);
+  const convertToCanvas = (x: number, y: number) => {
+    return {
+      x: x * tileSize + (y % 2) * tileSize / 2,
+      y: y * tileSize / 2,
+    };
+  };
+
+  const convertToMap = (canvasX: number, canvasY: number) => {
+    const y = Math.floor(canvasY / (tileSize / 2));
+    const x = Math.floor((canvasX - (y % 2) * tileSize / 2) / tileSize);
+    return { x, y };
+  };
 
   const getCenter = (): { x: number; y: number } => {
     if (!container) {
       return { x: 0, y: 0 };
     }
-    return {
-      x: (-container.x + visibleWidth / 2 - tileSize / 2) / tileSize,
-      y: (-container.y + visibleHeight / 2 - tileSize / 2) / tileSize,
-    };
-  }
+    const canvasY = (-container.y + visibleHeight / 2) / (tileSize / 2);
+    const canvasX = ((-container.x + visibleWidth / 2) - (canvasY % 2) * tileSize / 2) / tileSize;
+
+    return { x: canvasX, y: canvasY };
+  };
 
   const getMapTiles = (center: { x: number, y: number }) => {
     if ($ws) {
-      $ws.send(JSON.stringify({ req: WS_CODE.REQ_MAP, data: { x: Math.floor(center.x), y: Math.floor(center.y), radius: 5 } }));
+      $ws.send(JSON.stringify({ req: WS_CODE.REQ_MAP, data: { x: Math.floor(center.x), y: Math.floor(center.y), radius: 6 } }));
     }
   };
 
@@ -58,7 +70,7 @@
     goto("/login");
   };
 
-  let loadedTiles = new Map();
+  let loadedTiles = new Map<string, { sprite: Sprite }>();
 
   const initializePixi = async () => {
     app = new Application();
@@ -81,7 +93,8 @@
   const createMap = () => {
     container.removeChildren();
 
-    centerCamera($mapCenter.x, $mapCenter.y);
+    // centerCamera($mapCenter.x, $mapCenter.y);
+    centerCamera(0, 0)
   };
 
   const loadVisibleTiles = () => {
@@ -91,56 +104,89 @@
     const offsetX = -container.x;
     const offsetY = -container.y;
 
-    const startX = Math.floor(offsetX / tileSize);
-    const endX = Math.min(Math.ceil((offsetX + visibleWidth) / tileSize), mapWidth);
-
-    const startY = Math.floor(offsetY / tileSize);
-    const endY = Math.min(Math.ceil((offsetY + visibleHeight) / tileSize), mapHeight);
+    const start = convertToMap(offsetX, offsetY);
+    const end = convertToMap(offsetX + visibleWidth, offsetY + visibleHeight);
 
     let fetch = false;
-    for (let y = startY; y < endY; y++) {
-      for (let x = startX; x < endX; x++) {
+    for (let y = start.y; y < end.y; y++) {
+      for (let x = start.x; x < end.x; x++) {
         if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) {
           continue;
         }
         const tileKey = `${x},${y}`;
         if (!loadedTiles.has(tileKey)) {
+          console.log('no have');
           const tileData = $map[y][x];
 
-          const graphics = new Graphics();
-          graphics.rect(0, 0, tileSize, tileSize);
-          graphics.x = x * tileSize;
-          graphics.y = y * tileSize;
-
-          let text = `(${tileData.x}, ${tileData.y})`;
+          let text = '...';
           if (!tileData.fetched) {
-            text = "...";
             fetch = true;
           }
-          else if (tileData.building) {
-            text = `${tileData.building.type}`;
-          }
-          else if (tileData.city) {
-            text = `${tileData.city.type}`;
-          }
-          const tileText = new Text({
-            text,
-            style: {
-              fontSize: 64,
-              fill: "black",
-              align: "center",
-            }
-          });
-          tileText.x = x * tileSize;
-          tileText.y = y * tileSize;
-          tileText.width = tileSize;
-          tileText.height = tileSize;
+          else {
+            const { x: spriteX, y: spriteY } = convertToCanvas(x, y);
+            Assets.load('/grass1.png').then((texture) => {
+              const sprite = new Sprite(texture);
+              sprite.x = spriteX;
+              sprite.y = spriteY;
+              sprite.width = tileSize;
+              sprite.height = tileSize;
+              sprite.zIndex = spriteY * mapWidth + spriteX;
+              container.addChild(sprite);
+              loadedTiles.set(tileKey, { sprite });
+            })
 
-          container.addChild(graphics);
-          container.addChild(tileText);
+            const text = new Text({
+              text: tileData.building
+                ? tileData.building.type
+                : tileData.city
+                ? tileData.city.type
+                : `(${tileData.x}, ${tileData.y})`,
+              style: {
+                fontSize: 64,
+                fill: "black",
+                align: "center",
+              }
+            });
+            text.x = spriteX + tileSize / 4;
+            text.y = spriteY + tileSize / 8;
+            text.width = tileSize / 2;
+            text.height = tileSize / 2;
+            text.zIndex = spriteY * mapWidth + spriteX + 1;
+            container.addChild(text);
+          }
+        }
+        else {
+          const { sprite } = loadedTiles.get(tileKey);
+          if (!sprite) {
+            console.log(`Tile (${x}, ${y}) is missing sprite`);
+            continue;
+          }
+          const tileData = $map[y][x];
+          // if (tileText.text === '...' && tileData.fetched) {
+          //   container.removeChild(tileText);
+          //   const newText = new Text({
+          //     text: tileData.building
+          //       ? tileData.building.type
+          //       : tileData.city
+          //       ? tileData.city.type
+          //       : `(${tileData.x}, ${tileData.y})`,
+          //     style: {
+          //       fontSize: 64,
+          //       fill: "black",
+          //       align: "center",
+          //     }
+          //   });
 
-          if (tileData.fetched)
-            loadedTiles.set(tileKey, { graphics, tileText });
+            // newText.x = graphics.x;
+            // newText.y = graphics.y;
+            // newText.width = tileSize;
+            // newText.height = tileSize;
+
+            // container.addChild(newText);
+            loadedTiles.set(tileKey, { sprite });
+          // }
+          // else if (!tileData.fetched)
+            // fetch = true;
         }
       }
     }
@@ -165,12 +211,11 @@
 
         const center = getCenter();
         if (Math.abs(center.x - $lastMapFetch.x) > fetchThreshold || Math.abs(center.y - $lastMapFetch.y) > fetchThreshold) {
-          console.log(`Last fetch: ${$lastMapFetch.x}, ${$lastMapFetch.y}`);
           console.log(`Center: ${center.x}, ${center.y}`);
-          getMapTiles(getCenter());
-          lastMapFetch.set(getCenter());
-          loadVisibleTiles();
+          getMapTiles(center);
+          lastMapFetch.set(center);
         }
+          loadVisibleTiles();
 
         mapCenter.set(getCenter());
       }
