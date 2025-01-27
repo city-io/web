@@ -16,6 +16,7 @@ export let user = writable<User | null>(null);
 export let capital = writable<City | null>(null);
 
 // store map as a 2D array prefilled with empty maptiles of 128x128
-export let map = writable<MapTile[][]>(Array.from({ length: 128 }, (_, x) => Array.from({ length: 128 }, (_, y) => ({ x, y }))));
+export let map = writable<MapTile[][]>(Array.from({ length: 128 }, (_, y) => Array.from({ length: 128 }, (_, x) => ({ x, y, fetched: false }))));
 
 export let mapCenter = writable<{ x: number; y: number }>({ x: 0, y: 0 });
+export let lastMapFetch = writable<{ x: number; y: number }>({ x: 0, y: 0 });

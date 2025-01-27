@@ -7,6 +7,7 @@ export interface User {
 
 export interface City {
   cityId: number;
+  type: string;
   name: string;
   startX: number;
   startY: number;
@@ -40,4 +41,5 @@ export interface MapTile {
   city?: City;
   building?: Building;
   armies?: Map<string, Army[]>;
+  fetched: boolean;
 }

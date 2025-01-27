@@ -28,7 +28,10 @@
         case WS_CODE.MAP:
           const tiles = message.data;
           for (const tile of tiles) {
-            $map[tile.y][tile.x] = tile;
+            $map[tile.y][tile.x] = {
+              ...tile,
+              fetched: true,
+             };
           }
           break;
         case WS_CODE.USER:
