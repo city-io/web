@@ -18,7 +18,7 @@
   const maxZoom = 2;
   let currentZoom = 1;
 
-  const fetchThreshold = 1;
+  const fetchThreshold = 4;
 
   let loadedTiles = new Map<string, { sprite: Sprite }>();
 
@@ -86,7 +86,7 @@
 
   const getMapTiles = (center: { x: number; y: number }) => {
     if ($ws) {
-      $ws.send(JSON.stringify({ req: WS_CODE.REQ_MAP, data: { x: Math.floor(center.x), y: Math.floor(center.y), radius: 12 } }));
+      $ws.send(JSON.stringify({ req: WS_CODE.REQ_MAP, data: { x: Math.floor(center.x), y: Math.floor(center.y), radius: 14 } }));
     }
   };
 
@@ -156,8 +156,9 @@
 
     let fetch = false;
 
-    for (let dx = 0; dx < (visibleWidth / tileSize) + 1; dx++) {
-      for (let dy = 0; dy < (visibleHeight / tileSize) + 1; dy++) {
+    // start at -1 to pre-render tiles that are partially visible
+    for (let dx = -1; dx < (visibleWidth / tileSize) + 1; dx++) {
+      for (let dy = -1; dy < (visibleHeight / tileSize) + 1; dy++) {
         const x = start.x + dx + dy;
         const y = start.y - dx + dy;
 
@@ -189,8 +190,8 @@
           console.log(`Center: ${center.x}, ${center.y}`);
           getMapTiles(center);
           lastMapFetch.set(center);
-          loadVisibleTiles();
         }
+        loadVisibleTiles();
 
         mapCenter.set(center);
       }
