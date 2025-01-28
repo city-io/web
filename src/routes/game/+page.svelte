@@ -20,7 +20,6 @@
 
   onMount(async () => {
     await initializePixi();
-    getMapTiles({ x: 6, y: 6 });
     getMapTiles($mapCenter);
 
     return () => {
@@ -30,7 +29,7 @@
     };
   });
 
-  const convertToCanvas = (x: number, y: number) => {
+  const convertToCanvas = (x: number, y: number): { x: number, y: number } => {
     const canvasY = y * tileSize / 2;
     const canvasX = x * tileSize + (canvasY % 2) * tileSize / 2;
     return {
@@ -39,20 +38,26 @@
     };
   };
 
-  const convertToMap = (canvasX: number, canvasY: number) => {
+  const convertToMap = (canvasX: number, canvasY: number): { x: number, y: number } => {
     const y = Math.floor(canvasY / (tileSize / 2));
     const x = Math.floor((canvasX - (y % 2) * tileSize / 2) / tileSize);
     return { x, y };
   };
 
-  const getCenter = (): { x: number; y: number } => {
+  const getCenter = (): { x: number, y: number } => {
     if (!container) {
       return { x: 0, y: 0 };
     }
-    const canvasY = (-container.y + visibleHeight / 2) / (tileSize / 2);
-    const canvasX = ((-container.x + visibleWidth / 2) - (canvasY % 2) * tileSize / 2) / tileSize;
+    const canvasY = (-container.y + visibleHeight / 2 - (tileSize / 2)) / (tileSize / 2);
+    const canvasX = ((-container.x + visibleWidth / 2 - (tileSize / 2)) - (canvasY % 2) * tileSize / 2) / tileSize;
 
     return { x: canvasX, y: canvasY };
+  };
+
+  const centerCamera = (x: number, y: number) => {
+    const { x: containerX, y: containerY } = convertToCanvas(x, y);
+    container.x = -containerX + visibleWidth / 2 - (tileSize / 2);
+    container.y = -containerY + visibleHeight / 2 - (tileSize / 2);
   };
 
   const getMapTiles = (center: { x: number, y: number }) => {
@@ -95,8 +100,7 @@
   const createMap = () => {
     container.removeChildren();
 
-    // centerCamera($mapCenter.x, $mapCenter.y);
-    centerCamera(0, 0)
+    centerCamera($mapCenter.x, $mapCenter.y);
   };
 
   const loadVisibleTiles = () => {
@@ -109,15 +113,16 @@
     const start = convertToMap(offsetX, offsetY);
     const end = convertToMap(offsetX + visibleWidth, offsetY + visibleHeight);
 
+    console.log(start, end);
+
     let fetch = false;
-    for (let y = start.y; y < end.y; y++) {
-      for (let x = start.x; x < end.x; x++) {
+    for (let y = start.y - 1; y < end.y; y++) {
+      for (let x = start.x; x < end.x + 1; x++) {
         if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) {
           continue;
         }
         const tileKey = `${x},${y}`;
         if (!loadedTiles.has(tileKey)) {
-          console.log('no have');
           const tileData = $map[y][x];
 
           let text = '...';
@@ -157,39 +162,6 @@
             container.addChild(text);
           }
         }
-        else {
-          const { sprite } = loadedTiles.get(tileKey);
-          if (!sprite) {
-            console.log(`Tile (${x}, ${y}) is missing sprite`);
-            continue;
-          }
-          const tileData = $map[y][x];
-          // if (tileText.text === '...' && tileData.fetched) {
-          //   container.removeChild(tileText);
-          //   const newText = new Text({
-          //     text: tileData.building
-          //       ? tileData.building.type
-          //       : tileData.city
-          //       ? tileData.city.type
-          //       : `(${tileData.x}, ${tileData.y})`,
-          //     style: {
-          //       fontSize: 64,
-          //       fill: "black",
-          //       align: "center",
-          //     }
-          //   });
-
-            // newText.x = graphics.x;
-            // newText.y = graphics.y;
-            // newText.width = tileSize;
-            // newText.height = tileSize;
-
-            // container.addChild(newText);
-            loadedTiles.set(tileKey, { sprite });
-          // }
-          // else if (!tileData.fetched)
-            // fetch = true;
-        }
       }
     }
 
@@ -226,11 +198,6 @@
 
     container.on("pointerup", () => (container.dragging = false));
     container.on("pointerupoutside", () => (container.dragging = false));
-  };
-
-  const centerCamera = (x: number, y: number) => {
-    container.x = Math.min(0, -(x * tileSize - visibleWidth / 2 + tileSize / 2))
-    container.y = Math.min(0, -(y * tileSize - visibleHeight / 2 + tileSize / 2))
   };
 </script>
 
