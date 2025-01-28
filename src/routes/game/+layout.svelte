@@ -30,8 +30,8 @@
           for (const tile of tiles) {
             $map[tile.y][tile.x] = {
               ...tile,
-              fetched: true,
-             };
+              fetched: true
+            };
           }
           break;
         case WS_CODE.USER:

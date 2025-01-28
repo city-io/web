@@ -1,14 +1,16 @@
 <script lang="ts">
-  import { WS_CODE, WS_HOST } from "$lib/constants";
-  import { capital, email, lastMapFetch, map, mapCenter, token, user, userId, ws } from "$lib/stores";
-  import { goto } from "$app/navigation";
-  import { onMount } from "svelte";
-  import { Application, Assets, Container, Graphics, Sprite, Text, TextStyle } from 'pixi.js';
+  import { WS_CODE, WS_HOST } from '$lib/constants';
+  import { capital, email, lastMapFetch, map, mapCenter, token, user, userId, ws } from '$lib/stores';
+  import { goto } from '$app/navigation';
+  import { onMount } from 'svelte';
+  import { Application, Assets, Container, Sprite, Text, TextStyle } from 'pixi.js';
 
   let app: Application;
   let container: Container;
 
-  const tileSize = 130; // Tile size (64x64)
+  const numTiles = 128;
+
+  const tileSize = 130;
   let visibleWidth = 9 * tileSize;
   let visibleHeight = 6 * tileSize;
 
@@ -18,9 +20,12 @@
 
   const fetchThreshold = 1;
 
+  let loadedTiles = new Map<string, { sprite: Sprite }>();
+
   onMount(async () => {
     await initializePixi();
     getMapTiles($mapCenter);
+    getMapTiles({ x: 6, y: 6 });
 
     return () => {
       if (app) {
@@ -29,65 +34,15 @@
     };
   });
 
-  const convertToCanvas = (x: number, y: number): { x: number, y: number } => {
-    const canvasY = y * tileSize / 2;
-    const canvasX = x * tileSize + (canvasY % 2) * tileSize / 2;
-    return {
-      x: canvasX,
-      y: canvasY,
-    };
-  };
-
-  const convertToMap = (canvasX: number, canvasY: number): { x: number, y: number } => {
-    const y = Math.floor(canvasY / (tileSize / 2));
-    const x = Math.floor((canvasX - (y % 2) * tileSize / 2) / tileSize);
-    return { x, y };
-  };
-
-  const getCenter = (): { x: number, y: number } => {
-    if (!container) {
-      return { x: 0, y: 0 };
-    }
-    const canvasY = (-container.y + visibleHeight / 2 - (tileSize / 2)) / (tileSize / 2);
-    const canvasX = ((-container.x + visibleWidth / 2 - (tileSize / 2)) - (canvasY % 2) * tileSize / 2) / tileSize;
-
-    return { x: canvasX, y: canvasY };
-  };
-
-  const centerCamera = (x: number, y: number) => {
-    const { x: containerX, y: containerY } = convertToCanvas(x, y);
-    container.x = -containerX + visibleWidth / 2 - (tileSize / 2);
-    container.y = -containerY + visibleHeight / 2 - (tileSize / 2);
-  };
-
-  const getMapTiles = (center: { x: number, y: number }) => {
-    if ($ws) {
-      $ws.send(JSON.stringify({ req: WS_CODE.REQ_MAP, data: { x: Math.floor(center.x), y: Math.floor(center.y), radius: 6 } }));
-    }
-  };
-
-  const logout = async () => {
-    if ($ws) {
-      $ws.close();
-      ws.set(null);
-    }
-    token.set(undefined);
-    user.set(undefined);
-    capital.set(undefined);
-    goto("/login");
-  };
-
-  let loadedTiles = new Map<string, { sprite: Sprite }>();
-
   const initializePixi = async () => {
     app = new Application();
     await app.init({
       width: visibleWidth,
       height: visibleHeight,
-      backgroundColor: 0xf0f0f0,
+      backgroundColor: 0xf0f0f0
     });
 
-    document.getElementById("pixi-container").appendChild(app.canvas);
+    document.getElementById('pixi-container').appendChild(app.canvas);
 
     container = new Container();
     app.stage.addChild(container);
@@ -103,6 +58,92 @@
     centerCamera($mapCenter.x, $mapCenter.y);
   };
 
+  const convertToCanvas = (mapX: number, mapY: number): { x: number; y: number } => ({
+    x: (mapX - mapY) * (tileSize / 2),
+    y: (mapX + mapY) * (tileSize / 2)
+  });
+
+  const convertToMap = (canvasX: number, canvasY: number): { x: number; y: number } => ({
+    x: Math.floor((canvasY / (tileSize / 2) + canvasX / (tileSize / 2)) / 2),
+    y: Math.floor((canvasY / (tileSize / 2) - canvasX / (tileSize / 2)) / 2)
+  });
+
+  const getCenter = (): { x: number; y: number } => {
+    if (!container) {
+      return { x: 0, y: 0 };
+    }
+
+    const canvasX = -container.x + visibleWidth / 2 - tileSize;
+    const canvasY = -container.y + visibleWidth / 2 - tileSize;
+    return convertToMap(canvasX, canvasY);
+  };
+
+  const centerCamera = (x: number, y: number) => {
+    const { x: containerX, y: containerY } = convertToCanvas(x, y);
+    container.x = -containerX + visibleWidth / 2 - tileSize / 2;
+    container.y = -containerY + visibleHeight / 2 - tileSize / 2;
+  };
+
+  const getMapTiles = (center: { x: number; y: number }) => {
+    if ($ws) {
+      $ws.send(JSON.stringify({ req: WS_CODE.REQ_MAP, data: { x: Math.floor(center.x), y: Math.floor(center.y), radius: 12 } }));
+    }
+  };
+
+  const logout = async () => {
+    if ($ws) {
+      $ws.close();
+      ws.set(null);
+    }
+    token.set(undefined);
+    user.set(undefined);
+    capital.set(undefined);
+    goto('/login');
+  };
+
+  const renderTile = (x: number, y: number): boolean => {
+    if (x < 0 || y < 0 || x >= numTiles || y >= numTiles)
+      return false;
+
+    let fetch = false;
+    const tileKey = `${x},${y}`;
+    if (!loadedTiles.has(tileKey)) {
+      const tileData = $map[y][x];
+
+      if (!tileData.fetched) {
+        fetch = true;
+      } else {
+        const { x: spriteX, y: spriteY } = convertToCanvas(x, y);
+        Assets.load('/grass1.png').then((texture) => {
+          const sprite = new Sprite(texture);
+          sprite.x = spriteX;
+          sprite.y = spriteY;
+          sprite.width = tileSize;
+          sprite.height = tileSize;
+          sprite.zIndex = spriteY * tileSize + spriteX;
+          container.addChild(sprite);
+          loadedTiles.set(tileKey, { sprite });
+        });
+
+        const text = new Text({
+          text: tileData.building ? tileData.building.type : tileData.city ? tileData.city.type : `(${tileData.x}, ${tileData.y})`,
+          style: {
+            fontSize: 64,
+            fill: 'black',
+            align: 'center'
+          }
+        });
+        text.x = spriteX + tileSize / 4;
+        text.y = spriteY + tileSize / 8;
+        text.width = tileSize / 2;
+        text.height = tileSize / 2;
+        text.zIndex = spriteY * tileSize + spriteX + 1;
+        container.addChild(text);
+      }
+    }
+    return fetch;
+  };
+
   const loadVisibleTiles = () => {
     const mapWidth = $map[0].length;
     const mapHeight = $map.length;
@@ -111,73 +152,28 @@
     const offsetY = -container.y;
 
     const start = convertToMap(offsetX, offsetY);
-    const end = convertToMap(offsetX + visibleWidth, offsetY + visibleHeight);
-
-    console.log(start, end);
 
     let fetch = false;
-    for (let y = start.y - 1; y < end.y; y++) {
-      for (let x = start.x; x < end.x + 1; x++) {
-        if (x < 0 || y < 0 || x >= mapWidth || y >= mapHeight) {
-          continue;
-        }
-        const tileKey = `${x},${y}`;
-        if (!loadedTiles.has(tileKey)) {
-          const tileData = $map[y][x];
 
-          let text = '...';
-          if (!tileData.fetched) {
-            fetch = true;
-          }
-          else {
-            const { x: spriteX, y: spriteY } = convertToCanvas(x, y);
-            Assets.load('/grass1.png').then((texture) => {
-              const sprite = new Sprite(texture);
-              sprite.x = spriteX;
-              sprite.y = spriteY;
-              sprite.width = tileSize;
-              sprite.height = tileSize;
-              sprite.zIndex = spriteY * mapWidth + spriteX;
-              container.addChild(sprite);
-              loadedTiles.set(tileKey, { sprite });
-            })
-
-            const text = new Text({
-              text: tileData.building
-                ? tileData.building.type
-                : tileData.city
-                ? tileData.city.type
-                : `(${tileData.x}, ${tileData.y})`,
-              style: {
-                fontSize: 64,
-                fill: "black",
-                align: "center",
-              }
-            });
-            text.x = spriteX + tileSize / 4;
-            text.y = spriteY + tileSize / 8;
-            text.width = tileSize / 2;
-            text.height = tileSize / 2;
-            text.zIndex = spriteY * mapWidth + spriteX + 1;
-            container.addChild(text);
-          }
-        }
+    for (let dx = -8; dx < 14; dx++) {
+      for (let dy = -6; dy < 6; dy++) {
+        const render1 = renderTile(start.x - dx, start.y + dy);
+        const render2 = renderTile(start.x + dx, start.y - dy);
+        fetch = fetch || render1 || render2;
       }
     }
-
-    if (fetch)
-      requestAnimationFrame(loadVisibleTiles);
+    if (fetch) requestAnimationFrame(loadVisibleTiles);
   };
 
   const setupInteraction = () => {
     container.interactive = true;
-    container.on("pointerdown", (event) => {
+    container.on('pointerdown', (event) => {
       container.dragging = true;
       container.dragStart = event.data.global.clone();
       container.containerStart = container.position.clone();
     });
 
-    container.on("pointermove", (event) => {
+    container.on('pointermove', (event) => {
       if (container.dragging) {
         const center = getCenter();
         // add camera restrictions
@@ -196,8 +192,8 @@
       }
     });
 
-    container.on("pointerup", () => (container.dragging = false));
-    container.on("pointerupoutside", () => (container.dragging = false));
+    container.on('pointerup', () => (container.dragging = false));
+    container.on('pointerupoutside', () => (container.dragging = false));
   };
 </script>
 
