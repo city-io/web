@@ -42,7 +42,7 @@
       backgroundColor: 0xf0f0f0
     });
 
-    document.getElementById('pixi-container').appendChild(app.canvas);
+    document.getElementById('pixi-container')?.appendChild(app.canvas);
 
     container = new Container();
     app.stage.addChild(container);
@@ -152,16 +152,20 @@
     const offsetY = -container.y;
 
     const start = convertToMap(offsetX, offsetY);
+    console.log(start);
 
     let fetch = false;
 
-    for (let dx = -8; dx < 14; dx++) {
-      for (let dy = -6; dy < 6; dy++) {
-        const render1 = renderTile(start.x - dx, start.y + dy);
-        const render2 = renderTile(start.x + dx, start.y - dy);
-        fetch = fetch || render1 || render2;
+    for (let dx = 0; dx < (visibleWidth / tileSize) + 1; dx++) {
+      for (let dy = 0; dy < (visibleHeight / tileSize) + 1; dy++) {
+        const x = start.x + dx + dy;
+        const y = start.y - dx + dy;
+
+        fetch = fetch || renderTile(x, y);
+        fetch = fetch || renderTile(x, y + 1);
       }
     }
+
     if (fetch) requestAnimationFrame(loadVisibleTiles);
   };
 
@@ -176,7 +180,7 @@
     container.on('pointermove', (event) => {
       if (container.dragging) {
         const center = getCenter();
-        // add camera restrictions
+        // TODO: add camera restrictions
         const newPosition = event.data.global.clone();
         container.x = container.containerStart.x + (newPosition.x - container.dragStart.x);
         container.y = container.containerStart.y + (newPosition.y - container.dragStart.y);
@@ -185,8 +189,8 @@
           console.log(`Center: ${center.x}, ${center.y}`);
           getMapTiles(center);
           lastMapFetch.set(center);
+          loadVisibleTiles();
         }
-        loadVisibleTiles();
 
         mapCenter.set(center);
       }
