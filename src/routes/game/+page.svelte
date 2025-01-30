@@ -102,8 +102,7 @@
   };
 
   const renderTile = (x: number, y: number): boolean => {
-    if (x < 0 || y < 0 || x >= numTiles || y >= numTiles)
-      return false;
+    if (x < 0 || y < 0 || x >= numTiles || y >= numTiles) return false;
 
     let fetch = false;
     const tileKey = `${x},${y}`;
@@ -157,8 +156,8 @@
     let fetch = false;
 
     // start at -1 to pre-render tiles that are partially visible
-    for (let dx = -1; dx < (visibleWidth / tileSize) + 1; dx++) {
-      for (let dy = -1; dy < (visibleHeight / tileSize) + 1; dy++) {
+    for (let dx = -1; dx < visibleWidth / tileSize + 1; dx++) {
+      for (let dy = -1; dy < visibleHeight / tileSize + 1; dy++) {
         const x = start.x + dx + dy;
         const y = start.y - dx + dy;
 
@@ -199,6 +198,12 @@
 
     container.on('pointerup', () => (container.dragging = false));
     container.on('pointerupoutside', () => (container.dragging = false));
+
+    // Zoom interaction
+    container.on('wheel', (event) => {
+      container.stage.x = container.containerStart.width / 100;
+      container.stage.y = container.containerStart.height / 100;
+    });
   };
 </script>
 
