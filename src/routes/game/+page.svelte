@@ -151,7 +151,7 @@
     const offsetY = -container.y;
 
     const start = convertToMap(offsetX, offsetY);
-    console.log(start);
+    // console.log(start);
 
     let fetch = false;
 
@@ -181,7 +181,7 @@
       if (container.dragging) {
         const center = getCenter();
         // TODO: add camera restrictions
-        const newPosition = event.data.global.clone();
+        const newPosition = event.global.clone();
         container.x = container.containerStart.x + (newPosition.x - container.dragStart.x);
         container.y = container.containerStart.y + (newPosition.y - container.dragStart.y);
 
@@ -201,8 +201,34 @@
 
     // Zoom interaction
     container.on('wheel', (event) => {
-      container.stage.x = container.containerStart.width / 100;
-      container.stage.y = container.containerStart.height / 100;
+      const mousePosition = event.global.clone();
+      const center = getCenter();
+      const centerCanvas = convertToCanvas(center.x, center.y);
+      const SCALE = 0.02;
+
+      console.log('===== DEBUG START =====');
+      console.log('container', container.position);
+      console.log('mousePosition:', mousePosition);
+      console.log('center:', centerCanvas);
+      console.log('pivot:', container.pivot);
+      console.log('===== DEBUG END =====');
+
+
+      // Check if zoom in or zoom out
+      if (event.deltaY < 0) {
+        container.scale.set(container.scale.x * (1 + SCALE), container.scale.y * (1 + SCALE));
+        container.position.set((container.position.x) * (1 + SCALE), (container.position.y) * (1 + SCALE));
+      } else if (event.deltaY > 0) {
+        container.scale.set(container.scale.x * (1 - SCALE), container.scale.y * (1 - SCALE));
+        container.position.set(container.position.x * (1 - SCALE), container.position.y * (1 - SCALE));
+      }
+
+      // TODO: Fix rendering tiles when zoomed out
+
+      getMapTiles(center);
+      loadVisibleTiles();
+      mapCenter.set(center);
+      
     });
   };
 </script>
