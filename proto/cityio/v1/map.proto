@@ -1,0 +1,35 @@
+syntax = "proto3";
+
+package cityio.v1;
+
+import "cityio/v1/building.proto";
+import "cityio/v1/city.proto";
+import "cityio/v1/common.proto";
+
+message GetMapRequest {}
+
+// GetMapResponse is the full world snapshot used to bootstrap a client.
+message GetMapResponse {
+  repeated City cities = 1;
+  repeated Building buildings = 2;
+}
+
+message Tile {
+  int32 x = 1;
+  int32 y = 2;
+  optional string city_id = 3;
+  optional string building_id = 4;
+}
+
+message GetTileRequest {
+  Coordinates coords = 1;
+}
+message GetTileResponse {
+  Tile tile = 1;
+}
+
+// MapService serves world snapshots read from the persistence layer.
+service MapService {
+  rpc GetMap(GetMapRequest) returns (GetMapResponse);
+  rpc GetTile(GetTileRequest) returns (GetTileResponse);
+}
