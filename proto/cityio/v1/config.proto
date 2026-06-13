@@ -1,0 +1,16 @@
+syntax = "proto3";
+
+package cityio.v1;
+
+message GetGameConfigRequest {}
+
+message GetGameConfigResponse {
+  int32 map_size = 1;
+  int32 city_size = 2;
+  int32 vision_radius = 3;
+  int32 building_production_frequency = 4;
+}
+
+service ConfigService {
+  rpc GetGameConfig(GetGameConfigRequest) returns (GetGameConfigResponse);
+}

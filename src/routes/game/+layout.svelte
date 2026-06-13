@@ -1,10 +1,11 @@
 <script lang="ts">
-	import { mapClient, userClient } from '$lib/api/client';
+	import { mapClient, userClient, configClient } from '$lib/api/client';
 	import {
 		buildings as buildingsStore,
 		capital,
 		cities as citiesStore,
 		food,
+		gameConfig,
 		gold,
 		mapCenter,
 		userId
@@ -18,6 +19,7 @@
 	onMount(() => {
 		const abortController = new AbortController();
 
+		loadConfig();
 		loadMap();
 		startStream(abortController.signal);
 
@@ -25,6 +27,13 @@
 			abortController.abort();
 		};
 	});
+
+	const loadConfig = async () => {
+		try {
+			const cfg = await configClient.getGameConfig({});
+			gameConfig.set(cfg);
+		} catch { /* use defaults */ }
+	};
 
 	const loadMap = async () => {
 		try {
