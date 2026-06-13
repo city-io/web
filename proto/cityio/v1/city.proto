@@ -1,0 +1,46 @@
+syntax = "proto3";
+
+package cityio.v1;
+
+import "cityio/v1/common.proto";
+
+// City is a settlement on the map, owned by a player or neutral.
+message City {
+  string city_id = 1;
+  CityType type = 2;
+  optional string owner = 3;
+  string name = 4;
+  double population = 5;
+  double population_cap = 6;
+  Coordinates start = 7;
+  int32 size = 8;
+}
+
+message GetCityRequest {
+  string city_id = 1;
+}
+message GetCityResponse {
+  City city = 1;
+}
+
+message CreateCityRequest {
+  CityType type = 1;
+  optional string owner = 2;
+  string name = 3;
+  int32 size = 4;
+}
+message CreateCityResponse {
+  City city = 1;
+}
+
+message ListCitiesRequest {}
+message ListCitiesResponse {
+  repeated City cities = 1;
+}
+
+// CityService creates and reads cities.
+service CityService {
+  rpc GetCity(GetCityRequest) returns (GetCityResponse);
+  rpc CreateCity(CreateCityRequest) returns (CreateCityResponse);
+  rpc ListCities(ListCitiesRequest) returns (ListCitiesResponse);
+}

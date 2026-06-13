@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package cityio.v1;
+
+// CityType distinguishes player capitals from neutral towns.
+enum CityType {
+  CITY_TYPE_UNSPECIFIED = 0;
+  CITY_TYPE_CITY = 1;
+  CITY_TYPE_TOWN = 2;
+}
+
+// BuildingType identifies a kind of building.
+enum BuildingType {
+  BUILDING_TYPE_UNSPECIFIED = 0;
+  BUILDING_TYPE_CITY_CENTER = 1;
+  BUILDING_TYPE_TOWN_CENTER = 2;
+  BUILDING_TYPE_BARRACKS = 3;
+  BUILDING_TYPE_HOUSE = 4;
+  BUILDING_TYPE_FARM = 5;
+  BUILDING_TYPE_MINE = 6;
+}
+
+// Coordinates is a position on the game map.
+message Coordinates {
+  int32 x = 1;
+  int32 y = 2;
+}

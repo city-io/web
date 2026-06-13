@@ -1,0 +1,60 @@
+syntax = "proto3";
+
+package cityio.v1;
+
+// User is a player account. The password is never exposed over the wire.
+message User {
+  string user_id = 1;
+  string email = 2;
+  string username = 3;
+  int64 gold = 4;
+  int64 food = 5;
+}
+
+message RegisterRequest {
+  string email = 1;
+  string username = 2;
+  string password = 3;
+}
+message RegisterResponse {
+  string user_id = 1;
+  string token = 2;
+}
+
+message LoginRequest {
+  string identifier = 1; // email or username
+  string password = 2;
+}
+message LoginResponse {
+  string token = 1;
+  User user = 2;
+}
+
+message GetUserRequest {
+  string user_id = 1;
+}
+message GetUserResponse {
+  User user = 1;
+}
+
+message DeleteUserRequest {
+  string user_id = 1;
+}
+message DeleteUserResponse {}
+
+message StreamStateRequest {}
+
+// UserState is pushed to a client whenever its resources change.
+message UserState {
+  int64 gold = 1;
+  int64 food = 2;
+}
+
+// UserService manages player accounts and the per-user resource stream.
+service UserService {
+  rpc Register(RegisterRequest) returns (RegisterResponse);
+  rpc Login(LoginRequest) returns (LoginResponse);
+  rpc GetUser(GetUserRequest) returns (GetUserResponse);
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
+  rpc StreamState(StreamStateRequest) returns (stream UserState);
+}

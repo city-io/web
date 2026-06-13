@@ -1,247 +1,285 @@
 <script lang="ts">
-  import { WS_CODE, WS_HOST } from '$lib/constants';
-  import { capital, email, lastMapFetch, map, mapCenter, token, user, userId, ws } from '$lib/stores';
-  import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
-  import { Application, Assets, Container, Sprite, Text, TextStyle } from 'pixi.js';
+	import {
+		buildings,
+		cities,
+		capital,
+		mapCenter,
+		token,
+		username,
+		gold,
+		food,
+		userId
+	} from '$lib/stores';
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
+	import { Application, Assets, Container, Sprite, Text } from 'pixi.js';
+	import type { City } from '$lib/gen/cityio/v1/city_pb';
+	import type { Building } from '$lib/gen/cityio/v1/building_pb';
+	import { BuildingType } from '$lib/gen/cityio/v1/common_pb';
+	import { CityType } from '$lib/gen/cityio/v1/common_pb';
 
-  let app: Application;
-  let container: Container;
+	let app: Application;
+	let container: Container;
 
-  const numTiles = 128;
+	const numTiles = 128;
 
-  const tileSize = 130;
-  let visibleWidth = 9 * tileSize;
-  let visibleHeight = 6 * tileSize;
+	const tileSize = 130;
+	let visibleWidth = 9 * tileSize;
+	let visibleHeight = 6 * tileSize;
 
-  const minZoom = 0.5;
-  const maxZoom = 2;
-  let currentZoom = 1;
+	const minZoom = 0.5;
+	const maxZoom = 2;
+	let currentZoom = 1;
 
-  const fetchThreshold = 4;
+	let loadedTiles = new Map<string, { sprite: Sprite }>();
 
-  let loadedTiles = new Map<string, { sprite: Sprite }>();
+	// Build coordinate lookup from cities and buildings
+	let tileData = new Map<string, { city?: City; building?: Building }>();
 
-  onMount(async () => {
-    await initializePixi();
-    getMapTiles($mapCenter);
-    getMapTiles({ x: 6, y: 6 });
+	const buildTileLookup = () => {
+		tileData.clear();
+		for (const city of $cities) {
+			if (!city.start) continue;
+			for (let dx = 0; dx < city.size; dx++) {
+				for (let dy = 0; dy < city.size; dy++) {
+					const key = `${city.start.x + dx},${city.start.y + dy}`;
+					const existing = tileData.get(key);
+					tileData.set(key, { ...existing, city });
+				}
+			}
+		}
+		for (const building of $buildings) {
+			if (!building.coords) continue;
+			const key = `${building.coords.x},${building.coords.y}`;
+			const existing = tileData.get(key);
+			tileData.set(key, { ...existing, building });
+		}
+	};
 
-    return () => {
-      if (app) {
-        app.destroy(true, { children: true });
-      }
-    };
-  });
+	const buildingTypeName = (t: BuildingType): string => {
+		switch (t) {
+			case BuildingType.CITY_CENTER:
+				return 'City Center';
+			case BuildingType.TOWN_CENTER:
+				return 'Town Center';
+			case BuildingType.BARRACKS:
+				return 'Barracks';
+			case BuildingType.HOUSE:
+				return 'House';
+			case BuildingType.FARM:
+				return 'Farm';
+			case BuildingType.MINE:
+				return 'Mine';
+			default:
+				return 'Unknown';
+		}
+	};
 
-  const initializePixi = async () => {
-    app = new Application();
-    await app.init({
-      width: visibleWidth,
-      height: visibleHeight,
-      backgroundColor: 0xf0f0f0
-    });
+	const cityTypeName = (t: CityType): string => {
+		switch (t) {
+			case CityType.CITY:
+				return 'City';
+			case CityType.TOWN:
+				return 'Town';
+			default:
+				return 'Settlement';
+		}
+	};
 
-    document.getElementById('pixi-container')?.appendChild(app.canvas);
+	onMount(async () => {
+		buildTileLookup();
+		await initializePixi();
 
-    container = new Container();
-    app.stage.addChild(container);
+		return () => {
+			if (app) {
+				app.destroy(true, { children: true });
+			}
+		};
+	});
 
-    createMap();
-    setupInteraction();
-    loadVisibleTiles();
-  };
+	const initializePixi = async () => {
+		app = new Application();
+		await app.init({
+			width: visibleWidth,
+			height: visibleHeight,
+			backgroundColor: 0xf0f0f0
+		});
 
-  const createMap = () => {
-    container.removeChildren();
+		document.getElementById('pixi-container')?.appendChild(app.canvas);
 
-    centerCamera($mapCenter.x, $mapCenter.y);
-  };
+		container = new Container();
+		app.stage.addChild(container);
 
-  const convertToCanvas = (mapX: number, mapY: number): { x: number; y: number } => ({
-    x: (mapX - mapY) * (tileSize / 2),
-    y: (mapX + mapY) * (tileSize / 2)
-  });
+		createMap();
+		setupInteraction();
+		loadVisibleTiles();
+	};
 
-  const convertToMap = (canvasX: number, canvasY: number): { x: number; y: number } => ({
-    x: Math.floor((canvasY / (tileSize / 2) + canvasX / (tileSize / 2)) / 2),
-    y: Math.floor((canvasY / (tileSize / 2) - canvasX / (tileSize / 2)) / 2)
-  });
+	const createMap = () => {
+		container.removeChildren();
 
-  const getCenter = (): { x: number; y: number } => {
-    if (!container) {
-      return { x: 0, y: 0 };
-    }
+		centerCamera($mapCenter.x, $mapCenter.y);
+	};
 
-    const canvasX = -container.x + visibleWidth / 2 - tileSize;
-    const canvasY = -container.y + visibleWidth / 2 - tileSize;
-    return convertToMap(canvasX, canvasY);
-  };
+	const convertToCanvas = (mapX: number, mapY: number): { x: number; y: number } => ({
+		x: (mapX - mapY) * (tileSize / 2),
+		y: (mapX + mapY) * (tileSize / 2)
+	});
 
-  const centerCamera = (x: number, y: number) => {
-    const { x: containerX, y: containerY } = convertToCanvas(x, y);
-    container.x = -containerX + visibleWidth / 2 - tileSize / 2;
-    container.y = -containerY + visibleHeight / 2 - tileSize / 2;
-  };
+	const convertToMap = (canvasX: number, canvasY: number): { x: number; y: number } => ({
+		x: Math.floor((canvasY / (tileSize / 2) + canvasX / (tileSize / 2)) / 2),
+		y: Math.floor((canvasY / (tileSize / 2) - canvasX / (tileSize / 2)) / 2)
+	});
 
-  const getMapTiles = (center: { x: number; y: number }) => {
-    if ($ws) {
-      $ws.send(JSON.stringify({ req: WS_CODE.REQ_MAP, data: { x: Math.floor(center.x), y: Math.floor(center.y), radius: 14 } }));
-    }
-  };
+	const getCenter = (): { x: number; y: number } => {
+		if (!container) {
+			return { x: 0, y: 0 };
+		}
 
-  const logout = async () => {
-    if ($ws) {
-      $ws.close();
-      ws.set(null);
-    }
-    token.set(undefined);
-    user.set(undefined);
-    capital.set(undefined);
-    goto('/login');
-  };
+		const canvasX = -container.x + visibleWidth / 2 - tileSize;
+		const canvasY = -container.y + visibleWidth / 2 - tileSize;
+		return convertToMap(canvasX, canvasY);
+	};
 
-  const renderTile = (x: number, y: number): boolean => {
-    if (x < 0 || y < 0 || x >= numTiles || y >= numTiles) return false;
+	const centerCamera = (x: number, y: number) => {
+		const { x: containerX, y: containerY } = convertToCanvas(x, y);
+		container.x = -containerX + visibleWidth / 2 - tileSize / 2;
+		container.y = -containerY + visibleHeight / 2 - tileSize / 2;
+	};
 
-    let fetch = false;
-    const tileKey = `${x},${y}`;
-    if (!loadedTiles.has(tileKey)) {
-      const tileData = $map[y][x];
+	const logout = () => {
+		token.set(undefined);
+		username.set(undefined);
+		userId.set(undefined);
+		goto('/login');
+	};
 
-      if (!tileData.fetched) {
-        fetch = true;
-      } else {
-        const { x: spriteX, y: spriteY } = convertToCanvas(x, y);
-        Assets.load('/grass1.png').then((texture) => {
-          const sprite = new Sprite(texture);
-          sprite.x = spriteX;
-          sprite.y = spriteY;
-          sprite.width = tileSize;
-          sprite.height = tileSize;
-          sprite.zIndex = spriteY * tileSize + spriteX;
-          container.addChild(sprite);
-          loadedTiles.set(tileKey, { sprite });
-        });
+	const renderTile = (x: number, y: number): void => {
+		if (x < 0 || y < 0 || x >= numTiles || y >= numTiles) return;
 
-        const text = new Text({
-          text: tileData.building ? tileData.building.type : tileData.city ? tileData.city.type : `(${tileData.x}, ${tileData.y})`,
-          style: {
-            fontSize: 64,
-            fill: 'black',
-            align: 'center'
-          }
-        });
-        text.x = spriteX + tileSize / 4;
-        text.y = spriteY + tileSize / 8;
-        text.width = tileSize / 2;
-        text.height = tileSize / 2;
-        text.zIndex = spriteY * tileSize + spriteX + 1;
-        container.addChild(text);
-      }
-    }
-    return fetch;
-  };
+		const tileKey = `${x},${y}`;
+		if (loadedTiles.has(tileKey)) return;
 
-  const loadVisibleTiles = () => {
-    const mapWidth = $map[0].length;
-    const mapHeight = $map.length;
+		const tile = tileData.get(tileKey);
+		const { x: spriteX, y: spriteY } = convertToCanvas(x, y);
 
-    const offsetX = -container.x;
-    const offsetY = -container.y;
+		Assets.load('/grass1.png').then((texture) => {
+			const sprite = new Sprite(texture);
+			sprite.x = spriteX;
+			sprite.y = spriteY;
+			sprite.width = tileSize;
+			sprite.height = tileSize;
+			sprite.zIndex = spriteY * tileSize + spriteX;
+			container.addChild(sprite);
+			loadedTiles.set(tileKey, { sprite });
+		});
 
-    const start = convertToMap(offsetX, offsetY);
-    // console.log(start);
+		let label: string;
+		if (tile?.building) {
+			label = buildingTypeName(tile.building.type);
+		} else if (tile?.city) {
+			label = cityTypeName(tile.city.type);
+		} else {
+			label = `(${x}, ${y})`;
+		}
 
-    let fetch = false;
+		const text = new Text({
+			text: label,
+			style: {
+				fontSize: 64,
+				fill: 'black',
+				align: 'center'
+			}
+		});
+		text.x = spriteX + tileSize / 4;
+		text.y = spriteY + tileSize / 8;
+		text.width = tileSize / 2;
+		text.height = tileSize / 2;
+		text.zIndex = spriteY * tileSize + spriteX + 1;
+		container.addChild(text);
+	};
 
-    // start at -1 to pre-render tiles that are partially visible
-    for (let dx = -1; dx < visibleWidth / tileSize + 1; dx++) {
-      for (let dy = -1; dy < visibleHeight / tileSize + 1; dy++) {
-        const x = start.x + dx + dy;
-        const y = start.y - dx + dy;
+	const loadVisibleTiles = () => {
+		const offsetX = -container.x;
+		const offsetY = -container.y;
 
-        fetch = fetch || renderTile(x, y);
-        fetch = fetch || renderTile(x, y + 1);
-      }
-    }
+		const start = convertToMap(offsetX, offsetY);
 
-    if (fetch) requestAnimationFrame(loadVisibleTiles);
-  };
+		// start at -1 to pre-render tiles that are partially visible
+		for (let dx = -1; dx < visibleWidth / tileSize + 1; dx++) {
+			for (let dy = -1; dy < visibleHeight / tileSize + 1; dy++) {
+				const x = start.x + dx + dy;
+				const y = start.y - dx + dy;
 
-  const setupInteraction = () => {
-    container.interactive = true;
-    container.on('pointerdown', (event) => {
-      container.dragging = true;
-      container.dragStart = event.data.global.clone();
-      container.containerStart = container.position.clone();
-    });
+				renderTile(x, y);
+				renderTile(x, y + 1);
+			}
+		}
+	};
 
-    container.on('pointermove', (event) => {
-      if (container.dragging) {
-        const center = getCenter();
-        // TODO: add camera restrictions
-        const newPosition = event.global.clone();
-        container.x = container.containerStart.x + (newPosition.x - container.dragStart.x);
-        container.y = container.containerStart.y + (newPosition.y - container.dragStart.y);
+	const setupInteraction = () => {
+		container.interactive = true;
+		container.on('pointerdown', (event) => {
+			container.dragging = true;
+			container.dragStart = event.data.global.clone();
+			container.containerStart = container.position.clone();
+		});
 
-        if (Math.abs(center.x - $lastMapFetch.x) > fetchThreshold || Math.abs(center.y - $lastMapFetch.y) > fetchThreshold) {
-          console.log(`Center: ${center.x}, ${center.y}`);
-          getMapTiles(center);
-          lastMapFetch.set(center);
-        }
-        loadVisibleTiles();
+		container.on('pointermove', (event) => {
+			if (container.dragging) {
+				const center = getCenter();
+				const newPosition = event.global.clone();
+				container.x = container.containerStart.x + (newPosition.x - container.dragStart.x);
+				container.y = container.containerStart.y + (newPosition.y - container.dragStart.y);
 
-        mapCenter.set(center);
-      }
-    });
+				loadVisibleTiles();
+				mapCenter.set(center);
+			}
+		});
 
-    container.on('pointerup', () => (container.dragging = false));
-    container.on('pointerupoutside', () => (container.dragging = false));
+		container.on('pointerup', () => (container.dragging = false));
+		container.on('pointerupoutside', () => (container.dragging = false));
 
-    // Zoom interaction
-    container.on('wheel', (event) => {
-      const mousePosition = event.global.clone();
-      const center = getCenter();
-      const centerCanvas = convertToCanvas(center.x, center.y);
-      const SCALE = 0.02;
+		// Zoom interaction
+		container.on('wheel', (event) => {
+			const center = getCenter();
+			const SCALE = 0.02;
 
-      console.log('===== DEBUG START =====');
-      console.log('container', container.position);
-      console.log('mousePosition:', mousePosition);
-      console.log('center:', centerCanvas);
-      console.log('pivot:', container.pivot);
-      console.log('===== DEBUG END =====');
+			if (event.deltaY < 0) {
+				container.scale.set(
+					container.scale.x * (1 + SCALE),
+					container.scale.y * (1 + SCALE)
+				);
+				container.position.set(
+					container.position.x * (1 + SCALE),
+					container.position.y * (1 + SCALE)
+				);
+			} else if (event.deltaY > 0) {
+				container.scale.set(
+					container.scale.x * (1 - SCALE),
+					container.scale.y * (1 - SCALE)
+				);
+				container.position.set(
+					container.position.x * (1 - SCALE),
+					container.position.y * (1 - SCALE)
+				);
+			}
 
-
-      // Check if zoom in or zoom out
-      if (event.deltaY < 0) {
-        container.scale.set(container.scale.x * (1 + SCALE), container.scale.y * (1 + SCALE));
-        container.position.set((container.position.x) * (1 + SCALE), (container.position.y) * (1 + SCALE));
-      } else if (event.deltaY > 0) {
-        container.scale.set(container.scale.x * (1 - SCALE), container.scale.y * (1 - SCALE));
-        container.position.set(container.position.x * (1 - SCALE), container.position.y * (1 - SCALE));
-      }
-
-      // TODO: Fix rendering tiles when zoomed out
-
-      getMapTiles(center);
-      loadVisibleTiles();
-      mapCenter.set(center);
-      
-    });
-  };
+			loadVisibleTiles();
+			mapCenter.set(center);
+		});
+	};
 </script>
 
 <div class="flex h-screen w-screen overflow-hidden">
-  <div id="pixi-container" class="map-container flex h-full overflow-hidden"></div>
-  <div class="sidebar flex-1 bg-gray-100">
-    <div class="flex items-center justify-between p-4">
-      <div class="text-lg">{$user.username}</div>
-      <div class="text-sm text-gray-600">Gold: {$user.gold}</div>
-      <div class="text-sm text-gray-600">Food: {$user.food}</div>
-      <button class="text-sm text-gray-600" on:click={logout}>Logout</button>
-    </div>
-    <p>Map Center: {$mapCenter.x}, {$mapCenter.y}</p>
-  </div>
+	<div id="pixi-container" class="map-container flex h-full overflow-hidden"></div>
+	<div class="sidebar flex-1 bg-gray-100">
+		<div class="flex items-center justify-between p-4">
+			<div class="text-lg">{$username}</div>
+			<div class="text-sm text-gray-600">Gold: {$gold.toString()}</div>
+			<div class="text-sm text-gray-600">Food: {$food.toString()}</div>
+			<button class="text-sm text-gray-600" on:click={logout}>Logout</button>
+		</div>
+		<p>Map Center: {$mapCenter.x}, {$mapCenter.y}</p>
+	</div>
 </div>

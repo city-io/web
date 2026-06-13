@@ -15,6 +15,21 @@
     "@jridgewell/gen-mapping" "^0.3.5"
     "@jridgewell/trace-mapping" "^0.3.24"
 
+"@bufbuild/protobuf@^2.12.0":
+  version "2.12.0"
+  resolved "https://registry.yarnpkg.com/@bufbuild/protobuf/-/protobuf-2.12.0.tgz#53225636a8fcebb2bd94998ad9d42f99f96add4d"
+  integrity sha512-B/XlCaFIP8LOwzo+bz5uFzATYokcwCKQcghqnlfwSmM5eX/qTkvDBnDPs+gXtX/RyjxJ4DRikECcPJbyALA8FA==
+
+"@connectrpc/connect-web@^2.1.2":
+  version "2.1.2"
+  resolved "https://registry.yarnpkg.com/@connectrpc/connect-web/-/connect-web-2.1.2.tgz#888e91654bbd7d0c7a9ccdd753b3908343a7f3e1"
+  integrity sha512-1tfaK85MU+gJjwwmL31d2rzdf0XCYX99chZf63uG89SGBUd4XuZ4ZzhGo2u79TPXOE6nLIZQ2okrpyey42PYdg==
+
+"@connectrpc/connect@^2.1.2":
+  version "2.1.2"
+  resolved "https://registry.yarnpkg.com/@connectrpc/connect/-/connect-2.1.2.tgz#75c0fc60680b2cfe95bf97c5c69961b315ca2f46"
+  integrity sha512-MXkBijtcX09R10Eb6sFeIetc6w6746eio6xtfuyVOH7oQAacT1X0GzMIQFux6Qy8cq3W/T5qX5Bei8YbFtmRGA==
+
 "@esbuild/aix-ppc64@0.24.2":
   version "0.24.2"
   resolved "https://registry.yarnpkg.com/@esbuild/aix-ppc64/-/aix-ppc64-0.24.2.tgz#38848d3e25afe842a7943643cbcd387cc6e13461"

@@ -1,67 +1,71 @@
 <script lang="ts">
-  import { WS_CODE, WS_HOST } from '$lib/constants';
-  import { capital, map, token, user, ws } from '$lib/stores';
+	import { mapClient, userClient } from '$lib/api/client';
+	import {
+		buildings as buildingsStore,
+		capital,
+		cities as citiesStore,
+		food,
+		gold,
+		mapCenter,
+		userId
+	} from '$lib/stores';
 
-  import { goto } from '$app/navigation';
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
-  import { onMount } from 'svelte';
+	let mapLoaded = false;
 
-  let websocket: WebSocket | null = null;
-  let connected = false;
+	onMount(() => {
+		const abortController = new AbortController();
 
-  onMount(() => {
-    if (!$capital) {
-      goto('/');
-      return;
-    }
-    websocket = new WebSocket(`${WS_HOST}/ws?token=${$token}`);
-    ws.set(websocket);
+		loadMap();
+		startStream(abortController.signal);
 
-    websocket.onopen = () => {
-      console.log('WebSocket connection opened');
-      connected = true;
-    };
+		return () => {
+			abortController.abort();
+		};
+	});
 
-    websocket.onmessage = (event) => {
-      const message = JSON.parse(event.data);
-      switch (message.msg) {
-        case WS_CODE.MAP:
-          const tiles = message.data;
-          for (const tile of tiles) {
-            $map[tile.y][tile.x] = {
-              ...tile,
-              fetched: true
-            };
-          }
-          break;
-        case WS_CODE.USER:
-          const userData = message.data;
-          user.set(userData);
-          break;
-        case WS_CODE.PONG:
-          break;
-        default:
-          console.error('Unknown message:', message);
-      }
-    };
+	const loadMap = async () => {
+		try {
+			const response = await mapClient.getMap({});
+			citiesStore.set(response.cities);
+			buildingsStore.set(response.buildings);
 
-    websocket.onclose = () => {
-      console.log('WebSocket connection closed');
-      connected = false;
-    };
+			// Find user's capital
+			const userCapital = response.cities.find(
+				(c) => c.owner === $userId && c.type === 1
+			);
+			if (userCapital && userCapital.start) {
+				capital.set(userCapital);
+				mapCenter.set({
+					x: userCapital.start.x + 2,
+					y: userCapital.start.y + 2
+				});
+			}
 
-    websocket.onerror = (error) => {
-      console.error('WebSocket error:', error);
-    };
+			mapLoaded = true;
+		} catch {
+			goto('/');
+		}
+	};
 
-    setInterval(() => {
-      if (websocket.readyState === WebSocket.OPEN) {
-        websocket.send(JSON.stringify({ req: WS_CODE.PING }));
-      }
-    }, 30000);
-  });
+	const startStream = async (signal: AbortSignal) => {
+		while (!signal.aborted) {
+			try {
+				for await (const state of userClient.streamState({}, { signal })) {
+					gold.set(state.gold);
+					food.set(state.food);
+				}
+			} catch (err: unknown) {
+				if (signal.aborted) return;
+				// Reconnect after a delay
+				await new Promise((r) => setTimeout(r, 3000));
+			}
+		}
+	};
 </script>
 
-{#if connected}
-  <slot />
+{#if mapLoaded}
+	<slot />
 {/if}

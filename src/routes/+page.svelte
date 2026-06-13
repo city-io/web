@@ -1,29 +1,39 @@
 <script lang="ts">
-  import { API_HOST } from '$lib/constants';
-  import { capital as capitalStore, email as emailStore, mapCenter, lastMapFetch, token, user, userId as userIdStore } from '$lib/stores';
+	import { userClient } from '$lib/api/client';
+	import {
+		email as emailStore,
+		username as usernameStore,
+		gold,
+		food,
+		token,
+		userId as userIdStore
+	} from '$lib/stores';
 
-  import { goto } from '$app/navigation';
-  import { onMount } from 'svelte';
+	import { goto } from '$app/navigation';
+	import { onMount } from 'svelte';
 
-  onMount(async () => {
-    const response = await fetch(`${API_HOST}/users/validate`, {
-      headers: {
-        Authorization: `Bearer ${$token}`
-      }
-    });
+	onMount(async () => {
+		if (!$token) {
+			goto('/login');
+			return;
+		}
 
-    if (response.ok) {
-      const { capital, email, username, userId } = await response.json();
-      user.set({ username });
-      userIdStore.set(userId);
-      emailStore.set(email);
-      capitalStore.set(capital);
-      mapCenter.set({ x: capital.startX + 2, y: capital.startY + 2 });
-      lastMapFetch.set({ x: capital.startX + 2, y: capital.startY + 2 });
+		try {
+			// Parse JWT payload to extract userId
+			const payload = JSON.parse(atob($token.split('.')[1]));
+			const id = payload.sub || payload.userId;
 
-      goto('/game');
-    } else {
-      goto('/login');
-    }
-  });
+			const response = await userClient.getUser({ userId: id });
+			const user = response.user!;
+			userIdStore.set(user.userId);
+			emailStore.set(user.email);
+			usernameStore.set(user.username);
+			gold.set(user.gold);
+			food.set(user.food);
+
+			goto('/game');
+		} catch {
+			goto('/login');
+		}
+	});
 </script>
