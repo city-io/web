@@ -1,6 +1,18 @@
 syntax = "proto3";
 
-package cityio.v1;
+package cityio.entity.v1;
+
+message UserId {
+  string value = 1;
+}
+
+message CityId {
+  string value = 1;
+}
+
+message BuildingId {
+  string value = 1;
+}
 
 // CityType distinguishes player capitals from neutral towns.
 enum CityType {

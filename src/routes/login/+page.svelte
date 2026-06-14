@@ -24,7 +24,7 @@
 			tokenStore.set(response.token);
 
 			const user = response.user!;
-			userIdStore.set(user.userId);
+			userIdStore.set(user.userId?.value);
 			emailStore.set(user.email);
 			usernameStore.set(user.username);
 			gold.set(user.gold);

@@ -1,0 +1,14 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/common.proto";
+
+// User is a player account. The password is never exposed over the wire.
+message User {
+  UserId user_id = 1;
+  string email = 2;
+  string username = 3;
+  int64 gold = 4;
+  int64 food = 5;
+}

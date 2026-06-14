@@ -1,15 +1,10 @@
 syntax = "proto3";
 
-package cityio.v1;
+package cityio.service.v1;
 
-// User is a player account. The password is never exposed over the wire.
-message User {
-  string user_id = 1;
-  string email = 2;
-  string username = 3;
-  int64 gold = 4;
-  int64 food = 5;
-}
+import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/user.proto";
+import "cityio/entity/v1/bag.proto";
 
 message RegisterRequest {
   string email = 1;
@@ -17,37 +12,36 @@ message RegisterRequest {
   string password = 3;
 }
 message RegisterResponse {
-  string user_id = 1;
+  cityio.entity.v1.UserId user_id = 1;
   string token = 2;
 }
 
 message LoginRequest {
-  string identifier = 1; // email or username
+  string identifier = 1;
   string password = 2;
 }
 message LoginResponse {
   string token = 1;
-  User user = 2;
+  cityio.entity.v1.User user = 2;
 }
 
 message GetUserRequest {
-  string user_id = 1;
+  cityio.entity.v1.UserId user_id = 1;
 }
 message GetUserResponse {
-  User user = 1;
+  cityio.entity.v1.User user = 1;
 }
 
 message DeleteUserRequest {
-  string user_id = 1;
+  cityio.entity.v1.UserId user_id = 1;
 }
 message DeleteUserResponse {}
 
 message StreamStateRequest {}
 
-// UserState is pushed to a client whenever its resources change.
-message UserState {
-  int64 gold = 1;
-  int64 food = 2;
+// StreamStateResponse wraps an EntityBag pushed to a client whenever state changes.
+message StreamStateResponse {
+  cityio.entity.v1.EntityBag entities = 1;
 }
 
 // UserService manages player accounts and the per-user resource stream.
@@ -56,5 +50,5 @@ service UserService {
   rpc Login(LoginRequest) returns (LoginResponse);
   rpc GetUser(GetUserRequest) returns (GetUserResponse);
   rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse);
-  rpc StreamState(StreamStateRequest) returns (stream UserState);
+  rpc StreamState(StreamStateRequest) returns (stream StreamStateResponse);
 }

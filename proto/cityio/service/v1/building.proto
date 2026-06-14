@@ -1,53 +1,41 @@
 syntax = "proto3";
 
-package cityio.v1;
+package cityio.service.v1;
 
-import "cityio/v1/common.proto";
-import "google/protobuf/timestamp.proto";
-
-// Building is a structure within a city.
-message Building {
-  string building_id = 1;
-  string city_id = 2;
-  BuildingType type = 3;
-  int32 level = 4;
-  int32 target_level = 5;
-  Coordinates coords = 6;
-  optional google.protobuf.Timestamp construction_start = 7;
-  optional google.protobuf.Timestamp construction_end = 8;
-}
+import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/building.proto";
 
 message CreateBuildingRequest {
-  string city_id = 1;
-  BuildingType type = 2;
-  Coordinates coords = 3;
+  cityio.entity.v1.CityId city_id = 1;
+  cityio.entity.v1.BuildingType type = 2;
+  cityio.entity.v1.Coordinates coords = 3;
 }
 message CreateBuildingResponse {
-  Building building = 1;
+  cityio.entity.v1.Building building = 1;
 }
 
 message GetBuildingRequest {
-  string building_id = 1;
+  cityio.entity.v1.BuildingId building_id = 1;
 }
 message GetBuildingResponse {
-  Building building = 1;
+  cityio.entity.v1.Building building = 1;
 }
 
 message UpgradeBuildingRequest {
-  string building_id = 1;
+  cityio.entity.v1.BuildingId building_id = 1;
 }
 message UpgradeBuildingResponse {}
 
 message DeleteBuildingRequest {
-  string building_id = 1;
+  cityio.entity.v1.BuildingId building_id = 1;
 }
 message DeleteBuildingResponse {}
 
 message ListBuildingsRequest {
-  string city_id = 1;
+  cityio.entity.v1.CityId city_id = 1;
 }
 message ListBuildingsResponse {
-  repeated Building buildings = 1;
+  repeated cityio.entity.v1.Building buildings = 1;
 }
 
 // BuildingService constructs and upgrades buildings.

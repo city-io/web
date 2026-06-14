@@ -1,0 +1,17 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/common.proto";
+
+// City is a settlement on the map, owned by a player or neutral.
+message City {
+  CityId city_id = 1;
+  CityType type = 2;
+  optional UserId owner = 3;
+  string name = 4;
+  double population = 5;
+  double population_cap = 6;
+  Coordinates start = 7;
+  int32 size = 8;
+}

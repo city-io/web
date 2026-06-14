@@ -1,6 +1,6 @@
 syntax = "proto3";
 
-package cityio.v1;
+package cityio.service.v1;
 
 message GetGameConfigRequest {}
 

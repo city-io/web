@@ -21,7 +21,7 @@
 		try {
 			const response = await userClient.register({ username, email, password });
 			tokenStore.set(response.token);
-			userIdStore.set(response.userId);
+			userIdStore.set(response.userId?.value);
 
 			goto('/game');
 		} catch (error: unknown) {

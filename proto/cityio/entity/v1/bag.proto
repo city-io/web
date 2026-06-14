@@ -1,0 +1,15 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/user.proto";
+import "cityio/entity/v1/city.proto";
+import "cityio/entity/v1/building.proto";
+
+// EntityBag is a collection of entities returned by responses that deal with
+// multiple or mixed entity types (ListCities, GetMap, StreamState).
+message EntityBag {
+  repeated User users = 1;
+  repeated City cities = 2;
+  repeated Building buildings = 3;
+}

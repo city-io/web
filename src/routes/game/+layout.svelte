@@ -38,12 +38,13 @@
 	const loadMap = async () => {
 		try {
 			const response = await mapClient.getMap({});
-			citiesStore.set(response.cities);
-			buildingsStore.set(response.buildings);
+			citiesStore.set(response.entities?.cities ?? []);
+			buildingsStore.set(response.entities?.buildings ?? []);
 
 			// Find user's capital
-			const userCapital = response.cities.find(
-				(c) => c.owner === $userId && c.type === 1
+			const allCities = response.entities?.cities ?? [];
+			const userCapital = allCities.find(
+				(c) => c.owner?.value === $userId && c.type === 1
 			);
 			if (userCapital && userCapital.start) {
 				capital.set(userCapital);
@@ -63,8 +64,8 @@
 		while (!signal.aborted) {
 			try {
 				for await (const state of userClient.streamState({}, { signal })) {
-					gold.set(state.gold);
-					food.set(state.food);
+					const u = state.entities?.users?.[0];
+					if (u) { gold.set(u.gold); food.set(u.food); }
 				}
 			} catch (err: unknown) {
 				if (signal.aborted) return;

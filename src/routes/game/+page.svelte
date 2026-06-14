@@ -8,9 +8,9 @@
 	import { Application, Container, Graphics, Rectangle, Sprite } from 'pixi.js';
 	import { S, HEX_H, HEX_VERTS, hexToPixel, pixelToHex, tileKey, hexNeighbors } from '$lib/game/hex';
 	import { getTileTexture, TILE_ANCHOR_X, TILE_ANCHOR_Y, type TileKind } from '$lib/game/tiles';
-	import type { City } from '$lib/gen/cityio/v1/city_pb';
-	import type { Building } from '$lib/gen/cityio/v1/building_pb';
-	import { BuildingType, CityType } from '$lib/gen/cityio/v1/common_pb';
+	import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
+	import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
+	import { BuildingType, CityType } from '$lib/gen/cityio/entity/v1/common_pb';
 	import { mapClient, buildingClient, cityClient } from '$lib/api/client';
 
 	// ── constants ──────────────────────────────────────────
@@ -40,6 +40,7 @@
 	const placeTypes = [BuildingType.HOUSE, BuildingType.FARM, BuildingType.MINE, BuildingType.BARRACKS];
 	let busy = false;
 	let err = '';
+	let showBuild = false;
 
 	// ── names ───────────────────────────────────────────────
 	const BN: Record<number, string> = {
@@ -95,7 +96,7 @@
 	// ── data actions ────────────────────────────────────────
 	const refreshMap = async () => {
 		const r = await mapClient.getMap({});
-		cities.set(r.cities); buildings.set(r.buildings);
+		cities.set(r.entities?.cities ?? []); buildings.set(r.entities?.buildings ?? []);
 		buildLookup(); rebuildTiles();
 		if (sel) {
 			const t = tileData.get(tileKey(sel.x, sel.y));
@@ -112,7 +113,7 @@
 	};
 
 	const loadCities = async () => {
-		try { myCities = (await cityClient.listCities({})).cities; rebuildTiles(); } catch { /* */ }
+		try { myCities = (await cityClient.listCities({})).entities?.cities ?? []; rebuildTiles(); } catch { /* */ }
 	};
 
 	const doAction = async (fn: () => Promise<unknown>, msg: string) => {
@@ -206,13 +207,13 @@
 			if (td?.city) {
 				const cityId = td.city.cityId;
 				const owner = td.city.owner;
-				const oc = owner === $userId ? 0x4499ff : owner ? 0xdd4444 : 0x999999;
+				const oc = owner?.value === $userId ? 0x4499ff : owner ? 0xdd4444 : 0x999999;
 				const neighbors = hexNeighbors(col, row);
 				for (let i = 0; i < 6; i++) {
 					const [nc, nr] = neighbors[i];
 					const nk = tileKey(nc, nr);
 					const nd = tileData.get(nk);
-					if (nd?.city?.cityId === cityId) continue;
+					if (nd?.city?.cityId?.value === cityId?.value) continue;
 					// This edge is a boundary — draw it
 					const vi = i * 2, vn = ((i + 1) % 6) * 2;
 					g.moveTo(HEX_VERTS[vi], HEX_VERTS[vi + 1]);
@@ -292,6 +293,7 @@
 					const t = tileData.get(tileKey(mc.x, mc.y));
 					sel = { x: mc.x, y: mc.y, ...t };
 					err = '';
+					showBuild = false;
 					drawSel(mc.x, mc.y);
 				}
 			} else {
@@ -375,10 +377,10 @@
 		{/if}
 
 		{#if sel}
-			<div class="pointer-events-auto rounded-lg bg-gray-900/85 p-3 backdrop-blur-sm"
+			<div class="pointer-events-auto space-y-3 rounded-lg bg-gray-900/85 p-3 backdrop-blur-sm"
 				transition:fly={{ x: 16, duration: 200 }}>
 				<!-- Header -->
-				<div class="mb-3 flex items-center justify-between">
+				<div class="flex items-center justify-between">
 					<span class="rounded-md bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-gray-500">{sel.x}, {sel.y}</span>
 					<button
 						aria-label="Close"
@@ -392,29 +394,51 @@
 				</div>
 
 				{#if err}
-					<div class="mb-3 rounded-md bg-red-500/10 px-3 py-2 text-[11px] text-red-400">{err}</div>
+					<div class="rounded-md bg-red-500/10 px-3 py-2 text-[11px] text-red-400">{err}</div>
 				{/if}
 
-				{#if sel.building}
-					<div class="space-y-3">
-						<div class="rounded-md bg-white/[0.04] p-3">
-							<div class="flex items-center justify-between">
-								<span class="text-sm font-semibold text-amber-200">{bName(sel.building.type)}</span>
-								<span class="rounded-lg bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-400">Lv {sel.building.level}</span>
-							</div>
-							{#if sel.building.targetLevel > sel.building.level}
-								<div class="mt-2 flex items-center gap-1.5 text-[10px] text-amber-400/70">
-									<div class="h-1 w-1 animate-pulse rounded-full bg-amber-400"></div>
-									Upgrading to Lv {sel.building.targetLevel}
-								</div>
-							{/if}
-							{#if sel.building.constructionEnd}
-								<div class="mt-2 flex items-center gap-1.5 text-[10px] text-amber-400/70">
-									<div class="h-1 w-1 animate-pulse rounded-full bg-amber-400"></div>
-									Under construction
-								</div>
+				<!-- City info card (always shown when city exists) -->
+				{#if sel.city}
+					<div class="rounded-md bg-white/[0.04] p-3">
+						<div class="flex items-center justify-between">
+							<span class="text-sm font-semibold text-emerald-200">{sel.city.name}</span>
+							{#if sel.city.owner?.value === $userId}
+								<span class="rounded bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-bold text-blue-400">YOURS</span>
+							{:else if sel.city.owner}
+								<span class="rounded bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-400">ENEMY</span>
+							{:else}
+								<span class="rounded bg-gray-500/15 px-1.5 py-0.5 text-[9px] font-bold text-gray-400">NEUTRAL</span>
 							{/if}
 						</div>
+						<div class="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
+							<span>{cName(sel.city.type)}</span>
+							<span class="text-gray-700">&middot;</span>
+							<span>Pop {sel.city.population.toFixed(0)}<span class="text-gray-600">/{sel.city.populationCap.toFixed(0)}</span></span>
+						</div>
+					</div>
+				{/if}
+
+				<!-- Building info card -->
+				{#if sel.building}
+					<div class="rounded-md bg-white/[0.04] p-3">
+						<div class="flex items-center justify-between">
+							<span class="text-sm font-semibold text-amber-200">{bName(sel.building.type)}</span>
+							<span class="rounded-lg bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-400">Lv {sel.building.level}</span>
+						</div>
+						{#if sel.building.targetLevel > sel.building.level}
+							<div class="mt-2 flex items-center gap-1.5 text-[10px] text-amber-400/70">
+								<div class="h-1 w-1 animate-pulse rounded-full bg-amber-400"></div>
+								Upgrading to Lv {sel.building.targetLevel}
+							</div>
+						{/if}
+						{#if sel.building.constructionEnd}
+							<div class="mt-2 flex items-center gap-1.5 text-[10px] text-amber-400/70">
+								<div class="h-1 w-1 animate-pulse rounded-full bg-amber-400"></div>
+								Under construction
+							</div>
+						{/if}
+					</div>
+					{#if sel.city?.owner?.value === $userId}
 						<div class="flex gap-2">
 							<button class="flex-1 rounded-md bg-sky-500/15 py-2 text-[11px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25 disabled:opacity-30"
 								disabled={busy} on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}
@@ -423,26 +447,15 @@
 								disabled={busy} on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}
 							>{busy ? '...' : 'Demolish'}</button>
 						</div>
-					</div>
-				{:else if sel.city}
-					<div class="space-y-3">
-						<div class="rounded-md bg-white/[0.04] p-3">
-							<div class="flex items-center justify-between">
-								<span class="text-sm font-semibold text-emerald-200">{sel.city.name}</span>
-								{#if sel.city.owner === $userId}
-									<span class="rounded bg-blue-500/15 px-1.5 py-0.5 text-[9px] font-bold text-blue-400">YOURS</span>
-								{:else if sel.city.owner}
-									<span class="rounded bg-red-500/15 px-1.5 py-0.5 text-[9px] font-bold text-red-400">ENEMY</span>
-								{:else}
-									<span class="rounded bg-gray-500/15 px-1.5 py-0.5 text-[9px] font-bold text-gray-400">NEUTRAL</span>
-								{/if}
-							</div>
-							<div class="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
-								<span>{cName(sel.city.type)}</span>
-								<span class="text-gray-700">&middot;</span>
-								<span>Pop {sel.city.population.toFixed(0)}<span class="text-gray-600">/{sel.city.populationCap.toFixed(0)}</span></span>
-							</div>
-						</div>
+					{/if}
+				{:else if sel.city?.owner?.value === $userId}
+					<!-- Build toggle (own city, no building on tile) -->
+					<button
+						class="w-full rounded-md py-2 text-xs font-semibold transition-colors
+							{showBuild ? 'bg-gray-500/15 text-gray-300 hover:bg-gray-500/25' : 'bg-emerald-600/25 text-emerald-200 hover:bg-emerald-600/35'}"
+						on:click={() => showBuild = !showBuild}
+					>{showBuild ? 'Cancel' : 'Build'}</button>
+					{#if showBuild}
 						<div>
 							<div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Build Structure</div>
 							<div class="grid grid-cols-2 gap-1.5">
@@ -461,8 +474,9 @@
 							disabled={busy}
 							on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Build failed')}
 						>{busy ? '...' : 'Place Building'}</button>
-					</div>
-				{:else}
+					{/if}
+				{:else if !sel.city}
+					<!-- Empty tile message -->
 					<div class="py-3 text-center text-xs text-gray-600">
 						{myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius ? 'Beyond visibility range' : 'No structures on this tile'}
 					</div>

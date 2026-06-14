@@ -23,9 +23,9 @@
 			const payload = JSON.parse(atob($token.split('.')[1]));
 			const id = payload.sub || payload.userId;
 
-			const response = await userClient.getUser({ userId: id });
+			const response = await userClient.getUser({ userId: { value: id } });
 			const user = response.user!;
-			userIdStore.set(user.userId);
+			userIdStore.set(user.userId?.value);
 			emailStore.set(user.email);
 			usernameStore.set(user.username);
 			gold.set(user.gold);

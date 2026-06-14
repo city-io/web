@@ -1,7 +1,7 @@
 import { writable } from 'svelte/store';
 
-import type { City } from '$lib/gen/cityio/v1/city_pb';
-import type { Building } from '$lib/gen/cityio/v1/building_pb';
+import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
+import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
 
 const persisted = (key: string) => {
 	const init = typeof window !== 'undefined' ? localStorage.getItem(key) || '' : '';
