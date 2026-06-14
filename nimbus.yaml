@@ -1,0 +1,10 @@
+app: cityio-frontend
+services:
+  - name: web
+    public: true
+    template: http
+    image: docker.prayujt.com/cityio-frontend
+    ingress: cityio.prayujt.com
+    network:
+      ports:
+        - 80
