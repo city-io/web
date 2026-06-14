@@ -37,3 +37,7 @@
 		}
 	});
 </script>
+
+<svelte:head>
+	<title>city.io</title>
+</svelte:head>

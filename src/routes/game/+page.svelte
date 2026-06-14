@@ -328,6 +328,10 @@
 	};
 </script>
 
+<svelte:head>
+	<title>Game - city.io</title>
+</svelte:head>
+
 <div class="relative h-screen w-screen overflow-hidden" style="background:#0f1f10">
 	<!-- Canvas -->
 	<div bind:this={el} class="absolute inset-0 cursor-grab active:cursor-grabbing"></div>

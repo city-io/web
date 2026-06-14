@@ -39,6 +39,10 @@
 	};
 </script>
 
+<svelte:head>
+	<title>Sign In - city.io</title>
+</svelte:head>
+
 <main class="bg-gray-50">
 	<div class="mx-auto flex flex-col items-center justify-center px-6 py-8 md:h-screen lg:py-0">
 		<p class="font-heavy mb-6 flex items-center text-3xl text-gray-900">Sign in to city.io</p>
