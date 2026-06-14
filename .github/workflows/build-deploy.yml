@@ -8,7 +8,8 @@ on:
   workflow_dispatch:
 
 jobs:
-  build:
+  build-and-deploy:
+    if: github.event_name != 'delete'
     runs-on: ubuntu-latest
 
     steps:
@@ -38,6 +39,21 @@ jobs:
           cache-to: type=registry,ref=docker.prayujt.com/cityio-frontend:cache,mode=max
 
       - name: Deploy
+        uses: rayman-tech/nimbus-action@v2
+        with:
+          api-key: ${{ secrets.NIMBUS_API_KEY }}
+          nimbus-server: https://nimbus.prayujt.com
+          nimbus-path: nimbus.yaml
+
+  cleanup:
+    if: github.event_name == 'delete'
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Cleanup branch preview
         uses: rayman-tech/nimbus-action@v2
         with:
           api-key: ${{ secrets.NIMBUS_API_KEY }}
