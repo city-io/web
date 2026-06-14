@@ -36,7 +36,7 @@ jobs:
           cache-to: type=registry,ref=docker.prayujt.com/cityio-frontend:cache,mode=max
 
       - name: Deploy
-        uses: rayman-tech/nimbus-action@v1.1
+        uses: rayman-tech/nimbus-action@v1.2.0
         with:
           api-key: ${{ secrets.NIMBUS_API_KEY }}
           nimbus-server: https://nimbus.prayujt.com
