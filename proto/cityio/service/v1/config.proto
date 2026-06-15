@@ -2,6 +2,26 @@ syntax = "proto3";
 
 package cityio.service.v1;
 
+import "cityio/entity/v1/common.proto";
+
+message ResourceAmount {
+  string resource = 1;
+  int64 amount = 2;
+}
+
+message BuildingLevelStats {
+  int32 level = 1;
+  repeated ResourceAmount cost = 2;
+  int64 construction_time = 3;
+  repeated ResourceAmount production = 4;
+  double population = 5;
+}
+
+message BuildingConfig {
+  cityio.entity.v1.BuildingType type = 1;
+  repeated BuildingLevelStats levels = 2;
+}
+
 message GetGameConfigRequest {}
 
 message GetGameConfigResponse {
@@ -9,6 +29,7 @@ message GetGameConfigResponse {
   int32 city_size = 2;
   int32 vision_radius = 3;
   int32 building_production_frequency = 4;
+  repeated BuildingConfig buildings = 5;
 }
 
 service ConfigService {

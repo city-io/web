@@ -20,8 +20,9 @@
 		const abortController = new AbortController();
 
 		loadConfig();
-		loadMap();
-		startStream(abortController.signal);
+		// Load map first, then start stream so the stream's initial snapshot
+		// (from actor memory, always fresh) upserts over potentially stale DB data
+		loadMap().then(() => startStream(abortController.signal));
 
 		return () => {
 			abortController.abort();
@@ -64,8 +65,42 @@
 		while (!signal.aborted) {
 			try {
 				for await (const state of userClient.streamState({}, { signal })) {
-					const u = state.entities?.users?.[0];
+					const bag = state.entities;
+					if (!bag) continue;
+
+					// User resource updates
+					const u = bag.users?.[0];
 					if (u) { gold.set(u.gold); food.set(u.food); }
+
+					// City delta updates (upsert by ID)
+					if (bag.cities?.length) {
+						citiesStore.update((prev) => {
+							const updated = [...prev];
+							for (const c of bag.cities) {
+								const id = c.cityId?.value;
+								if (!id) continue;
+								const idx = updated.findIndex((x) => x.cityId?.value === id);
+								if (idx >= 0) updated[idx] = c;
+								else updated.push(c);
+							}
+							return updated;
+						});
+					}
+
+					// Building delta updates (upsert by ID)
+					if (bag.buildings?.length) {
+						buildingsStore.update((prev) => {
+							const updated = [...prev];
+							for (const b of bag.buildings) {
+								const id = b.buildingId?.value;
+								if (!id) continue;
+								const idx = updated.findIndex((x) => x.buildingId?.value === id);
+								if (idx >= 0) updated[idx] = b;
+								else updated.push(b);
+							}
+							return updated;
+						});
+					}
 				}
 			} catch (err: unknown) {
 				if (signal.aborted) return;

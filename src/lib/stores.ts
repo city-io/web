@@ -2,6 +2,7 @@ import { writable } from 'svelte/store';
 
 import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
 import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
+import type { BuildingConfig } from '$lib/gen/cityio/service/v1/config_pb';
 
 const persisted = (key: string) => {
 	const init = typeof window !== 'undefined' ? localStorage.getItem(key) || '' : '';
@@ -28,7 +29,8 @@ export const gameConfig = writable<{
 	citySize: number;
 	visionRadius: number;
 	buildingProductionFrequency: number;
-}>({ mapSize: 128, citySize: 5, visionRadius: 5, buildingProductionFrequency: 3 });
+	buildings: BuildingConfig[];
+}>({ mapSize: 128, citySize: 5, visionRadius: 5, buildingProductionFrequency: 3, buildings: [] });
 
 export const capital = writable<City | null>(null);
 export const mapCenter = writable<{ x: number; y: number }>({ x: 0, y: 0 });

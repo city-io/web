@@ -3,7 +3,7 @@
 		buildings, cities, mapCenter, token, username, gold, food, userId, gameConfig
 	} from '$lib/stores';
 	import { goto } from '$app/navigation';
-	import { onMount } from 'svelte';
+	import { onMount, onDestroy } from 'svelte';
 	import { fly, fade } from 'svelte/transition';
 	import { Application, Container, Graphics, Rectangle, Sprite } from 'pixi.js';
 	import { S, HEX_H, HEX_VERTS, hexToPixel, pixelToHex, tileKey, hexNeighbors } from '$lib/game/hex';
@@ -11,6 +11,7 @@
 	import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
 	import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
 	import { BuildingType, CityType } from '$lib/gen/cityio/entity/v1/common_pb';
+	import type { BuildingConfig, BuildingLevelStats } from '$lib/gen/cityio/service/v1/config_pb';
 	import { mapClient, buildingClient, cityClient } from '$lib/api/client';
 
 	// ── constants ──────────────────────────────────────────
@@ -42,6 +43,11 @@
 	let err = '';
 	let showBuild = false;
 
+	// ── live clock (1s tick for construction progress) ───────
+	let now = Date.now();
+	const tick = setInterval(() => { now = Date.now(); }, 1000);
+	onDestroy(() => clearInterval(tick));
+
 	// ── names ───────────────────────────────────────────────
 	const BN: Record<number, string> = {
 		[BuildingType.CITY_CENTER]: 'City Center', [BuildingType.TOWN_CENTER]: 'Town Center',
@@ -50,6 +56,51 @@
 	};
 	const bName = (t: BuildingType) => BN[t] ?? 'Unknown';
 	const cName = (t: CityType) => t === CityType.CITY ? 'City' : t === CityType.TOWN ? 'Town' : 'Settlement';
+
+	// ── building config helpers ─────────────────────────────
+	const getBuildingConfig = (t: BuildingType): BuildingConfig | undefined =>
+		$gameConfig.buildings.find((b) => b.type === t);
+
+	const getLevelStats = (t: BuildingType, level: number): BuildingLevelStats | undefined =>
+		getBuildingConfig(t)?.levels.find((l) => l.level === level);
+
+	const fmtTime = (seconds: bigint): string => {
+		const s = Number(seconds);
+		if (s < 60) return `${s}s`;
+		if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+		return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+	};
+
+	const fmtRes = (r: { resource: string; amount: bigint }): string =>
+		`${r.amount.toString()} ${r.resource}`;
+
+	const fmtCountdown = (ms: number): string => {
+		const s = Math.max(0, Math.ceil(ms / 1000));
+		if (s < 60) return `${s}s`;
+		if (s < 3600) return `${Math.floor(s / 60)}m ${s % 60}s`;
+		return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+	};
+
+	// ── reactive store sync ─────────────────────────────────
+	// buildLookup is cheap (rebuilds a Map) — run synchronously so tileData is always fresh.
+	// rebuildTiles is expensive (destroys/creates Pixi containers) — debounce via rAF.
+	let renderPending = false;
+	const scheduleRender = () => {
+		if (renderPending || !cont) return;
+		renderPending = true;
+		requestAnimationFrame(() => {
+			renderPending = false;
+			rebuildTiles();
+		});
+	};
+	$: if ($cities || $buildings) {
+		buildLookup();
+		if (sel) {
+			const t = tileData.get(tileKey(sel.x, sel.y));
+			sel = { x: sel.x, y: sel.y, ...t };
+		}
+		scheduleRender();
+	}
 
 	// ── tile data ───────────────────────────────────────────
 	const buildLookup = () => {
@@ -94,16 +145,6 @@
 	};
 
 	// ── data actions ────────────────────────────────────────
-	const refreshMap = async () => {
-		const r = await mapClient.getMap({});
-		cities.set(r.entities?.cities ?? []); buildings.set(r.entities?.buildings ?? []);
-		buildLookup(); rebuildTiles();
-		if (sel) {
-			const t = tileData.get(tileKey(sel.x, sel.y));
-			sel = { x: sel.x, y: sel.y, ...t };
-		}
-	};
-
 	const rebuildTiles = () => {
 		for (const [, c] of loaded) c.destroy({ children: true });
 		loaded.clear();
@@ -118,7 +159,7 @@
 
 	const doAction = async (fn: () => Promise<unknown>, msg: string) => {
 		busy = true; err = '';
-		try { await fn(); await refreshMap(); }
+		try { await fn(); }
 		catch (e: unknown) { err = e instanceof Error ? e.message : msg; }
 		finally { busy = false; }
 	};
@@ -424,21 +465,89 @@
 
 				<!-- Building info card -->
 				{#if sel.building}
+					{@const isBuilding = sel.building.level === 0}
+					{@const stats = isBuilding ? null : getLevelStats(sel.building.type, sel.building.level)}
+					{@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
 					<div class="rounded-md bg-white/[0.04] p-3">
 						<div class="flex items-center justify-between">
 							<span class="text-sm font-semibold text-amber-200">{bName(sel.building.type)}</span>
-							<span class="rounded-lg bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-400">Lv {sel.building.level}</span>
+							{#if !isBuilding}
+								<span class="rounded-lg bg-amber-500/10 px-2 py-0.5 text-[10px] font-bold tabular-nums text-amber-400">Lv {sel.building.level}</span>
+							{/if}
 						</div>
-						{#if sel.building.targetLevel > sel.building.level}
-							<div class="mt-2 flex items-center gap-1.5 text-[10px] text-amber-400/70">
-								<div class="h-1 w-1 animate-pulse rounded-full bg-amber-400"></div>
-								Upgrading to Lv {sel.building.targetLevel}
+						{#if sel.building.constructionStart && sel.building.constructionEnd}
+							{@const startMs = Number(sel.building.constructionStart.seconds) * 1000}
+							{@const endMs = Number(sel.building.constructionEnd.seconds) * 1000}
+							{@const totalMs = endMs - startMs}
+							{@const elapsedMs = now - startMs}
+							{@const remainMs = endMs - now}
+							{@const pct = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100))}
+							<div class="mt-2 space-y-1.5">
+								<div class="flex items-center justify-between text-[10px]">
+									<span class="text-amber-400/70">
+										{isBuilding ? 'Building' : `Upgrading to Lv ${sel.building.targetLevel}`}
+									</span>
+									<span class="tabular-nums text-amber-300">{remainMs > 0 ? fmtCountdown(remainMs) : 'Done'}</span>
+								</div>
+								<div class="h-1.5 overflow-hidden rounded-full bg-white/[0.06]">
+									<div
+										class="h-full rounded-full transition-all duration-1000 ease-linear {remainMs <= 0 ? 'bg-emerald-400' : 'bg-amber-400'}"
+										style="width: {pct.toFixed(1)}%"
+									></div>
+								</div>
 							</div>
 						{/if}
-						{#if sel.building.constructionEnd}
-							<div class="mt-2 flex items-center gap-1.5 text-[10px] text-amber-400/70">
-								<div class="h-1 w-1 animate-pulse rounded-full bg-amber-400"></div>
-								Under construction
+						{#if stats}
+							<div class="mt-2 space-y-1 border-t border-white/[0.06] pt-2">
+								{#if stats.production.length > 0}
+									<div class="flex items-center justify-between text-[10px]">
+										<span class="text-gray-500">Production</span>
+										<span class="tabular-nums text-emerald-400">{stats.production.map(fmtRes).join(', ')}</span>
+									</div>
+								{/if}
+								{#if stats.population > 0}
+									<div class="flex items-center justify-between text-[10px]">
+										<span class="text-gray-500">Population</span>
+										<span class="tabular-nums text-blue-400">+{stats.population}</span>
+									</div>
+								{/if}
+							</div>
+						{/if}
+						{#if nextStats && sel.city?.owner?.value === $userId}
+							<div class="mt-2 space-y-1.5 border-t border-white/[0.06] pt-2">
+								<div class="text-[9px] font-semibold uppercase tracking-wider text-gray-500">Lv {sel.building.level + 1} Upgrade</div>
+								<div class="flex items-center justify-between text-[10px]">
+									<span class="text-gray-500">Cost</span>
+									<span class="tabular-nums text-amber-300">{nextStats.cost.map(fmtRes).join(', ')}</span>
+								</div>
+								<div class="flex items-center justify-between text-[10px]">
+									<span class="text-gray-500">Time</span>
+									<span class="tabular-nums text-gray-400">{fmtTime(nextStats.constructionTime)}</span>
+								</div>
+								{#if nextStats.production.length > 0}
+									<div class="flex items-center justify-between text-[10px]">
+										<span class="text-gray-500">Production</span>
+										<span class="tabular-nums">
+											{#if stats}
+												<span class="text-gray-500">{stats.production.map(fmtRes).join(', ')}</span>
+												<span class="text-gray-600 mx-0.5">&rarr;</span>
+											{/if}
+											<span class="text-emerald-400">{nextStats.production.map(fmtRes).join(', ')}</span>
+										</span>
+									</div>
+								{/if}
+								{#if nextStats.population > 0}
+									<div class="flex items-center justify-between text-[10px]">
+										<span class="text-gray-500">Population</span>
+										<span class="tabular-nums">
+											{#if stats}
+												<span class="text-gray-500">+{stats.population}</span>
+												<span class="text-gray-600 mx-0.5">&rarr;</span>
+											{/if}
+											<span class="text-blue-400">+{nextStats.population}</span>
+										</span>
+									</div>
+								{/if}
 							</div>
 						{/if}
 					</div>
@@ -465,7 +574,7 @@
 							<div class="grid grid-cols-2 gap-1.5">
 								{#each placeTypes as bt}
 									<button
-										class="rounded-xl py-1.5 text-[11px] font-medium transition-all duration-150
+										class="rounded-xl px-1.5 py-1.5 text-[11px] font-medium transition-all duration-150
 											{buildType === bt
 												? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25'
 												: 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08] hover:text-gray-300'}"
@@ -474,6 +583,32 @@
 								{/each}
 							</div>
 						</div>
+						{@const buildStats = getLevelStats(buildType, 1)}
+						{#if buildStats}
+							<div class="space-y-1 rounded-md bg-white/[0.04] p-2.5">
+								<div class="text-[10px] font-semibold text-gray-300">{bName(buildType)}</div>
+								<div class="flex items-center justify-between text-[10px]">
+									<span class="text-gray-500">Cost</span>
+									<span class="tabular-nums text-amber-300">{buildStats.cost.map(fmtRes).join(', ')}</span>
+								</div>
+								<div class="flex items-center justify-between text-[10px]">
+									<span class="text-gray-500">Build time</span>
+									<span class="tabular-nums text-gray-400">{fmtTime(buildStats.constructionTime)}</span>
+								</div>
+								{#if buildStats.production.length > 0}
+									<div class="flex items-center justify-between text-[10px]">
+										<span class="text-gray-500">Produces</span>
+										<span class="tabular-nums text-emerald-400">{buildStats.production.map(fmtRes).join(', ')}</span>
+									</div>
+								{/if}
+								{#if buildStats.population > 0}
+									<div class="flex items-center justify-between text-[10px]">
+										<span class="text-gray-500">Population</span>
+										<span class="tabular-nums text-blue-400">+{buildStats.population}</span>
+									</div>
+								{/if}
+							</div>
+						{/if}
 						<button class="w-full rounded-md bg-emerald-600/25 py-2 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-600/35 disabled:opacity-30"
 							disabled={busy}
 							on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Build failed')}

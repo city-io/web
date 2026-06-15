@@ -4,13 +4,96 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { BuildingType } from "../../entity/v1/common_pb";
+import { file_cityio_entity_v1_common } from "../../entity/v1/common_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cityio/service/v1/config.proto.
  */
 export const file_cityio_service_v1_config: GenFile = /*@__PURE__*/
-  fileDesc("Ch5jaXR5aW8vc2VydmljZS92MS9jb25maWcucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIhYKFEdldEdhbWVDb25maWdSZXF1ZXN0InoKFUdldEdhbWVDb25maWdSZXNwb25zZRIQCghtYXBfc2l6ZRgBIAEoBRIRCgljaXR5X3NpemUYAiABKAUSFQoNdmlzaW9uX3JhZGl1cxgDIAEoBRIlCh1idWlsZGluZ19wcm9kdWN0aW9uX2ZyZXF1ZW5jeRgEIAEoBTJzCg1Db25maWdTZXJ2aWNlEmIKDUdldEdhbWVDb25maWcSJy5jaXR5aW8uc2VydmljZS52MS5HZXRHYW1lQ29uZmlnUmVxdWVzdBooLmNpdHlpby5zZXJ2aWNlLnYxLkdldEdhbWVDb25maWdSZXNwb25zZWIGcHJvdG8z");
+  fileDesc("Ch5jaXR5aW8vc2VydmljZS92MS9jb25maWcucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIjIKDlJlc291cmNlQW1vdW50EhAKCHJlc291cmNlGAEgASgJEg4KBmFtb3VudBgCIAEoAyK6AQoSQnVpbGRpbmdMZXZlbFN0YXRzEg0KBWxldmVsGAEgASgFEi8KBGNvc3QYAiADKAsyIS5jaXR5aW8uc2VydmljZS52MS5SZXNvdXJjZUFtb3VudBIZChFjb25zdHJ1Y3Rpb25fdGltZRgDIAEoAxI1Cgpwcm9kdWN0aW9uGAQgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuUmVzb3VyY2VBbW91bnQSEgoKcG9wdWxhdGlvbhgFIAEoASJ1Cg5CdWlsZGluZ0NvbmZpZxIsCgR0eXBlGAEgASgOMh4uY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ1R5cGUSNQoGbGV2ZWxzGAIgAygLMiUuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdMZXZlbFN0YXRzIhYKFEdldEdhbWVDb25maWdSZXF1ZXN0IrABChVHZXRHYW1lQ29uZmlnUmVzcG9uc2USEAoIbWFwX3NpemUYASABKAUSEQoJY2l0eV9zaXplGAIgASgFEhUKDXZpc2lvbl9yYWRpdXMYAyABKAUSJQodYnVpbGRpbmdfcHJvZHVjdGlvbl9mcmVxdWVuY3kYBCABKAUSNAoJYnVpbGRpbmdzGAUgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdDb25maWcycwoNQ29uZmlnU2VydmljZRJiCg1HZXRHYW1lQ29uZmlnEicuY2l0eWlvLnNlcnZpY2UudjEuR2V0R2FtZUNvbmZpZ1JlcXVlc3QaKC5jaXR5aW8uc2VydmljZS52MS5HZXRHYW1lQ29uZmlnUmVzcG9uc2ViBnByb3RvMw", [file_cityio_entity_v1_common]);
+
+/**
+ * @generated from message cityio.service.v1.ResourceAmount
+ */
+export type ResourceAmount = Message<"cityio.service.v1.ResourceAmount"> & {
+  /**
+   * @generated from field: string resource = 1;
+   */
+  resource: string;
+
+  /**
+   * @generated from field: int64 amount = 2;
+   */
+  amount: bigint;
+};
+
+/**
+ * Describes the message cityio.service.v1.ResourceAmount.
+ * Use `create(ResourceAmountSchema)` to create a new message.
+ */
+export const ResourceAmountSchema: GenMessage<ResourceAmount> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 0);
+
+/**
+ * @generated from message cityio.service.v1.BuildingLevelStats
+ */
+export type BuildingLevelStats = Message<"cityio.service.v1.BuildingLevelStats"> & {
+  /**
+   * @generated from field: int32 level = 1;
+   */
+  level: number;
+
+  /**
+   * @generated from field: repeated cityio.service.v1.ResourceAmount cost = 2;
+   */
+  cost: ResourceAmount[];
+
+  /**
+   * @generated from field: int64 construction_time = 3;
+   */
+  constructionTime: bigint;
+
+  /**
+   * @generated from field: repeated cityio.service.v1.ResourceAmount production = 4;
+   */
+  production: ResourceAmount[];
+
+  /**
+   * @generated from field: double population = 5;
+   */
+  population: number;
+};
+
+/**
+ * Describes the message cityio.service.v1.BuildingLevelStats.
+ * Use `create(BuildingLevelStatsSchema)` to create a new message.
+ */
+export const BuildingLevelStatsSchema: GenMessage<BuildingLevelStats> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 1);
+
+/**
+ * @generated from message cityio.service.v1.BuildingConfig
+ */
+export type BuildingConfig = Message<"cityio.service.v1.BuildingConfig"> & {
+  /**
+   * @generated from field: cityio.entity.v1.BuildingType type = 1;
+   */
+  type: BuildingType;
+
+  /**
+   * @generated from field: repeated cityio.service.v1.BuildingLevelStats levels = 2;
+   */
+  levels: BuildingLevelStats[];
+};
+
+/**
+ * Describes the message cityio.service.v1.BuildingConfig.
+ * Use `create(BuildingConfigSchema)` to create a new message.
+ */
+export const BuildingConfigSchema: GenMessage<BuildingConfig> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 2);
 
 /**
  * @generated from message cityio.service.v1.GetGameConfigRequest
@@ -23,7 +106,7 @@ export type GetGameConfigRequest = Message<"cityio.service.v1.GetGameConfigReque
  * Use `create(GetGameConfigRequestSchema)` to create a new message.
  */
 export const GetGameConfigRequestSchema: GenMessage<GetGameConfigRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_config, 0);
+  messageDesc(file_cityio_service_v1_config, 3);
 
 /**
  * @generated from message cityio.service.v1.GetGameConfigResponse
@@ -48,6 +131,11 @@ export type GetGameConfigResponse = Message<"cityio.service.v1.GetGameConfigResp
    * @generated from field: int32 building_production_frequency = 4;
    */
   buildingProductionFrequency: number;
+
+  /**
+   * @generated from field: repeated cityio.service.v1.BuildingConfig buildings = 5;
+   */
+  buildings: BuildingConfig[];
 };
 
 /**
@@ -55,7 +143,7 @@ export type GetGameConfigResponse = Message<"cityio.service.v1.GetGameConfigResp
  * Use `create(GetGameConfigResponseSchema)` to create a new message.
  */
 export const GetGameConfigResponseSchema: GenMessage<GetGameConfigResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_config, 1);
+  messageDesc(file_cityio_service_v1_config, 4);
 
 /**
  * @generated from service cityio.service.v1.ConfigService
