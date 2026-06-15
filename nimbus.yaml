@@ -5,6 +5,8 @@ services:
     template: http
     image: docker.prayujt.com/cityio-frontend
     ingress: cityio.prayujt.com
+    features:
+      - spa
     network:
       ports:
         - 80
