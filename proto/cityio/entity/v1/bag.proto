@@ -2,6 +2,7 @@ syntax = "proto3";
 
 package cityio.entity.v1;
 
+import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/user.proto";
 import "cityio/entity/v1/city.proto";
 import "cityio/entity/v1/building.proto";
@@ -12,4 +13,5 @@ message EntityBag {
   repeated User users = 1;
   repeated City cities = 2;
   repeated Building buildings = 3;
+  repeated BuildingId deleted_building_ids = 4;
 }

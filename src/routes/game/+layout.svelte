@@ -101,6 +101,12 @@
 							return updated;
 						});
 					}
+
+					// Building deletions
+					if (bag.deletedBuildingIds?.length) {
+						const ids = new Set(bag.deletedBuildingIds.map((id) => id.value).filter(Boolean));
+						buildingsStore.update((prev) => prev.filter((b) => !ids.has(b.buildingId?.value ?? '')));
+					}
 				}
 			} catch (err: unknown) {
 				if (signal.aborted) return;

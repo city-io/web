@@ -4,6 +4,8 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { BuildingId } from "./common_pb";
+import { file_cityio_entity_v1_common } from "./common_pb";
 import type { User } from "./user_pb";
 import { file_cityio_entity_v1_user } from "./user_pb";
 import type { City } from "./city_pb";
@@ -16,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/bag.proto.
  */
 export const file_cityio_entity_v1_bag: GenFile = /*@__PURE__*/
-  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2JhZy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSKJAQoJRW50aXR5QmFnEiUKBXVzZXJzGAEgAygLMhYuY2l0eWlvLmVudGl0eS52MS5Vc2VyEiYKBmNpdGllcxgCIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQ2l0eRItCglidWlsZGluZ3MYAyADKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJ1aWxkaW5nYgZwcm90bzM", [file_cityio_entity_v1_user, file_cityio_entity_v1_city, file_cityio_entity_v1_building]);
+  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2JhZy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSLFAQoJRW50aXR5QmFnEiUKBXVzZXJzGAEgAygLMhYuY2l0eWlvLmVudGl0eS52MS5Vc2VyEiYKBmNpdGllcxgCIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQ2l0eRItCglidWlsZGluZ3MYAyADKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJ1aWxkaW5nEjoKFGRlbGV0ZWRfYnVpbGRpbmdfaWRzGAQgAygLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkYgZwcm90bzM", [file_cityio_entity_v1_common, file_cityio_entity_v1_user, file_cityio_entity_v1_city, file_cityio_entity_v1_building]);
 
 /**
  * EntityBag is a collection of entities returned by responses that deal with
@@ -39,6 +41,11 @@ export type EntityBag = Message<"cityio.entity.v1.EntityBag"> & {
    * @generated from field: repeated cityio.entity.v1.Building buildings = 3;
    */
   buildings: Building[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.BuildingId deleted_building_ids = 4;
+   */
+  deletedBuildingIds: BuildingId[];
 };
 
 /**
