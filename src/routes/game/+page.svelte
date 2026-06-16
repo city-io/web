@@ -32,6 +32,7 @@
 	// tiles
 	let loaded = new Map<string, Container>();
 	let tileData = new Map<string, { city?: City; building?: Building }>();
+	let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
 	let selGfx: Graphics | null = null;
 
 	// ── UI state ────────────────────────────────────────────
@@ -95,6 +96,13 @@
 	};
 	$: if ($cities || $buildings) {
 		buildLookup();
+		// Immediately hide construction overlays for finished/removed constructions
+		for (const [k, entry] of constructionGfx) {
+			const td = tileData.get(k);
+			const active = td?.building?.constructionEnd &&
+				Number(td.building.constructionEnd.seconds) * 1000 > Date.now();
+			if (!active) entry.gfx.visible = false;
+		}
 		if (sel) {
 			const t = tileData.get(tileKey(sel.x, sel.y));
 			sel = { x: sel.x, y: sel.y, ...t };
@@ -148,6 +156,7 @@
 	const rebuildTiles = () => {
 		for (const [, c] of loaded) c.destroy({ children: true });
 		loaded.clear();
+		constructionGfx.clear();
 		if (selGfx) { selGfx.destroy(); selGfx = null; }
 		loadVisible();
 		if (sel) drawSel(sel.x, sel.y);
@@ -193,11 +202,40 @@
 		setupInput();
 		loadVisible();
 
-		// Selection pulse animation
+		// Selection pulse + construction overlay animation
 		app.ticker.add(() => {
+			const t = performance.now() / 1000;
+
 			if (selGfx) {
-				const t = performance.now() / 1000;
 				selGfx.alpha = 0.85 + 0.15 * Math.sin(t * 2.5);
+			}
+
+			const nowMs = Date.now();
+			for (const [k, entry] of constructionGfx) {
+				const { gfx, startMs, endMs } = entry;
+				if (nowMs >= endMs) {
+					gfx.visible = false;
+					constructionGfx.delete(k);
+					continue;
+				}
+				gfx.clear();
+
+				// Pulsing amber hex fill
+				const pulse = 0.08 + 0.06 * Math.sin(t * 3);
+				gfx.poly(HEX_VERTS);
+				gfx.fill({ color: 0xf59e0b, alpha: pulse });
+
+				// Progress ring
+				const pct = Math.min(1, (nowMs - startMs) / (endMs - startMs));
+				const radius = S * 0.35;
+				const startAngle = -Math.PI / 2;
+				const endAngle = startAngle + pct * Math.PI * 2;
+				// Background ring
+				gfx.circle(0, 0, radius);
+				gfx.stroke({ color: 0xffffff, width: 2.5, alpha: 0.1 });
+				// Progress arc
+				gfx.arc(0, 0, radius, startAngle, endAngle);
+				gfx.stroke({ color: 0xf59e0b, width: 2.5, alpha: 0.7 });
 			}
 		});
 	};
@@ -239,6 +277,18 @@
 		const spr = new Sprite(getTileTexture(kind, col, row));
 		spr.anchor.set(TILE_ANCHOR_X, TILE_ANCHOR_Y);
 		tc.addChild(spr);
+
+		// Construction-in-progress overlay
+		if (!inFog && td?.building?.constructionStart && td?.building?.constructionEnd) {
+			const startMs = Number(td.building.constructionStart.seconds) * 1000;
+			const endMs = Number(td.building.constructionEnd.seconds) * 1000;
+			if (endMs > Date.now()) {
+				const cg = new Graphics();
+				cg.zIndex = 1e6;
+				tc.addChild(cg);
+				constructionGfx.set(k, { gfx: cg, startMs, endMs, cx: px, cy: py });
+			}
+		}
 
 		if (!inFog) {
 			let hasOverlay = false;
@@ -552,12 +602,13 @@
 						{/if}
 					</div>
 					{#if sel.city?.owner?.value === $userId}
+						{@const upgrading = !!(sel.building.constructionStart && sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
 						<div class="flex gap-2">
 							<button class="flex-1 rounded-md bg-sky-500/15 py-2 text-[11px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25 disabled:opacity-30"
-								disabled={busy} on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}
+								disabled={busy || upgrading} on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}
 							>{busy ? '...' : 'Upgrade'}</button>
 							<button class="flex-1 rounded-md bg-red-500/10 py-2 text-[11px] font-semibold text-red-400 transition-colors hover:bg-red-500/20 disabled:opacity-30"
-								disabled={busy} on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}
+								disabled={busy || upgrading} on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}
 							>{busy ? '...' : 'Demolish'}</button>
 						</div>
 					{/if}

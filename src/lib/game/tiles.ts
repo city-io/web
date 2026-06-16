@@ -244,38 +244,103 @@ function drawBarracks(ctx: CanvasRenderingContext2D) {
 }
 
 function drawCityCenter(ctx: CanvasRenderingContext2D) {
-	ctx.fillStyle = '#a0906a';
-	ctx.fillRect(CX - 6, CY - 12, 12, 20);
-	ctx.fillRect(CX - 8, CY - 15, 4, 4);
-	ctx.fillRect(CX - 1, CY - 15, 4, 4);
-	ctx.fillRect(CX + 5, CY - 15, 4, 4);
-	ctx.fillStyle = '#908060';
-	ctx.fillRect(CX - 14, CY - 4, 8, 12);
-	ctx.fillRect(CX + 6, CY - 4, 8, 12);
-	ctx.fillStyle = '#4a3520';
+	// Shadow
+	ctx.fillStyle = 'rgba(0,0,0,0.12)';
+	ctx.fillRect(CX - 15, CY + 1, 32, 9);
+	// Curtain wall
+	ctx.fillStyle = '#9a9080';
+	ctx.fillRect(CX - 16, CY - 2, 32, 11);
+	// Central keep
+	ctx.fillStyle = '#b0a890';
+	ctx.fillRect(CX - 7, CY - 14, 14, 16);
+	// Keep roof
+	ctx.fillStyle = '#6a4030';
 	ctx.beginPath();
-	ctx.arc(CX, CY + 2, 3.5, Math.PI, 0);
-	ctx.lineTo(CX + 3.5, CY + 8);
-	ctx.lineTo(CX - 3.5, CY + 8);
+	ctx.moveTo(CX - 9, CY - 14);
+	ctx.lineTo(CX, CY - 22);
+	ctx.lineTo(CX + 9, CY - 14);
+	ctx.closePath();
+	ctx.fill();
+	// Left tower
+	ctx.fillStyle = '#a09878';
+	ctx.fillRect(CX - 17, CY - 8, 8, 12);
+	ctx.fillStyle = '#6a4030';
+	ctx.beginPath();
+	ctx.moveTo(CX - 18, CY - 8);
+	ctx.lineTo(CX - 13, CY - 14);
+	ctx.lineTo(CX - 8, CY - 8);
+	ctx.closePath();
+	ctx.fill();
+	// Right tower
+	ctx.fillStyle = '#a09878';
+	ctx.fillRect(CX + 9, CY - 8, 8, 12);
+	ctx.fillStyle = '#6a4030';
+	ctx.beginPath();
+	ctx.moveTo(CX + 8, CY - 8);
+	ctx.lineTo(CX + 13, CY - 14);
+	ctx.lineTo(CX + 18, CY - 8);
+	ctx.closePath();
+	ctx.fill();
+	// Gate
+	ctx.fillStyle = '#3a2518';
+	ctx.beginPath();
+	ctx.arc(CX, CY + 2, 4, Math.PI, 0);
+	ctx.lineTo(CX + 4, CY + 9);
+	ctx.lineTo(CX - 4, CY + 9);
+	ctx.closePath();
+	ctx.fill();
+	// Flag
+	ctx.strokeStyle = '#8a7a60';
+	ctx.lineWidth = 1.5;
+	ctx.beginPath();
+	ctx.moveTo(CX, CY - 22);
+	ctx.lineTo(CX, CY - 28);
+	ctx.stroke();
+	ctx.fillStyle = '#c03030';
+	ctx.beginPath();
+	ctx.moveTo(CX, CY - 28);
+	ctx.lineTo(CX + 7, CY - 26);
+	ctx.lineTo(CX, CY - 24);
 	ctx.closePath();
 	ctx.fill();
 }
 
 function drawTownCenter(ctx: CanvasRenderingContext2D) {
-	ctx.fillStyle = '#9a8a68';
-	ctx.fillRect(CX - 10, CY - 5, 20, 13);
-	ctx.fillStyle = '#7a5a3a';
+	// Main building body
+	ctx.fillStyle = '#a89878';
+	ctx.fillRect(CX - 12, CY - 3, 24, 12);
+	// Flat roof / lintel
+	ctx.fillStyle = '#8a7a5a';
+	ctx.fillRect(CX - 14, CY - 5, 28, 3);
+	// Bell tower
+	ctx.fillStyle = '#b0a080';
+	ctx.fillRect(CX - 4, CY - 16, 8, 12);
+	// Tower pointed cap
+	ctx.fillStyle = '#6a4a30';
 	ctx.beginPath();
-	ctx.moveTo(CX - 13, CY - 5);
-	ctx.lineTo(CX, CY - 13);
-	ctx.lineTo(CX + 13, CY - 5);
+	ctx.moveTo(CX - 5, CY - 16);
+	ctx.lineTo(CX, CY - 22);
+	ctx.lineTo(CX + 5, CY - 16);
 	ctx.closePath();
 	ctx.fill();
+	// Bell opening
+	ctx.fillStyle = '#3a2818';
+	ctx.beginPath();
+	ctx.arc(CX, CY - 11, 2, 0, Math.PI * 2);
+	ctx.fill();
+	// Front columns
+	ctx.fillStyle = '#c8b898';
+	for (const dx of [-8, -3, 3, 8]) {
+		ctx.fillRect(CX + dx - 1, CY - 3, 2, 12);
+	}
+	// Door
 	ctx.fillStyle = '#4a3020';
-	ctx.fillRect(CX - 2.5, CY + 1, 5, 7);
-	ctx.fillStyle = 'rgba(180,210,240,0.45)';
-	ctx.fillRect(CX - 8, CY - 2, 3, 3);
-	ctx.fillRect(CX + 5, CY - 2, 3, 3);
+	ctx.beginPath();
+	ctx.arc(CX, CY + 3, 3, Math.PI, 0);
+	ctx.lineTo(CX + 3, CY + 9);
+	ctx.lineTo(CX - 3, CY + 9);
+	ctx.closePath();
+	ctx.fill();
 }
 
 // ── base colors per kind ─────────────────────────────
