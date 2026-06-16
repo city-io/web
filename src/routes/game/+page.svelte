@@ -146,10 +146,25 @@
 		return pixelToHex((-cont.x + cw / 2) / cont.scale.x, (-cont.y + ch / 2) / cont.scale.y);
 	};
 
+	const clampCam = () => {
+		if (!cont) return;
+		const s = cont.scale.x;
+		const pad = 200;
+		const mapW = $gameConfig.mapSize * 1.5 * S;
+		const mapH = $gameConfig.mapSize * HEX_H;
+		const xMin = cw - mapW * s - pad;
+		const xMax = pad;
+		if (xMin < xMax) cont.x = Math.max(xMin, Math.min(xMax, cont.x));
+		const yMin = ch - mapH * s - pad;
+		const yMax = pad;
+		if (yMin < yMax) cont.y = Math.max(yMin, Math.min(yMax, cont.y));
+	};
+
 	const centerCam = (col: number, row: number) => {
 		const p = hexToPixel(col, row);
 		cont.x = -p.x * cont.scale.x + cw / 2;
 		cont.y = -p.y * cont.scale.y + ch / 2;
+		clampCam();
 	};
 
 	// ── data actions ────────────────────────────────────────
@@ -211,31 +226,27 @@
 			}
 
 			const nowMs = Date.now();
-			for (const [k, entry] of constructionGfx) {
+			for (const [, entry] of constructionGfx) {
 				const { gfx, startMs, endMs } = entry;
-				if (nowMs >= endMs) {
-					gfx.visible = false;
-					constructionGfx.delete(k);
-					continue;
-				}
 				gfx.clear();
 
-				// Pulsing amber hex fill
-				const pulse = 0.08 + 0.06 * Math.sin(t * 3);
+				const pct = Math.min(1, (nowMs - startMs) / (endMs - startMs));
+				const done = nowMs >= endMs;
+				const color = done ? 0x34d399 : 0xf59e0b;
+
+				// Pulsing hex fill — steady when done, pulsing while building
+				const pulse = done ? 0.10 : 0.08 + 0.06 * Math.sin(t * 3);
 				gfx.poly(HEX_VERTS);
-				gfx.fill({ color: 0xf59e0b, alpha: pulse });
+				gfx.fill({ color, alpha: pulse });
 
 				// Progress ring
-				const pct = Math.min(1, (nowMs - startMs) / (endMs - startMs));
 				const radius = S * 0.35;
 				const startAngle = -Math.PI / 2;
 				const endAngle = startAngle + pct * Math.PI * 2;
-				// Background ring
 				gfx.circle(0, 0, radius);
 				gfx.stroke({ color: 0xffffff, width: 2.5, alpha: 0.1 });
-				// Progress arc
 				gfx.arc(0, 0, radius, startAngle, endAngle);
-				gfx.stroke({ color: 0xf59e0b, width: 2.5, alpha: 0.7 });
+				gfx.stroke({ color, width: 2.5, alpha: 0.7 });
 			}
 		});
 	};
@@ -371,6 +382,7 @@
 			const p = e.data.global;
 			cont.x = csx + (p.x - dsx);
 			cont.y = csy + (p.y - dsy);
+			clampCam();
 			loadVisible();
 		});
 
@@ -408,6 +420,7 @@
 			cont.x = mx - (mx - cont.x) * f;
 			cont.y = my - (my - cont.y) * f;
 			cont.scale.set(next);
+			clampCam();
 			loadVisible();
 			mapCenter.set(getCenter());
 		});
@@ -437,8 +450,8 @@
 
 		<!-- Resources -->
 		<div class="pointer-events-auto flex items-center gap-4 rounded-lg bg-gray-900/85 px-3.5 py-2 backdrop-blur-sm">
-			<span class="text-xs text-gray-400">Gold <span class="tabular-nums text-amber-300">{$gold.toString()}</span></span>
-			<span class="text-xs text-gray-400">Food <span class="tabular-nums text-emerald-300">{$food.toString()}</span></span>
+			<span class="text-xs text-gray-400">Gold <span class="tabular-nums text-amber-300">{$gold.toLocaleString()}</span></span>
+			<span class="text-xs text-gray-400">Food <span class="tabular-nums text-emerald-300">{$food.toLocaleString()}</span></span>
 		</div>
 
 		<!-- Logout -->

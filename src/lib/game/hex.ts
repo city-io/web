@@ -2,13 +2,14 @@
 export const S = 50;
 
 export const SQRT3 = Math.sqrt(3);
-export const HEX_H = SQRT3 * S;
+export const ISO = 0.5;
+export const HEX_H = SQRT3 * S * ISO;
 
 /** Flat-top hex vertices relative to center, as [x0, y0, x1, y1, ...]. */
 export const HEX_VERTS: number[] = [];
 for (let i = 0; i < 6; i++) {
 	const angle = (Math.PI / 3) * i;
-	HEX_VERTS.push(S * Math.cos(angle), S * Math.sin(angle));
+	HEX_VERTS.push(S * Math.cos(angle), S * Math.sin(angle) * ISO);
 }
 
 /** Scaled-down hex variants for inner accents. */
@@ -26,7 +27,7 @@ export function hexToPixel(col: number, row: number) {
 /** Convert pixel position to hex grid (col, row) via axial cube rounding. */
 export function pixelToHex(px: number, py: number) {
 	const q = ((2 / 3) * px) / S;
-	const r = ((-1 / 3) * px + (SQRT3 / 3) * py) / S;
+	const r = ((-1 / 3) * px + (SQRT3 / 3) * (py / ISO)) / S;
 	const s = -q - r;
 	let rq = Math.round(q),
 		rr = Math.round(r);

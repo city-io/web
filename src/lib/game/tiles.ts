@@ -1,14 +1,15 @@
 import { Texture } from 'pixi.js';
-import { S, HEX_H } from './hex';
+import { S, HEX_H, ISO } from './hex';
 import { tileHash } from './colors';
 
-export const DEPTH = 10;
+export const DEPTH = 20;
 
 const PAD = 2;
 const TEX_W = Math.ceil(S * 2) + PAD * 2;
-const TEX_H = Math.ceil(HEX_H) + DEPTH + PAD * 2;
+const HEADROOM = 30;
+const TEX_H = Math.ceil(HEX_H) + DEPTH + PAD * 2 + HEADROOM;
 const CX = TEX_W / 2;
-const CY = PAD + Math.ceil(HEX_H / 2);
+const CY = PAD + HEADROOM + Math.ceil(HEX_H / 2);
 
 /** Sprite anchor so the hex center aligns with the sprite position. */
 export const TILE_ANCHOR_X = CX / TEX_W;
@@ -29,7 +30,7 @@ export type TileKind =
 
 function vert(i: number, s = S) {
 	const a = (Math.PI / 3) * i;
-	return { x: CX + s * Math.cos(a), y: CY + s * Math.sin(a) };
+	return { x: CX + s * Math.cos(a), y: CY + s * Math.sin(a) * ISO };
 }
 
 function hexPath(ctx: CanvasRenderingContext2D, s = S) {
@@ -55,26 +56,39 @@ function rgb(hex: number): [number, number, number] {
 	return [(hex >> 16) & 0xff, (hex >> 8) & 0xff, hex & 0xff];
 }
 
+// ── side-face cliff palettes ─────────────────────────
+// Hand-picked earth/cliff colors — completely separate from terrain top.
+// Each entry: [R, G, B] for top of face; bottom darkens by 35%.
+// Order: [left/lit, center, right/shadow] (NW light source)
+
+const CLIFF: [number, number, number][] = [
+	[145, 120, 80],
+	[110, 90, 62],
+	[82, 68, 48]
+];
+const FOG_CLIFF: [number, number, number][] = [
+	[40, 50, 42],
+	[30, 38, 32],
+	[22, 28, 24]
+];
+
 // ── drawing primitives ───────────────────────────────
 
-function drawSides(ctx: CanvasRenderingContext2D, color: number) {
-	const [r, g, b] = rgb(color);
-	const faces: [number, number, number, number][] = [
-		[0, 1, 0.55, 0.25],
-		[1, 2, 0.4, 0.15],
-		[2, 3, 0.55, 0.25]
+function drawSides(ctx: CanvasRenderingContext2D, isFog: boolean) {
+	const pal = isFog ? FOG_CLIFF : CLIFF;
+	// [vertexA, vertexB, paletteIndex]
+	const faces: [number, number, number][] = [
+		[0, 1, 2],
+		[1, 2, 1],
+		[2, 3, 0]
 	];
-	for (const [a, bIdx, ft, fb] of faces) {
+	for (const [a, b, pi] of faces) {
+		const [cr, cg, cb] = pal[pi];
 		const va = vert(a),
-			vb = vert(bIdx);
-		const grad = ctx.createLinearGradient(
-			0,
-			Math.min(va.y, vb.y),
-			0,
-			Math.max(va.y, vb.y) + DEPTH
-		);
-		grad.addColorStop(0, `rgb(${r * ft},${g * ft},${b * ft})`);
-		grad.addColorStop(1, `rgb(${r * fb},${g * fb},${b * fb})`);
+			vb = vert(b);
+		const grad = ctx.createLinearGradient(0, Math.min(va.y, vb.y), 0, Math.max(va.y, vb.y) + DEPTH);
+		grad.addColorStop(0, `rgb(${cr},${cg},${cb})`);
+		grad.addColorStop(1, `rgb(${Math.round(cr * 0.65)},${Math.round(cg * 0.65)},${Math.round(cb * 0.65)})`);
 		ctx.beginPath();
 		ctx.moveTo(va.x, va.y);
 		ctx.lineTo(vb.x, vb.y);
@@ -84,16 +98,23 @@ function drawSides(ctx: CanvasRenderingContext2D, color: number) {
 		ctx.fillStyle = grad;
 		ctx.fill();
 	}
+	// Edge lines between side faces
+	ctx.strokeStyle = isFog ? 'rgba(0,0,0,0.12)' : 'rgba(0,0,0,0.2)';
+	ctx.lineWidth = 1;
+	for (const idx of [1, 2]) {
+		const v = vert(idx);
+		ctx.beginPath();
+		ctx.moveTo(v.x, v.y);
+		ctx.lineTo(v.x, v.y + DEPTH);
+		ctx.stroke();
+	}
 }
 
 function drawTop(ctx: CanvasRenderingContext2D, color: number) {
 	const [r, g, b] = rgb(color);
 	hexPath(ctx);
-	const grad = ctx.createRadialGradient(CX - 8, CY - 8, 0, CX, CY, S);
-	grad.addColorStop(
-		0,
-		`rgb(${Math.min(255, r + 18)},${Math.min(255, g + 18)},${Math.min(255, b + 18)})`
-	);
+	const grad = ctx.createRadialGradient(CX - 10, CY - 6, 0, CX, CY, S);
+	grad.addColorStop(0, `rgb(${Math.min(255, r + 20)},${Math.min(255, g + 20)},${Math.min(255, b + 20)})`);
 	grad.addColorStop(1, `rgb(${r},${g},${b})`);
 	ctx.fillStyle = grad;
 	ctx.fill();
@@ -157,22 +178,31 @@ function drawGrass(ctx: CanvasRenderingContext2D, seed: number) {
 
 function drawFarmRows(ctx: CanvasRenderingContext2D) {
 	ctx.save();
-	hexPath(ctx, S * 0.8);
+	hexPath(ctx, S * 0.85);
 	ctx.clip();
-	for (let y = CY - 28; y < CY + 28; y += 7) {
-		ctx.strokeStyle = 'rgba(100,140,40,0.3)';
-		ctx.lineWidth = 1.2;
+	// Tilled soil rows
+	for (let y = CY - 20; y < CY + 20; y += 8) {
+		ctx.fillStyle = 'rgba(90,65,30,0.25)';
+		ctx.fillRect(CX - 34, y + 2, 68, 3);
+		ctx.strokeStyle = 'rgba(60,45,20,0.4)';
+		ctx.lineWidth = 1;
 		ctx.beginPath();
-		ctx.moveTo(CX - 32, y);
-		ctx.lineTo(CX + 32, y);
+		ctx.moveTo(CX - 34, y + 2);
+		ctx.lineTo(CX + 34, y + 2);
 		ctx.stroke();
-		for (let x = CX - 28; x < CX + 28; x += 5) {
-			ctx.strokeStyle = 'rgba(75,120,25,0.35)';
-			ctx.lineWidth = 0.7;
+		// Wheat stalks
+		for (let x = CX - 30; x < CX + 30; x += 6) {
+			ctx.strokeStyle = 'rgba(180,160,50,0.6)';
+			ctx.lineWidth = 1;
 			ctx.beginPath();
-			ctx.moveTo(x, y);
-			ctx.lineTo(x, y - 3.5);
+			ctx.moveTo(x, y + 1);
+			ctx.lineTo(x, y - 4);
 			ctx.stroke();
+			// Wheat head
+			ctx.fillStyle = 'rgba(210,180,60,0.7)';
+			ctx.beginPath();
+			ctx.ellipse(x, y - 5, 1.5, 2.5, 0, 0, Math.PI * 2);
+			ctx.fill();
 		}
 	}
 	ctx.restore();
@@ -347,7 +377,7 @@ function drawTownCenter(ctx: CanvasRenderingContext2D) {
 
 const BASE: Record<TileKind, number> = {
 	grass: 0x4a7a50,
-	fog: 0x161e18,
+	fog: 0x354535,
 	city: 0x3d8855,
 	house: 0x557a52,
 	farm: 0x6a8a3e,
@@ -367,7 +397,7 @@ function render(kind: TileKind, seed: number): HTMLCanvasElement {
 	const color = BASE[kind];
 	const isFog = kind === 'fog';
 
-	drawSides(ctx, color);
+	drawSides(ctx, isFog);
 	drawTop(ctx, color);
 
 	if (!isFog) {
