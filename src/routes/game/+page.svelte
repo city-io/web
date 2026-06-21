@@ -49,6 +49,10 @@
   let err = '';
   let showBuild = false;
 
+  // Resource-rate dropdown: open on hover (CSS) or pinned open on click.
+  let ratesOpen = false;
+  let ratesEl: HTMLDivElement;
+
   // ── live clock (1s tick for construction progress) ───────
   let now = Date.now();
   const tick = setInterval(() => {
@@ -229,6 +233,18 @@
     cont.x = -p.x * cont.scale.x + cw / 2;
     cont.y = -p.y * cont.scale.y + ch / 2;
     clampCam();
+  };
+
+  // Pan to a city's center: the actual city/town-center building if we have it,
+  // else the territory's geometric middle tile.
+  const centerOnCity = (city: City) => {
+    const center = $buildings.find((b) => b.cityId?.value === city.cityId?.value && (b.type === BuildingType.CITY_CENTER || b.type === BuildingType.TOWN_CENTER));
+    const col = center?.coords?.x ?? (city.start ? city.start.x + Math.floor(city.size / 2) : undefined);
+    const row = center?.coords?.y ?? (city.start ? city.start.y + Math.floor(city.size / 2) : undefined);
+    if (col === undefined || row === undefined) return;
+    centerCam(col, row);
+    loadVisible();
+    mapCenter.set(getCenter());
   };
 
   // ── data actions ────────────────────────────────────────
@@ -589,6 +605,9 @@
   <title>Game - city.io</title>
 </svelte:head>
 
+<!-- Close the pinned rate dropdown when clicking outside it -->
+<svelte:window on:click={(e) => ratesOpen && ratesEl && !ratesEl.contains(e.target as Node) && (ratesOpen = false)} />
+
 <div class="relative h-screen w-screen overflow-hidden" style="background:#0f1f10">
   <!-- Canvas -->
   <div bind:this={el} class="absolute inset-0 cursor-grab active:cursor-grabbing"></div>
@@ -601,17 +620,21 @@
       <span class="text-sm font-medium tracking-wide text-gray-100">{$username}</span>
     </div>
 
-    <!-- Resources (hover for per-hour rates) -->
-    <div class="group pointer-events-auto relative">
-      <div class="flex cursor-default items-center gap-4 rounded-lg bg-gray-900/85 px-3.5 py-2 backdrop-blur-sm">
+    <!-- Resources (hover for per-hour rates, click to pin) -->
+    <div class="group pointer-events-auto relative" bind:this={ratesEl}>
+      <button type="button" class="flex items-center gap-4 rounded-lg bg-gray-900/85 px-3.5 py-2 backdrop-blur-sm" on:click={() => (ratesOpen = !ratesOpen)}>
         <span class="text-xs text-gray-400">Gold <span class="tabular-nums text-amber-300">{$gold.toLocaleString()}</span></span>
         <span class="text-xs text-gray-400">Food <span class="tabular-nums text-emerald-300">{$food.toLocaleString()}</span></span>
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-gray-600 transition-transform duration-150 group-hover:rotate-180">
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-gray-600 transition-transform duration-150 group-hover:rotate-180 {ratesOpen ? 'rotate-180' : ''}">
           <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
         </svg>
-      </div>
+      </button>
       <!-- Rate dropdown — pt provides a hover bridge so the gap doesn't close it -->
-      <div class="pointer-events-none absolute right-0 top-full w-52 pt-1.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+      <div
+        class="absolute right-0 top-full w-52 pt-1.5 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 {ratesOpen
+          ? 'pointer-events-auto opacity-100'
+          : 'pointer-events-none opacity-0'}"
+      >
         <div class="rounded-lg bg-gray-900/95 p-2.5 shadow-xl ring-1 ring-white/[0.06] backdrop-blur-sm">
           <div class="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-gray-500">Production / hr</div>
           <div class="flex items-center justify-between gap-3 text-[11px]">
@@ -653,16 +676,7 @@
           {@const city = liveCity(rawCity)}
           {@const prod = cityProd(city)}
           {@const foodNet = ratePerHour(city.netFoodFlow)}
-          <button
-            class="group flex w-full flex-col gap-1 rounded-xl px-2 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.06]"
-            on:click={() => {
-              if (city.start) {
-                centerCam(city.start.x + Math.floor(city.size / 2), city.start.y + Math.floor(city.size / 2));
-                loadVisible();
-                mapCenter.set(getCenter());
-              }
-            }}
-          >
+          <button class="group flex w-full flex-col gap-1 rounded-xl px-2 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.06]" on:click={() => centerOnCity(city)}>
             <div class="flex w-full items-center gap-2">
               <div class="h-1.5 w-1.5 shrink-0 rounded-full {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400/60'}"></div>
               <span class="truncate text-xs font-medium text-gray-300 group-hover:text-gray-100">{city.name}</span>
