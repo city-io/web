@@ -825,6 +825,21 @@
 <!-- Keyboard shortcuts; close the pinned rate dropdown when clicking outside it -->
 <svelte:window on:keydown={onKeydown} on:click={(e) => ratesOpen && ratesEl && !ratesEl.contains(e.target as Node) && (ratesOpen = false)} />
 
+<!-- Population change chip: people icon + direction, so it's clearly tied to
+     population. Growing = green ▲, declining = red ▼, steady = gray. -->
+{#snippet popChip(rate: number)}
+  {@const up = rate >= 0.5}
+  {@const down = rate <= -0.5}
+  <span class="inline-flex items-center gap-1 {up ? 'text-emerald-400' : down ? 'text-red-400' : 'text-gray-500'}" title="Population change / hr">
+    <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3"
+      ><path
+        d="M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm0 1.5c-3.3 0-6 1.7-6 3.8V18h12v-1.7c0-2.1-2.7-3.8-6-3.8zm7.5-1.5a3 3 0 100-6 3 3 0 000 6zm.5 1.5c-.6 0-1.2.07-1.7.2 1.1.8 1.7 1.9 1.7 3.1V18h5v-1.5c0-1.9-2.3-3.5-5-3.5z"
+      /></svg
+    >
+    <span class="tabular-nums">{up ? '▲' : down ? '▼' : '—'} {Math.abs(Math.round(rate)).toLocaleString()}/hr</span>
+  </span>
+{/snippet}
+
 <div class="relative h-screen w-screen overflow-hidden" style="background:#0f1f10">
   <!-- Canvas -->
   <div bind:this={el} class="absolute inset-0 cursor-grab active:cursor-grabbing"></div>
@@ -926,14 +941,7 @@
                 <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><path d="M5 21c0-9 7-16 16-16 0 9-7 16-16 16z" /></svg>
                 {fmtPerHour(foodNet)}/hr
               </span>
-              <span class="flex items-center gap-1 {popGrowth < 0 ? 'font-semibold text-red-400' : 'text-sky-300/90'}" title="Population growth / hr">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"
-                  ><path
-                    d="M9 11a3 3 0 100-6 3 3 0 000 6zm0 2c-2.7 0-6 1.34-6 4v2h9v-2c0-.86.37-1.6.97-2.2A8.5 8.5 0 009 13zm7 0c-.3 0-.62.02-.96.06.6.6.96 1.34.96 2.2v.74h5v-2c0-2.21-2.69-3-5-3zm0-2a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"
-                  /></svg
-                >
-                {fmtPerHour(popGrowth)}/hr
-              </span>
+              {@render popChip(popGrowth)}
             </div>
           </button>
         {/each}
@@ -977,13 +985,8 @@
               <span>{cName(sel.city.type)}</span>
               <span class="text-gray-700">&middot;</span>
               <span>Pop {sel.city.population.toFixed(0)}<span class="text-gray-600">/{sel.city.populationCap.toFixed(0)}</span></span>
-              {#if Math.round(ratePerHour(sel.city.populationGrowth)) !== 0}
-                {@const popGrowth = ratePerHour(sel.city.populationGrowth)}
-                <span class="text-gray-700">&middot;</span>
-                <span class="tabular-nums {popGrowth < 0 ? 'text-red-400' : 'text-sky-300'}" title="Population growth / hr">
-                  {popGrowth < 0 ? '▼' : '▲'}{Math.abs(Math.round(popGrowth)).toLocaleString()}/hr
-                </span>
-              {/if}
+              <span class="text-gray-700">&middot;</span>
+              {@render popChip(ratePerHour(sel.city.populationGrowth))}
               {#if sel.city.starving}
                 <span class="text-gray-700">&middot;</span>
                 <span class="flex items-center gap-1 font-semibold text-red-400">
