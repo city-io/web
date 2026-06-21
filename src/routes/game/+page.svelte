@@ -53,6 +53,11 @@
   let ratesOpen = false;
   let ratesEl: HTMLDivElement;
 
+  // Keyboard navigation
+  let showHelp = false;
+  let cityCycleIdx = -1;
+  const PAN_STEP = 110;
+
   // ── live clock (1s tick for construction progress) ───────
   let now = Date.now();
   const tick = setInterval(() => {
@@ -644,14 +649,87 @@
     userId.set(undefined);
     goto('/login');
   };
+
+  // Center+select the next/previous owned city, wrapping around.
+  const cycleCity = (dir: number) => {
+    if (!ownedCities.length) return;
+    cityCycleIdx = (cityCycleIdx + dir + ownedCities.length) % ownedCities.length;
+    centerOnCity(ownedCities[cityCycleIdx]);
+  };
+
+  const onKeydown = (e: KeyboardEvent) => {
+    // Don't hijack browser shortcuts (cmd/ctrl) or typing in form fields.
+    if (e.metaKey || e.ctrlKey || e.altKey) return;
+    const t = e.target as HTMLElement | null;
+    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
+
+    const step = e.shiftKey ? PAN_STEP * 3 : PAN_STEP;
+    switch (e.key) {
+      case 'ArrowRight':
+      case 'd':
+      case 'D':
+        panBy(-step, 0);
+        break;
+      case 'ArrowLeft':
+      case 'a':
+      case 'A':
+        panBy(step, 0);
+        break;
+      case 'ArrowDown':
+      case 's':
+      case 'S':
+        panBy(0, -step);
+        break;
+      case 'ArrowUp':
+      case 'w':
+      case 'W':
+        panBy(0, step);
+        break;
+      case '=':
+      case '+':
+        zoomAt(cw / 2, ch / 2, 1.15);
+        break;
+      case '-':
+      case '_':
+        zoomAt(cw / 2, ch / 2, 1 / 1.15);
+        break;
+      case '0':
+        if (cont) zoomAt(cw / 2, ch / 2, 1 / cont.scale.x);
+        break;
+      case 'c':
+      case 'C': {
+        const cap = ownedCities.find((x) => x.type === CityType.CITY) ?? ownedCities[0];
+        if (cap) centerOnCity(cap);
+        break;
+      }
+      case ']':
+        cycleCity(1);
+        break;
+      case '[':
+        cycleCity(-1);
+        break;
+      case '?':
+      case 'h':
+      case 'H':
+        showHelp = !showHelp;
+        break;
+      case 'Escape':
+        if (showHelp) showHelp = false;
+        else deselect();
+        break;
+      default:
+        return;
+    }
+    e.preventDefault();
+  };
 </script>
 
 <svelte:head>
   <title>Game - city.io</title>
 </svelte:head>
 
-<!-- Close the pinned rate dropdown when clicking outside it -->
-<svelte:window on:click={(e) => ratesOpen && ratesEl && !ratesEl.contains(e.target as Node) && (ratesOpen = false)} />
+<!-- Keyboard shortcuts; close the pinned rate dropdown when clicking outside it -->
+<svelte:window on:keydown={onKeydown} on:click={(e) => ratesOpen && ratesEl && !ratesEl.contains(e.target as Node) && (ratesOpen = false)} />
 
 <div class="relative h-screen w-screen overflow-hidden" style="background:#0f1f10">
   <!-- Canvas -->
@@ -1009,6 +1087,37 @@
     <div class="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2" transition:fade={{ duration: 200 }}>
       <div class="rounded-full bg-gray-900/80 px-4 py-1.5 backdrop-blur-sm">
         <span class="text-xs font-medium text-gray-500">Select a hex tile to inspect</span>
+      </div>
+    </div>
+  {/if}
+
+  <!-- Keyboard shortcuts toggle -->
+  <button
+    class="pointer-events-auto absolute bottom-4 left-4 flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900/85 text-xs font-bold text-gray-400 backdrop-blur-sm transition-colors hover:text-gray-100"
+    title="Keyboard shortcuts (?)"
+    on:click={() => (showHelp = !showHelp)}>?</button
+  >
+
+  <!-- Keyboard shortcuts overlay -->
+  {#if showHelp}
+    <div
+      class="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-black/40"
+      on:click={() => (showHelp = false)}
+      on:keydown={() => {}}
+      role="presentation"
+      transition:fade={{ duration: 150 }}
+    >
+      <div class="w-72 rounded-xl bg-gray-900/95 p-5 shadow-2xl ring-1 ring-white/[0.08] backdrop-blur-sm" on:click|stopPropagation on:keydown|stopPropagation role="presentation">
+        <div class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-500">Keyboard Shortcuts</div>
+        <div class="space-y-1.5 text-xs text-gray-300">
+          {#each [['Pan', 'WASD / arrows'], ['Pan faster', 'Shift + move'], ['Zoom', '+ / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Deselect', 'Esc'], ['Toggle this help', '?']] as [label, keys]}
+            <div class="flex items-center justify-between gap-4">
+              <span class="text-gray-400">{label}</span>
+              <kbd class="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-gray-300">{keys}</kbd>
+            </div>
+          {/each}
+        </div>
+        <div class="mt-3 border-t border-white/[0.06] pt-2 text-[10px] text-gray-600">Trackpad: two-finger scroll to pan, pinch to zoom.</div>
       </div>
     </div>
   {/if}
