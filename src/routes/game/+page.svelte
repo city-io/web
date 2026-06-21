@@ -105,6 +105,29 @@
   $: liveCityById = new Map($cities.map((c) => [c.cityId?.value, c]));
   const liveCity = (c: City): City => liveCityById.get(c.cityId?.value) ?? c;
 
+  // Per-city resource production per hour, summed from each building's current
+  // level in the config. Recomputes when buildings or config change. Buildings
+  // still under construction (level 0) don't produce yet.
+  const computeProd = (bs: Building[], cfg: { buildings: BuildingConfig[] }) => {
+    const m = new Map<string, { gold: number; food: number }>();
+    for (const b of bs) {
+      const id = b.cityId?.value;
+      if (!id || b.level < 1) continue;
+      const stats = cfg.buildings.find((x) => x.type === b.type)?.levels.find((l) => l.level === b.level);
+      if (!stats) continue;
+      const e = m.get(id) ?? { gold: 0, food: 0 };
+      for (const p of stats.production) {
+        const v = ratePerHour(p.rate);
+        if (p.resource === 'gold') e.gold += v;
+        else if (p.resource === 'food') e.food += v;
+      }
+      m.set(id, e);
+    }
+    return m;
+  };
+  $: prodByCity = computeProd($buildings, $gameConfig);
+  const cityProd = (c: City) => prodByCity.get(c.cityId?.value ?? '') ?? { gold: 0, food: 0 };
+
   const fmtCountdown = (ms: number): string => {
     const s = Math.max(0, Math.ceil(ms / 1000));
     if (s < 60) return `${s}s`;
@@ -578,8 +601,9 @@
         <div class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-500">Your Cities</div>
         {#each myCities as rawCity}
           {@const city = liveCity(rawCity)}
+          {@const prod = cityProd(city)}
           <button
-            class="group flex w-full items-center gap-2 rounded-xl px-2 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.06]"
+            class="group flex w-full flex-col gap-1 rounded-xl px-2 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.06]"
             on:click={() => {
               if (city.start) {
                 centerCam(city.start.x + Math.floor(city.size / 2), city.start.y + Math.floor(city.size / 2));
@@ -588,12 +612,36 @@
               }
             }}
           >
-            <div class="h-1.5 w-1.5 rounded-full {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400/60'}"></div>
-            <span class="text-xs font-medium text-gray-300 group-hover:text-gray-100">{city.name}</span>
-            {#if city.starving}
-              <span class="text-[9px] font-semibold uppercase tracking-wide text-red-400">Starving</span>
-            {/if}
-            <span class="ml-auto text-[10px] text-gray-600">{cName(city.type)}</span>
+            <div class="flex w-full items-center gap-2">
+              <div class="h-1.5 w-1.5 shrink-0 rounded-full {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400/60'}"></div>
+              <span class="truncate text-xs font-medium text-gray-300 group-hover:text-gray-100">{city.name}</span>
+              {#if city.starving}
+                <span class="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-red-400">Starving</span>
+              {/if}
+              <span class="ml-auto shrink-0" title={cName(city.type)}>
+                {#if city.type === CityType.CITY}
+                  <!-- crown: capital -->
+                  <svg viewBox="0 0 24 24" fill="currentColor" class="h-3.5 w-3.5 text-amber-400/80"><path d="M2 8l4.5 3.5L12 4l5.5 7.5L22 8l-2 11H4L2 8z" /></svg>
+                {:else if city.type === CityType.TOWN}
+                  <!-- buildings: town -->
+                  <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3 text-gray-500"
+                    ><path d="M3 21V8l6-3v4l6-3v5h6v10H3zm4-2h2v-2H7v2zm0-4h2v-2H7v2zm6 4h2v-2h-2v2zm0-4h2v-2h-2v2zm6 4h2v-2h-2v2z" /></svg
+                  >
+                {:else}
+                  <span class="block h-1.5 w-1.5 rounded-full bg-gray-600"></span>
+                {/if}
+              </span>
+            </div>
+            <div class="flex items-center gap-3 pl-3.5 text-[10px] tabular-nums">
+              <span class="flex items-center gap-1 text-amber-300/90" title="Gold production">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><circle cx="12" cy="12" r="9" /></svg>
+                {Math.round(prod.gold).toLocaleString()}/hr
+              </span>
+              <span class="flex items-center gap-1 text-emerald-300/90" title="Food production">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><path d="M5 21c0-9 7-16 16-16 0 9-7 16-16 16z" /></svg>
+                {Math.round(prod.food).toLocaleString()}/hr
+              </span>
+            </div>
           </button>
         {/each}
       </div>
