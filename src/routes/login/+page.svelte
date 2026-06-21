@@ -37,12 +37,12 @@
   <title>Sign In - city.io</title>
 </svelte:head>
 
-<main class="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0b1a0e] px-4">
+<main class="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a0c10] px-4">
   <!-- ambient background -->
   <div class="pointer-events-none absolute inset-0">
-    <div class="absolute -left-24 top-1/4 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl"></div>
-    <div class="bottom-1/5 absolute -right-20 h-80 w-80 rounded-full bg-emerald-700/10 blur-3xl"></div>
-    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(16,31,16,0)_0%,_rgba(8,18,10,0.6)_100%)]"></div>
+    <div class="top-1/5 absolute -left-24 h-80 w-80 rounded-full bg-emerald-500/[0.07] blur-3xl"></div>
+    <div class="absolute -right-24 bottom-1/4 h-72 w-72 rounded-full bg-teal-500/[0.06] blur-3xl"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(30,35,45,0.35)_0%,_rgba(8,10,14,0.7)_100%)]"></div>
   </div>
 
   <div class="relative w-full max-w-sm">
@@ -54,7 +54,7 @@
         </svg>
       </div>
       <h1 class="text-2xl font-semibold tracking-tight text-gray-50">city.io</h1>
-      <p class="mt-1 text-sm text-gray-500">Build, expand, and command your empire.</p>
+      <p class="mt-1 text-sm text-gray-500">Build cities, hoard gold, try not to starve.</p>
     </div>
 
     <!-- card -->
