@@ -97,12 +97,14 @@
     return resources.length === 1 ? `${resources[0]}/hr` : '/hr';
   };
 
-  // Empire-wide food balance per hour = sum of each owned city's net flow
-  // (production − upkeep). Derived from the same per-city netFoodFlow shown in
-  // the city list so the top-bar total stays exactly consistent with them.
-  // (The user-level foodIncome/foodUpkeep are realized shared-pool flows on a
-  // coarser rolling-average window, so they read noisier and don't line up.)
-  $: netFoodPerHour = $cities.filter((c) => c.owner?.value === $userId).reduce((sum, c) => sum + ratePerHour(c.netFoodFlow), 0);
+  // Empire-wide per-hour rates, summed across owned cities so the top-bar
+  // breakdown stays exactly consistent with the per-city numbers. Gold has no
+  // upkeep (derived from building production); food nets production vs upkeep.
+  $: ownedCities = $cities.filter((c) => c.owner?.value === $userId);
+  $: goldPerHour = ownedCities.reduce((s, c) => s + (prodByCity.get(c.cityId?.value ?? '')?.gold ?? 0), 0);
+  $: foodProdPerHour = ownedCities.reduce((s, c) => s + ratePerHour(c.foodProduction), 0);
+  $: foodUpkeepPerHour = ownedCities.reduce((s, c) => s + ratePerHour(c.foodUpkeep), 0);
+  $: netFoodPerHour = foodProdPerHour - foodUpkeepPerHour;
 
   // Live city state (food rates / starving) is pushed into the $cities store per
   // tick, while myCities is a one-shot snapshot — look up the fresh copy by id.
@@ -599,15 +601,41 @@
       <span class="text-sm font-medium tracking-wide text-gray-100">{$username}</span>
     </div>
 
-    <!-- Resources -->
-    <div class="pointer-events-auto flex items-center gap-4 rounded-lg bg-gray-900/85 px-3.5 py-2 backdrop-blur-sm">
-      <span class="text-xs text-gray-400">Gold <span class="tabular-nums text-amber-300">{$gold.toLocaleString()}</span></span>
-      <span class="flex items-center gap-1.5 text-xs text-gray-400">
-        Food <span class="tabular-nums text-emerald-300">{$food.toLocaleString()}</span>
-        {#if Math.round(netFoodPerHour) !== 0}
-          <span class="text-[10px] tabular-nums {netFoodPerHour > 0 ? 'text-emerald-400/70' : 'text-red-400'}" title="Net food into the shared pool per hour">{fmtPerHour(netFoodPerHour)}/hr</span>
-        {/if}
-      </span>
+    <!-- Resources (hover for per-hour rates) -->
+    <div class="group pointer-events-auto relative">
+      <div class="flex cursor-default items-center gap-4 rounded-lg bg-gray-900/85 px-3.5 py-2 backdrop-blur-sm">
+        <span class="text-xs text-gray-400">Gold <span class="tabular-nums text-amber-300">{$gold.toLocaleString()}</span></span>
+        <span class="text-xs text-gray-400">Food <span class="tabular-nums text-emerald-300">{$food.toLocaleString()}</span></span>
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-gray-600 transition-transform duration-150 group-hover:rotate-180">
+          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+        </svg>
+      </div>
+      <!-- Rate dropdown — pt provides a hover bridge so the gap doesn't close it -->
+      <div class="pointer-events-none absolute right-0 top-full w-52 pt-1.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100">
+        <div class="rounded-lg bg-gray-900/95 p-2.5 shadow-xl ring-1 ring-white/[0.06] backdrop-blur-sm">
+          <div class="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-gray-500">Production / hr</div>
+          <div class="flex items-center justify-between gap-3 text-[11px]">
+            <span class="flex items-center gap-1.5 text-gray-400">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5 text-amber-300"><circle cx="12" cy="12" r="9" /></svg>Gold
+            </span>
+            <span class="tabular-nums text-amber-300">{fmtPerHour(goldPerHour)}/hr</span>
+          </div>
+          <div class="mt-1.5 flex items-center justify-between gap-3 text-[11px]">
+            <span class="flex items-center gap-1.5 text-gray-400">
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5 text-emerald-300"><path d="M5 21c0-9 7-16 16-16 0 9-7 16-16 16z" /></svg>Food
+            </span>
+            <span class="font-semibold tabular-nums {netFoodPerHour < 0 ? 'text-red-400' : 'text-emerald-300'}">{fmtPerHour(netFoodPerHour)}/hr</span>
+          </div>
+          <div class="mt-1 space-y-0.5 border-t border-white/[0.06] pl-4 pt-1 text-[10px] tabular-nums text-gray-500">
+            <div class="flex items-center justify-between gap-3">
+              <span>produced</span><span class="text-emerald-400/80">{fmtPerHour(foodProdPerHour)}/hr</span>
+            </div>
+            <div class="flex items-center justify-between gap-3">
+              <span>upkeep</span><span class="text-red-400/70">{fmtPerHour(-foodUpkeepPerHour)}/hr</span>
+            </div>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Logout -->
