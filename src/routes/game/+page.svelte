@@ -82,8 +82,19 @@
   // One-shot amounts (build costs): plain "<n> <resource>".
   const fmtRes = (r: { resource: string; amount: bigint }): string => `${r.amount.toString()} ${r.resource}`;
 
-  // Ongoing production flows, always normalized to per-hour: "<n>/hr <resource>".
-  const fmtProd = (r: ResourceRate): string => `${Math.round(ratePerHour(r.rate)).toLocaleString()}/hr ${r.resource}`;
+  // Ongoing production flows, normalized to per-hour: "<n> <resource>/hr".
+  const fmtProd = (r: ResourceRate): string => `${fmtProdNum(r)} ${r.resource}/hr`;
+
+  // Bare per-hour number for current → next comparisons where the unit is
+  // rendered once at the end (keeps the narrow side panel from overflowing).
+  const fmtProdNum = (r: ResourceRate): string => Math.round(ratePerHour(r.rate)).toLocaleString();
+
+  // Shared unit suffix for a production set, e.g. "gold/hr". Falls back to a
+  // bare "/hr" if a building ever produces more than one resource type.
+  const prodUnit = (prod: ResourceRate[]): string => {
+    const resources = [...new Set(prod.map((r) => r.resource))];
+    return resources.length === 1 ? `${resources[0]}/hr` : '/hr';
+  };
 
   // Net food into/out of the shared pool per hour across all owned cities.
   $: netFoodPerHour = $foodIncomePerHour - $foodUpkeepPerHour;
@@ -596,17 +607,17 @@
             {#if sel.city.owner?.value === $userId}
               {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
               <div class="mt-2 space-y-1 border-t border-white/[0.06] pt-2">
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="text-gray-500">Food produced</span>
-                  <span class="tabular-nums text-emerald-400">{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
+                <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                  <span class="shrink-0 text-gray-500">Food produced</span>
+                  <span class="text-right tabular-nums text-emerald-400">{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
                 </div>
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="text-gray-500">Food upkeep</span>
-                  <span class="tabular-nums text-red-400/80">{fmtPerHour(-ratePerHour(sel.city.foodUpkeep))}/hr</span>
+                <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                  <span class="shrink-0 text-gray-500">Food upkeep</span>
+                  <span class="text-right tabular-nums text-red-400/80">{fmtPerHour(-ratePerHour(sel.city.foodUpkeep))}/hr</span>
                 </div>
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="text-gray-500">{netFlow >= 0 ? 'Surplus to pool' : 'Drawn from pool'}</span>
-                  <span class="font-semibold tabular-nums {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerHour(netFlow)}/hr</span>
+                <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                  <span class="shrink-0 text-gray-500">{netFlow >= 0 ? 'Surplus to pool' : 'Drawn from pool'}</span>
+                  <span class="text-right font-semibold tabular-nums {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerHour(netFlow)}/hr</span>
                 </div>
               </div>
             {/if}
@@ -647,15 +658,15 @@
             {#if stats}
               <div class="mt-2 space-y-1 border-t border-white/[0.06] pt-2">
                 {#if stats.production.length > 0}
-                  <div class="flex items-center justify-between text-[10px]">
-                    <span class="text-gray-500">Production</span>
-                    <span class="tabular-nums text-emerald-400">{stats.production.map(fmtProd).join(', ')}</span>
+                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                    <span class="shrink-0 text-gray-500">Production</span>
+                    <span class="text-right tabular-nums text-emerald-400">{stats.production.map(fmtProd).join(', ')}</span>
                   </div>
                 {/if}
                 {#if stats.population > 0}
-                  <div class="flex items-center justify-between text-[10px]">
-                    <span class="text-gray-500">Population</span>
-                    <span class="tabular-nums text-blue-400">+{stats.population}</span>
+                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                    <span class="shrink-0 text-gray-500">Population</span>
+                    <span class="text-right tabular-nums text-blue-400">+{stats.population}</span>
                   </div>
                 {/if}
               </div>
@@ -663,30 +674,31 @@
             {#if nextStats && sel.city?.owner?.value === $userId}
               <div class="mt-2 space-y-1.5 border-t border-white/[0.06] pt-2">
                 <div class="text-[9px] font-semibold uppercase tracking-wider text-gray-500">Lv {sel.building.level + 1} Upgrade</div>
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="text-gray-500">Cost</span>
-                  <span class="tabular-nums text-amber-300">{nextStats.cost.map(fmtRes).join(', ')}</span>
+                <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                  <span class="shrink-0 text-gray-500">Cost</span>
+                  <span class="text-right tabular-nums text-amber-300">{nextStats.cost.map(fmtRes).join(', ')}</span>
                 </div>
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="text-gray-500">Time</span>
-                  <span class="tabular-nums text-gray-400">{fmtTime(nextStats.constructionTime)}</span>
+                <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                  <span class="shrink-0 text-gray-500">Time</span>
+                  <span class="text-right tabular-nums text-gray-400">{fmtTime(nextStats.constructionTime)}</span>
                 </div>
                 {#if nextStats.production.length > 0}
-                  <div class="flex items-center justify-between text-[10px]">
-                    <span class="text-gray-500">Production</span>
-                    <span class="tabular-nums">
+                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                    <span class="shrink-0 text-gray-500">Production</span>
+                    <span class="text-right tabular-nums">
                       {#if stats}
-                        <span class="text-gray-500">{stats.production.map(fmtProd).join(', ')}</span>
+                        <span class="text-gray-500">{stats.production.map(fmtProdNum).join(', ')}</span>
                         <span class="mx-0.5 text-gray-600">&rarr;</span>
                       {/if}
-                      <span class="text-emerald-400">{nextStats.production.map(fmtProd).join(', ')}</span>
+                      <span class="text-emerald-400">{nextStats.production.map(fmtProdNum).join(', ')}</span>
+                      <span class="text-gray-500">{prodUnit(nextStats.production)}</span>
                     </span>
                   </div>
                 {/if}
                 {#if nextStats.population > 0}
-                  <div class="flex items-center justify-between text-[10px]">
-                    <span class="text-gray-500">Population</span>
-                    <span class="tabular-nums">
+                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                    <span class="shrink-0 text-gray-500">Population</span>
+                    <span class="text-right tabular-nums">
                       {#if stats}
                         <span class="text-gray-500">+{stats.population}</span>
                         <span class="mx-0.5 text-gray-600">&rarr;</span>
@@ -737,24 +749,24 @@
             {#if buildStats}
               <div class="space-y-1 rounded-md bg-white/[0.04] p-2.5">
                 <div class="text-[10px] font-semibold text-gray-300">{bName(buildType)}</div>
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="text-gray-500">Cost</span>
-                  <span class="tabular-nums text-amber-300">{buildStats.cost.map(fmtRes).join(', ')}</span>
+                <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                  <span class="shrink-0 text-gray-500">Cost</span>
+                  <span class="text-right tabular-nums text-amber-300">{buildStats.cost.map(fmtRes).join(', ')}</span>
                 </div>
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="text-gray-500">Build time</span>
-                  <span class="tabular-nums text-gray-400">{fmtTime(buildStats.constructionTime)}</span>
+                <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                  <span class="shrink-0 text-gray-500">Build time</span>
+                  <span class="text-right tabular-nums text-gray-400">{fmtTime(buildStats.constructionTime)}</span>
                 </div>
                 {#if buildStats.production.length > 0}
-                  <div class="flex items-center justify-between text-[10px]">
-                    <span class="text-gray-500">Produces</span>
-                    <span class="tabular-nums text-emerald-400">{buildStats.production.map(fmtProd).join(', ')}</span>
+                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                    <span class="shrink-0 text-gray-500">Produces</span>
+                    <span class="text-right tabular-nums text-emerald-400">{buildStats.production.map(fmtProd).join(', ')}</span>
                   </div>
                 {/if}
                 {#if buildStats.population > 0}
-                  <div class="flex items-center justify-between text-[10px]">
-                    <span class="text-gray-500">Population</span>
-                    <span class="tabular-nums text-blue-400">+{buildStats.population}</span>
+                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                    <span class="shrink-0 text-gray-500">Population</span>
+                    <span class="text-right tabular-nums text-blue-400">+{buildStats.population}</span>
                   </div>
                 {/if}
               </div>
