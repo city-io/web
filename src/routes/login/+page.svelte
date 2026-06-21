@@ -37,12 +37,12 @@
   <title>Sign In - city.io</title>
 </svelte:head>
 
-<main class="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0a0c10] px-4">
+<main class="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0f2417] px-4">
   <!-- ambient background -->
   <div class="pointer-events-none absolute inset-0">
-    <div class="top-1/5 absolute -left-24 h-80 w-80 rounded-full bg-emerald-500/[0.07] blur-3xl"></div>
-    <div class="absolute -right-24 bottom-1/4 h-72 w-72 rounded-full bg-teal-500/[0.06] blur-3xl"></div>
-    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(30,35,45,0.35)_0%,_rgba(8,10,14,0.7)_100%)]"></div>
+    <div class="absolute -left-24 top-1/4 h-80 w-80 rounded-full bg-emerald-400/15 blur-3xl"></div>
+    <div class="bottom-1/5 absolute -right-20 h-80 w-80 rounded-full bg-emerald-500/15 blur-3xl"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(26,46,30,0.45)_0%,_rgba(10,22,14,0.55)_100%)]"></div>
   </div>
 
   <div class="relative w-full max-w-sm">
@@ -54,12 +54,12 @@
         </svg>
       </div>
       <h1 class="text-2xl font-semibold tracking-tight text-gray-50">city.io</h1>
-      <p class="mt-1 text-sm text-gray-500">Build cities, hoard gold, try not to starve.</p>
+      <p class="mt-1 text-sm text-gray-400">Build cities, hoard gold, try not to starve.</p>
     </div>
 
     <!-- card -->
     <div class="rounded-2xl border border-white/10 bg-gray-900/60 p-6 shadow-2xl backdrop-blur-xl sm:p-7">
-      <h2 class="mb-5 text-sm font-semibold uppercase tracking-widest text-gray-500">Welcome back</h2>
+      <h2 class="mb-5 text-sm font-semibold uppercase tracking-widest text-gray-400">Welcome back</h2>
 
       {#if errorMessage}
         <div class="mb-4 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-[13px] text-red-300" role="alert">
@@ -72,7 +72,7 @@
 
       <form class="space-y-4" on:submit|preventDefault={handleLogin}>
         <div>
-          <label for="identifier" class="mb-1.5 block text-xs font-medium text-gray-400">Username or email</label>
+          <label for="identifier" class="mb-1.5 block text-xs font-medium text-gray-300">Username or email</label>
           <input
             class="block w-full rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-gray-100 placeholder-gray-600 transition-colors focus:border-emerald-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
             id="identifier"
@@ -84,7 +84,7 @@
         </div>
 
         <div>
-          <label for="password" class="mb-1.5 block text-xs font-medium text-gray-400">Password</label>
+          <label for="password" class="mb-1.5 block text-xs font-medium text-gray-300">Password</label>
           <div class="relative">
             <input
               class="block w-full rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 pr-10 text-sm text-gray-100 placeholder-gray-600 transition-colors focus:border-emerald-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
@@ -135,7 +135,7 @@
       </form>
     </div>
 
-    <p class="mt-6 text-center text-sm text-gray-500">
+    <p class="mt-6 text-center text-sm text-gray-400">
       Don't have an account?
       <button class="font-medium text-emerald-400 transition-colors hover:text-emerald-300" on:click={() => goto('/register')}>Create one</button>
     </p>
