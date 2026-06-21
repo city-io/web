@@ -235,8 +235,8 @@
     clampCam();
   };
 
-  // Pan to a city's center: the actual city/town-center building if we have it,
-  // else the territory's geometric middle tile.
+  // Pan to a city's center and select it: focus the actual city/town-center
+  // building if we have it, else the territory's geometric middle tile.
   const centerOnCity = (city: City) => {
     const center = $buildings.find((b) => b.cityId?.value === city.cityId?.value && (b.type === BuildingType.CITY_CENTER || b.type === BuildingType.TOWN_CENTER));
     const col = center?.coords?.x ?? (city.start ? city.start.x + Math.floor(city.size / 2) : undefined);
@@ -245,6 +245,11 @@
     centerCam(col, row);
     loadVisible();
     mapCenter.set(getCenter());
+    // Focus the center tile so its detail panel opens, same as a map click.
+    sel = { x: col, y: row, ...tileData.get(tileKey(col, row)) };
+    err = '';
+    showBuild = false;
+    drawSel(col, row);
   };
 
   // ── data actions ────────────────────────────────────────
