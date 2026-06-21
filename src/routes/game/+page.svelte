@@ -879,7 +879,11 @@
           </div>
           <div class="mt-1.5 flex items-center justify-between gap-3 text-[11px]">
             <span class="flex items-center gap-1.5 text-gray-400">
-              <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5 text-emerald-300"><path d="M5 21c0-9 7-16 16-16 0 9-7 16-16 16z" /></svg>Food
+              <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5 text-emerald-300"
+                ><path
+                  d="M8.1 13.34l2.83-2.83L3.91 3.5a4 4 0 000 5.66l4.19 4.18zm6.78-1.81c1.53.71 3.68.21 5.27-1.38 1.91-1.91 2.28-4.65.81-6.12-1.46-1.46-4.2-1.1-6.12.81-1.59 1.59-2.09 3.74-1.38 5.27L3.7 19.87l1.41 1.41L12 14.41l6.88 6.88 1.41-1.41L13.41 13l1.47-1.47z"
+                /></svg
+              >Food
             </span>
             <span class="font-semibold tabular-nums {netFoodPerHour < 0 ? 'text-red-400' : 'text-emerald-300'}">{fmtPerHour(netFoodPerHour)}/hr</span>
           </div>
@@ -938,7 +942,11 @@
                 {Math.round(prod.gold).toLocaleString()}/hr
               </span>
               <span class="flex items-center gap-1 {foodNet < 0 ? 'font-semibold text-red-400' : 'text-emerald-300/90'}" title="Net food / hr (production − upkeep)">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><path d="M5 21c0-9 7-16 16-16 0 9-7 16-16 16z" /></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"
+                  ><path
+                    d="M8.1 13.34l2.83-2.83L3.91 3.5a4 4 0 000 5.66l4.19 4.18zm6.78-1.81c1.53.71 3.68.21 5.27-1.38 1.91-1.91 2.28-4.65.81-6.12-1.46-1.46-4.2-1.1-6.12.81-1.59 1.59-2.09 3.74-1.38 5.27L3.7 19.87l1.41 1.41L12 14.41l6.88 6.88 1.41-1.41L13.41 13l1.47-1.47z"
+                  /></svg
+                >
                 {fmtPerHour(foodNet)}/hr
               </span>
               {@render popChip(popGrowth)}
