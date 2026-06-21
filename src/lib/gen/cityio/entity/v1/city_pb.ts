@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/city.proto.
  */
 export const file_cityio_entity_v1_city: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiqAMKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSLwoPZm9vZF9wcm9kdWN0aW9uGAkgASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlEisKC2Zvb2RfdXBrZWVwGAogASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlEi0KDW5ldF9mb29kX2Zsb3cYCyABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGVCCAoGX293bmVyYgZwcm90bzM", [file_cityio_entity_v1_common]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEi2wMKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSLwoPZm9vZF9wcm9kdWN0aW9uGAkgASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlEisKC2Zvb2RfdXBrZWVwGAogASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlEi0KDW5ldF9mb29kX2Zsb3cYCyABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGVCCAoGX293bmVyYgZwcm90bzM", [file_cityio_entity_v1_common]);
 
 /**
  * City is a settlement on the map, owned by a player or neutral.
@@ -77,6 +77,15 @@ export type City = Message<"cityio.entity.v1.City"> & {
    * @generated from field: bool starving = 12;
    */
   starving: boolean;
+
+  /**
+   * population_growth is the signed per-hour change in population (positive
+   * when growing, negative when declining). Public — observable from outside
+   * by anyone watching the city over time.
+   *
+   * @generated from field: cityio.entity.v1.Rate population_growth = 13;
+   */
+  populationGrowth?: Rate | undefined;
 
   /**
    * --- Owner-only ---

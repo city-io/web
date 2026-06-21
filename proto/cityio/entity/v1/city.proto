@@ -26,6 +26,10 @@ message City {
   int32 size = 8;
   // starving is public: visible from outside ("refugees, failed crops").
   bool starving = 12;
+  // population_growth is the signed per-hour change in population (positive
+  // when growing, negative when declining). Public — observable from outside
+  // by anyone watching the city over time.
+  Rate population_growth = 13;
 
   // --- Owner-only ---
   // food_production, food_upkeep, and net_food_flow expose this city's

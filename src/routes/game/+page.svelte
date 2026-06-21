@@ -683,6 +683,7 @@
           {@const city = liveCity(rawCity)}
           {@const prod = cityProd(city)}
           {@const foodNet = ratePerHour(city.netFoodFlow)}
+          {@const popGrowth = ratePerHour(city.populationGrowth)}
           <button class="group flex w-full flex-col gap-1 rounded-xl px-2 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.06]" on:click={() => centerOnCity(city)}>
             <div class="flex w-full items-center gap-2">
               <div class="h-1.5 w-1.5 shrink-0 rounded-full {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400/60'}"></div>
@@ -712,6 +713,10 @@
               <span class="flex items-center gap-1 {foodNet < 0 ? 'font-semibold text-red-400' : 'text-emerald-300/90'}" title="Net food / hr (production − upkeep)">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><path d="M5 21c0-9 7-16 16-16 0 9-7 16-16 16z" /></svg>
                 {fmtPerHour(foodNet)}/hr
+              </span>
+              <span class="flex items-center gap-1 {popGrowth < 0 ? 'font-semibold text-red-400' : 'text-sky-300/90'}" title="Population growth / hr">
+                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><path d="M9 11a3 3 0 100-6 3 3 0 000 6zm0 2c-2.7 0-6 1.34-6 4v2h9v-2c0-.86.37-1.6.97-2.2A8.5 8.5 0 009 13zm7 0c-.3 0-.62.02-.96.06.6.6.96 1.34.96 2.2v.74h5v-2c0-2.21-2.69-3-5-3zm0-2a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /></svg>
+                {fmtPerHour(popGrowth)}/hr
               </span>
             </div>
           </button>
@@ -756,6 +761,13 @@
               <span>{cName(sel.city.type)}</span>
               <span class="text-gray-700">&middot;</span>
               <span>Pop {sel.city.population.toFixed(0)}<span class="text-gray-600">/{sel.city.populationCap.toFixed(0)}</span></span>
+              {#if Math.round(ratePerHour(sel.city.populationGrowth)) !== 0}
+                {@const popGrowth = ratePerHour(sel.city.populationGrowth)}
+                <span class="text-gray-700">&middot;</span>
+                <span class="tabular-nums {popGrowth < 0 ? 'text-red-400' : 'text-sky-300'}" title="Population growth / hr">
+                  {popGrowth < 0 ? '▼' : '▲'}{Math.abs(Math.round(popGrowth)).toLocaleString()}/hr
+                </span>
+              {/if}
               {#if sel.city.starving}
                 <span class="text-gray-700">&middot;</span>
                 <span class="flex items-center gap-1 font-semibold text-red-400">
