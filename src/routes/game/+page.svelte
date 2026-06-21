@@ -836,7 +836,9 @@
         d="M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm0 1.5c-3.3 0-6 1.7-6 3.8V18h12v-1.7c0-2.1-2.7-3.8-6-3.8zm7.5-1.5a3 3 0 100-6 3 3 0 000 6zm.5 1.5c-.6 0-1.2.07-1.7.2 1.1.8 1.7 1.9 1.7 3.1V18h5v-1.5c0-1.9-2.3-3.5-5-3.5z"
       /></svg
     >
-    <span class="tabular-nums">{up ? '▲' : down ? '▼' : '—'} {Math.abs(Math.round(rate)).toLocaleString()}/hr</span>
+    <span class="tabular-nums"
+      >{#if up}▲ {Math.abs(Math.round(rate)).toLocaleString()}/hr{:else if down}▼ {Math.abs(Math.round(rate)).toLocaleString()}/hr{:else}stable{/if}</span
+    >
   </span>
 {/snippet}
 
@@ -880,9 +882,7 @@
           <div class="mt-1.5 flex items-center justify-between gap-3 text-[11px]">
             <span class="flex items-center gap-1.5 text-gray-400">
               <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5 text-emerald-300"
-                ><path
-                  d="M8.1 13.34l2.83-2.83L3.91 3.5a4 4 0 000 5.66l4.19 4.18zm6.78-1.81c1.53.71 3.68.21 5.27-1.38 1.91-1.91 2.28-4.65.81-6.12-1.46-1.46-4.2-1.1-6.12.81-1.59 1.59-2.09 3.74-1.38 5.27L3.7 19.87l1.41 1.41L12 14.41l6.88 6.88 1.41-1.41L13.41 13l1.47-1.47z"
-                /></svg
+                ><path d="M12 3C7.58 3 4 5.91 4 9.5c0 1.39.5 2.5 2 2.5v6c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-6c1.5 0 2-1.11 2-2.5C20 5.91 16.42 3 12 3z" /></svg
               >Food
             </span>
             <span class="font-semibold tabular-nums {netFoodPerHour < 0 ? 'text-red-400' : 'text-emerald-300'}">{fmtPerHour(netFoodPerHour)}/hr</span>
@@ -943,9 +943,7 @@
               </span>
               <span class="flex items-center gap-1 {foodNet < 0 ? 'font-semibold text-red-400' : 'text-emerald-300/90'}" title="Net food / hr (production − upkeep)">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"
-                  ><path
-                    d="M8.1 13.34l2.83-2.83L3.91 3.5a4 4 0 000 5.66l4.19 4.18zm6.78-1.81c1.53.71 3.68.21 5.27-1.38 1.91-1.91 2.28-4.65.81-6.12-1.46-1.46-4.2-1.1-6.12.81-1.59 1.59-2.09 3.74-1.38 5.27L3.7 19.87l1.41 1.41L12 14.41l6.88 6.88 1.41-1.41L13.41 13l1.47-1.47z"
-                  /></svg
+                  ><path d="M12 3C7.58 3 4 5.91 4 9.5c0 1.39.5 2.5 2 2.5v6c0 1.1.9 2 2 2h8c1.1 0 2-.9 2-2v-6c1.5 0 2-1.11 2-2.5C20 5.91 16.42 3 12 3z" /></svg
                 >
                 {fmtPerHour(foodNet)}/hr
               </span>
