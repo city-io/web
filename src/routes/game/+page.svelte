@@ -634,11 +634,13 @@
           <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
         </svg>
       </button>
-      <!-- Rate dropdown — pt provides a hover bridge so the gap doesn't close it -->
+      <!-- Rate dropdown — pt provides a hover bridge so the gap doesn't close it.
+           Pinned (ratesOpen) stays visible but click-through so it never blocks
+           other UI; only hovering gives it pointer events for the bridge. -->
       <div
-        class="absolute right-0 top-full w-52 pt-1.5 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 {ratesOpen
-          ? 'pointer-events-auto opacity-100'
-          : 'pointer-events-none opacity-0'}"
+        class="pointer-events-none absolute right-0 top-full w-52 pt-1.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 {ratesOpen
+          ? 'opacity-100'
+          : ''}"
       >
         <div class="rounded-lg bg-gray-900/95 p-2.5 shadow-xl ring-1 ring-white/[0.06] backdrop-blur-sm">
           <div class="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-gray-500">Production / hr</div>
