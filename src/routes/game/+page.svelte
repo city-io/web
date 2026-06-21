@@ -37,7 +37,7 @@
   let loaded = new Map<string, Container>();
   let tileData = new Map<string, { city?: City; building?: Building }>();
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
-  let starvingGfx = new Map<string, Graphics>();
+  let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let selGfx: Graphics | null = null;
 
   // ── UI state ────────────────────────────────────────────
@@ -155,9 +155,9 @@
       const active = td?.building?.constructionEnd && Number(td.building.constructionEnd.seconds) * 1000 > Date.now();
       if (!active) entry.gfx.visible = false;
     }
-    // Immediately hide starvation markers for cities that recovered
-    for (const [k, gfx] of starvingGfx) {
-      if (!tileData.get(k)?.city?.starving) gfx.visible = false;
+    // Immediately hide starvation borders for cities that recovered
+    for (const [k, entry] of starvingGfx) {
+      if (!tileData.get(k)?.city?.starving) entry.gfx.visible = false;
     }
     if (sel) {
       const t = tileData.get(tileKey(sel.x, sel.y));
@@ -328,30 +328,33 @@
         gfx.stroke({ color, width: 2.5, alpha: 0.7 });
       }
 
-      // Starvation markers — urgent pulsing red on starving cities' centers
+      // Starvation — pulsing red territory border + caution icon on the center
       const sPulse = 0.5 + 0.5 * Math.sin(t * 4);
-      for (const [, gfx] of starvingGfx) {
+      for (const [, entry] of starvingGfx) {
+        const { gfx, segs, isCenter } = entry;
         if (!gfx.visible) continue;
         gfx.clear();
 
-        // Red tint over the tile
-        gfx.poly(HEX_VERTS);
-        gfx.fill({ color: 0xef4444, alpha: 0.1 + 0.12 * sPulse });
+        // Pulsing red border along the territory edges
+        if (segs.length) {
+          for (const s of segs) {
+            gfx.moveTo(s[0], s[1]);
+            gfx.lineTo(s[2], s[3]);
+          }
+          gfx.stroke({ color: 0xef4444, width: 2.5 + 1.5 * sPulse, alpha: 0.4 + 0.5 * sPulse });
+        }
 
-        // Pulsing red ring
-        gfx.circle(0, 0, S * 0.44);
-        gfx.stroke({ color: 0xef4444, width: 2.5 + 1.5 * sPulse, alpha: 0.4 + 0.5 * sPulse });
-
-        // Warning triangle floating above the center
-        const ay = -S * 0.85;
-        gfx.poly([0, ay - 9, -8, ay + 6, 8, ay + 6]);
-        gfx.fill({ color: 0xef4444, alpha: 0.7 + 0.3 * sPulse });
-        gfx.poly([0, ay - 9, -8, ay + 6, 8, ay + 6]);
-        gfx.stroke({ color: 0xfee2e2, width: 1, alpha: 0.6 });
-        // exclamation mark
-        gfx.rect(-0.9, ay - 3, 1.8, 5);
-        gfx.rect(-0.9, ay + 3.5, 1.8, 1.8);
-        gfx.fill({ color: 0xfff1f2, alpha: 0.9 });
+        // Caution icon hovering above the city/town center
+        if (isCenter) {
+          const ay = -S * 0.78;
+          gfx.poly([0, ay - 11, -10, ay + 8, 10, ay + 8]);
+          gfx.fill({ color: 0xef4444, alpha: 0.78 + 0.22 * sPulse });
+          gfx.poly([0, ay - 11, -10, ay + 8, 10, ay + 8]);
+          gfx.stroke({ color: 0xfee2e2, width: 1.2, alpha: 0.7 });
+          gfx.rect(-1.1, ay - 4, 2.2, 6);
+          gfx.rect(-1.1, ay + 4.5, 2.2, 2.2);
+          gfx.fill({ color: 0xfff1f2, alpha: 0.95 });
+        }
       }
     });
   };
@@ -407,14 +410,6 @@
       }
     }
 
-    // Starvation marker — pulsing red on the starving city's center tile
-    if (!inFog && td?.city?.starving && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) {
-      const sg = new Graphics();
-      sg.zIndex = 2e6;
-      tc.addChild(sg);
-      starvingGfx.set(k, sg);
-    }
-
     if (!inFog) {
       let hasOverlay = false;
       const g = new Graphics();
@@ -448,6 +443,27 @@
       }
 
       if (hasOverlay) tc.addChild(g);
+
+      // Starvation indicator — pulsing red around the territory border, plus a
+      // caution icon on the city/town center. Added last so it draws on top.
+      if (td?.city?.starving) {
+        const cityId = td.city.cityId;
+        const neighbors = hexNeighbors(col, row);
+        const segs: number[][] = [];
+        for (let i = 0; i < 6; i++) {
+          const [nc, nr] = neighbors[i];
+          if (tileData.get(tileKey(nc, nr))?.city?.cityId?.value === cityId?.value) continue;
+          const vi = i * 2,
+            vn = ((i + 1) % 6) * 2;
+          segs.push([HEX_VERTS[vi], HEX_VERTS[vi + 1], HEX_VERTS[vn], HEX_VERTS[vn + 1]]);
+        }
+        const isCenter = td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER;
+        if (segs.length || isCenter) {
+          const sg = new Graphics();
+          tc.addChild(sg);
+          starvingGfx.set(k, { gfx: sg, segs, isCenter });
+        }
+      }
     }
   };
 
@@ -602,6 +618,7 @@
         {#each myCities as rawCity}
           {@const city = liveCity(rawCity)}
           {@const prod = cityProd(city)}
+          {@const foodNet = ratePerHour(city.netFoodFlow)}
           <button
             class="group flex w-full flex-col gap-1 rounded-xl px-2 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.06]"
             on:click={() => {
@@ -633,13 +650,13 @@
               </span>
             </div>
             <div class="flex items-center gap-3 pl-3.5 text-[10px] tabular-nums">
-              <span class="flex items-center gap-1 text-amber-300/90" title="Gold production">
+              <span class="flex items-center gap-1 text-amber-300/90" title="Gold production / hr">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><circle cx="12" cy="12" r="9" /></svg>
                 {Math.round(prod.gold).toLocaleString()}/hr
               </span>
-              <span class="flex items-center gap-1 text-emerald-300/90" title="Food production">
+              <span class="flex items-center gap-1 {foodNet < 0 ? 'font-semibold text-red-400' : 'text-emerald-300/90'}" title="Net food / hr (production − upkeep)">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><path d="M5 21c0-9 7-16 16-16 0 9-7 16-16 16z" /></svg>
-                {Math.round(prod.food).toLocaleString()}/hr
+                {fmtPerHour(foodNet)}/hr
               </span>
             </div>
           </button>
