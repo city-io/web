@@ -344,13 +344,15 @@
           gfx.stroke({ color: 0xef4444, width: 2.5 + 1.5 * sPulse, alpha: 0.4 + 0.5 * sPulse });
         }
 
-        // Caution icon hovering above the city/town center
+        // Caution icon sitting on the city/town center tile. Kept near the
+        // tile center (small upward offset) so it reads as being on the center
+        // building rather than drifting up onto the tile above it.
         if (isCenter) {
-          const ay = -S * 0.78;
+          const ay = -S * 0.18;
           gfx.poly([0, ay - 11, -10, ay + 8, 10, ay + 8]);
-          gfx.fill({ color: 0xef4444, alpha: 0.78 + 0.22 * sPulse });
+          gfx.fill({ color: 0xef4444, alpha: 0.82 + 0.18 * sPulse });
           gfx.poly([0, ay - 11, -10, ay + 8, 10, ay + 8]);
-          gfx.stroke({ color: 0xfee2e2, width: 1.2, alpha: 0.7 });
+          gfx.stroke({ color: 0xfee2e2, width: 1.2, alpha: 0.8 });
           gfx.rect(-1.1, ay - 4, 2.2, 6);
           gfx.rect(-1.1, ay + 4.5, 2.2, 2.2);
           gfx.fill({ color: 0xfff1f2, alpha: 0.95 });
