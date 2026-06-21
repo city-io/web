@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/common.proto.
  */
 export const file_cityio_entity_v1_common: GenFile = /*@__PURE__*/
-  fileDesc("Ch1jaXR5aW8vZW50aXR5L3YxL2NvbW1vbi5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiIwoLQ29vcmRpbmF0ZXMSCQoBeBgBIAEoBRIJCgF5GAIgASgFKk0KCENpdHlUeXBlEhkKFUNJVFlfVFlQRV9VTlNQRUNJRklFRBAAEhIKDkNJVFlfVFlQRV9DSVRZEAESEgoOQ0lUWV9UWVBFX1RPV04QAirQAQoMQnVpbGRpbmdUeXBlEh0KGUJVSUxESU5HX1RZUEVfVU5TUEVDSUZJRUQQABIdChlCVUlMRElOR19UWVBFX0NJVFlfQ0VOVEVSEAESHQoZQlVJTERJTkdfVFlQRV9UT1dOX0NFTlRFUhACEhoKFkJVSUxESU5HX1RZUEVfQkFSUkFDS1MQAxIXChNCVUlMRElOR19UWVBFX0hPVVNFEAQSFgoSQlVJTERJTkdfVFlQRV9GQVJNEAUSFgoSQlVJTERJTkdfVFlQRV9NSU5FEAZiBnByb3RvMw");
+  fileDesc("Ch1jaXR5aW8vZW50aXR5L3YxL2NvbW1vbi5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiIwoLQ29vcmRpbmF0ZXMSCQoBeBgBIAEoBRIJCgF5GAIgASgFIiQKBFJhdGUSDQoFdmFsdWUYASABKAMSDQoFc2NhbGUYAiABKAUqTQoIQ2l0eVR5cGUSGQoVQ0lUWV9UWVBFX1VOU1BFQ0lGSUVEEAASEgoOQ0lUWV9UWVBFX0NJVFkQARISCg5DSVRZX1RZUEVfVE9XThACKtABCgxCdWlsZGluZ1R5cGUSHQoZQlVJTERJTkdfVFlQRV9VTlNQRUNJRklFRBAAEh0KGUJVSUxESU5HX1RZUEVfQ0lUWV9DRU5URVIQARIdChlCVUlMRElOR19UWVBFX1RPV05fQ0VOVEVSEAISGgoWQlVJTERJTkdfVFlQRV9CQVJSQUNLUxADEhcKE0JVSUxESU5HX1RZUEVfSE9VU0UQBBIWChJCVUlMRElOR19UWVBFX0ZBUk0QBRIWChJCVUlMRElOR19UWVBFX01JTkUQBmIGcHJvdG8z");
 
 /**
  * @generated from message cityio.entity.v1.UserId
@@ -86,6 +86,32 @@ export type Coordinates = Message<"cityio.entity.v1.Coordinates"> & {
  */
 export const CoordinatesSchema: GenMessage<Coordinates> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_common, 3);
+
+/**
+ * Rate expresses a value-per-time as an integer "value" and a "scale" in
+ * seconds. value / scale is the rate per second. For resource flows scale is
+ * typically 86400 (per day).
+ *
+ * @generated from message cityio.entity.v1.Rate
+ */
+export type Rate = Message<"cityio.entity.v1.Rate"> & {
+  /**
+   * @generated from field: int64 value = 1;
+   */
+  value: bigint;
+
+  /**
+   * @generated from field: int32 scale = 2;
+   */
+  scale: number;
+};
+
+/**
+ * Describes the message cityio.entity.v1.Rate.
+ * Use `create(RateSchema)` to create a new message.
+ */
+export const RateSchema: GenMessage<Rate> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_common, 4);
 
 /**
  * CityType distinguishes player capitals from neutral towns.

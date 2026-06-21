@@ -5,7 +5,17 @@ package cityio.entity.v1;
 import "cityio/entity/v1/common.proto";
 
 // City is a settlement on the map, owned by a player or neutral.
+//
+// Visibility: public fields are returned to anyone whose vision covers the
+// city (population, population_cap, starving, identity, location). Private
+// fields (food_production, food_upkeep, net_food_flow) are economy intel and
+// only populated when the requester is the city's owner; for non-owners they
+// arrive unset. The owner-only restriction is enforced in
+// mapping.HidePrivateCityFields, called from GetMap and GetCity.
+// StreamState is already owner-scoped (publishes only to *City.Owner) so it
+// always carries the full set.
 message City {
+  // --- Public ---
   CityId city_id = 1;
   CityType type = 2;
   optional UserId owner = 3;
@@ -14,4 +24,14 @@ message City {
   double population_cap = 6;
   Coordinates start = 7;
   int32 size = 8;
+  // starving is public: visible from outside ("refugees, failed crops").
+  bool starving = 12;
+
+  // --- Owner-only ---
+  // food_production, food_upkeep, and net_food_flow expose this city's
+  // economy. They are populated when the requester owns the city and unset
+  // otherwise. Non-owners receive nil/zero for these fields.
+  Rate food_production = 9;
+  Rate food_upkeep = 10;
+  Rate net_food_flow = 11;
 }

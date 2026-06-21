@@ -37,3 +37,11 @@ message Coordinates {
   int32 x = 1;
   int32 y = 2;
 }
+
+// Rate expresses a value-per-time as an integer "value" and a "scale" in
+// seconds. value / scale is the rate per second. For resource flows scale is
+// typically 86400 (per day).
+message Rate {
+  int64 value = 1;
+  int32 scale = 2;
+}

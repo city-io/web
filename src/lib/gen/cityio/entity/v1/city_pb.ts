@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { CityId, CityType, Coordinates, UserId } from "./common_pb";
+import type { CityId, CityType, Coordinates, Rate, UserId } from "./common_pb";
 import { file_cityio_entity_v1_common } from "./common_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -12,15 +12,26 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/city.proto.
  */
 export const file_cityio_entity_v1_city: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiiQIKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAVCCAoGX293bmVyYgZwcm90bzM", [file_cityio_entity_v1_common]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiqAMKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSLwoPZm9vZF9wcm9kdWN0aW9uGAkgASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlEisKC2Zvb2RfdXBrZWVwGAogASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlEi0KDW5ldF9mb29kX2Zsb3cYCyABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGVCCAoGX293bmVyYgZwcm90bzM", [file_cityio_entity_v1_common]);
 
 /**
  * City is a settlement on the map, owned by a player or neutral.
+ *
+ * Visibility: public fields are returned to anyone whose vision covers the
+ * city (population, population_cap, starving, identity, location). Private
+ * fields (food_production, food_upkeep, net_food_flow) are economy intel and
+ * only populated when the requester is the city's owner; for non-owners they
+ * arrive unset. The owner-only restriction is enforced in
+ * mapping.HidePrivateCityFields, called from GetMap and GetCity.
+ * StreamState is already owner-scoped (publishes only to *City.Owner) so it
+ * always carries the full set.
  *
  * @generated from message cityio.entity.v1.City
  */
 export type City = Message<"cityio.entity.v1.City"> & {
   /**
+   * --- Public ---
+   *
    * @generated from field: cityio.entity.v1.CityId city_id = 1;
    */
   cityId?: CityId | undefined;
@@ -59,6 +70,33 @@ export type City = Message<"cityio.entity.v1.City"> & {
    * @generated from field: int32 size = 8;
    */
   size: number;
+
+  /**
+   * starving is public: visible from outside ("refugees, failed crops").
+   *
+   * @generated from field: bool starving = 12;
+   */
+  starving: boolean;
+
+  /**
+   * --- Owner-only ---
+   * food_production, food_upkeep, and net_food_flow expose this city's
+   * economy. They are populated when the requester owns the city and unset
+   * otherwise. Non-owners receive nil/zero for these fields.
+   *
+   * @generated from field: cityio.entity.v1.Rate food_production = 9;
+   */
+  foodProduction?: Rate | undefined;
+
+  /**
+   * @generated from field: cityio.entity.v1.Rate food_upkeep = 10;
+   */
+  foodUpkeep?: Rate | undefined;
+
+  /**
+   * @generated from field: cityio.entity.v1.Rate net_food_flow = 11;
+   */
+  netFoodFlow?: Rate | undefined;
 };
 
 /**

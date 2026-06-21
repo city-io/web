@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { UserId } from "./common_pb";
+import type { Rate, UserId } from "./common_pb";
 import { file_cityio_entity_v1_common } from "./common_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -12,7 +12,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/user.proto.
  */
 export const file_cityio_entity_v1_user: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL3VzZXIucHJvdG8SEGNpdHlpby5lbnRpdHkudjEibgoEVXNlchIpCgd1c2VyX2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSDQoFZW1haWwYAiABKAkSEAoIdXNlcm5hbWUYAyABKAkSDAoEZ29sZBgEIAEoAxIMCgRmb29kGAUgASgDYgZwcm90bzM", [file_cityio_entity_v1_common]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL3VzZXIucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiyAEKBFVzZXISKQoHdXNlcl9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEg0KBWVtYWlsGAIgASgJEhAKCHVzZXJuYW1lGAMgASgJEgwKBGdvbGQYBCABKAMSDAoEZm9vZBgFIAEoAxIrCgtmb29kX2luY29tZRgGIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIrCgtmb29kX3Vwa2VlcBgHIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZWIGcHJvdG8z", [file_cityio_entity_v1_common]);
 
 /**
  * User is a player account. The password is never exposed over the wire.
@@ -44,6 +44,16 @@ export type User = Message<"cityio.entity.v1.User"> & {
    * @generated from field: int64 food = 5;
    */
   food: bigint;
+
+  /**
+   * @generated from field: cityio.entity.v1.Rate food_income = 6;
+   */
+  foodIncome?: Rate | undefined;
+
+  /**
+   * @generated from field: cityio.entity.v1.Rate food_upkeep = 7;
+   */
+  foodUpkeep?: Rate | undefined;
 };
 
 /**

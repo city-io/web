@@ -4,17 +4,21 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { BuildingType } from "../../entity/v1/common_pb";
+import type { BuildingType, Rate } from "../../entity/v1/common_pb";
 import { file_cityio_entity_v1_common } from "../../entity/v1/common_pb";
+import type { Duration } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_duration } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cityio/service/v1/config.proto.
  */
 export const file_cityio_service_v1_config: GenFile = /*@__PURE__*/
-  fileDesc("Ch5jaXR5aW8vc2VydmljZS92MS9jb25maWcucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIjIKDlJlc291cmNlQW1vdW50EhAKCHJlc291cmNlGAEgASgJEg4KBmFtb3VudBgCIAEoAyK6AQoSQnVpbGRpbmdMZXZlbFN0YXRzEg0KBWxldmVsGAEgASgFEi8KBGNvc3QYAiADKAsyIS5jaXR5aW8uc2VydmljZS52MS5SZXNvdXJjZUFtb3VudBIZChFjb25zdHJ1Y3Rpb25fdGltZRgDIAEoAxI1Cgpwcm9kdWN0aW9uGAQgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuUmVzb3VyY2VBbW91bnQSEgoKcG9wdWxhdGlvbhgFIAEoASJ1Cg5CdWlsZGluZ0NvbmZpZxIsCgR0eXBlGAEgASgOMh4uY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ1R5cGUSNQoGbGV2ZWxzGAIgAygLMiUuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdMZXZlbFN0YXRzIhYKFEdldEdhbWVDb25maWdSZXF1ZXN0IrABChVHZXRHYW1lQ29uZmlnUmVzcG9uc2USEAoIbWFwX3NpemUYASABKAUSEQoJY2l0eV9zaXplGAIgASgFEhUKDXZpc2lvbl9yYWRpdXMYAyABKAUSJQodYnVpbGRpbmdfcHJvZHVjdGlvbl9mcmVxdWVuY3kYBCABKAUSNAoJYnVpbGRpbmdzGAUgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdDb25maWcycwoNQ29uZmlnU2VydmljZRJiCg1HZXRHYW1lQ29uZmlnEicuY2l0eWlvLnNlcnZpY2UudjEuR2V0R2FtZUNvbmZpZ1JlcXVlc3QaKC5jaXR5aW8uc2VydmljZS52MS5HZXRHYW1lQ29uZmlnUmVzcG9uc2ViBnByb3RvMw", [file_cityio_entity_v1_common]);
+  fileDesc("Ch5jaXR5aW8vc2VydmljZS92MS9jb25maWcucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIjIKDlJlc291cmNlQW1vdW50EhAKCHJlc291cmNlGAEgASgJEg4KBmFtb3VudBgCIAEoAyJGCgxSZXNvdXJjZVJhdGUSEAoIcmVzb3VyY2UYASABKAkSJAoEcmF0ZRgCIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZSLTAQoSQnVpbGRpbmdMZXZlbFN0YXRzEg0KBWxldmVsGAEgASgFEi8KBGNvc3QYAiADKAsyIS5jaXR5aW8uc2VydmljZS52MS5SZXNvdXJjZUFtb3VudBI0ChFjb25zdHJ1Y3Rpb25fdGltZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIzCgpwcm9kdWN0aW9uGAQgAygLMh8uY2l0eWlvLnNlcnZpY2UudjEuUmVzb3VyY2VSYXRlEhIKCnBvcHVsYXRpb24YBSABKAEidQoOQnVpbGRpbmdDb25maWcSLAoEdHlwZRgBIAEoDjIeLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdUeXBlEjUKBmxldmVscxgCIAMoCzIlLmNpdHlpby5zZXJ2aWNlLnYxLkJ1aWxkaW5nTGV2ZWxTdGF0cyIWChRHZXRHYW1lQ29uZmlnUmVxdWVzdCLpAQoVR2V0R2FtZUNvbmZpZ1Jlc3BvbnNlEhAKCG1hcF9zaXplGAEgASgFEhEKCWNpdHlfc2l6ZRgCIAEoBRIVCg12aXNpb25fcmFkaXVzGAMgASgFEjAKDWJ1aWxkaW5nX3RpY2sYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SNAoJYnVpbGRpbmdzGAUgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdDb25maWcSLAoJY2l0eV90aWNrGAYgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uMnMKDUNvbmZpZ1NlcnZpY2USYgoNR2V0R2FtZUNvbmZpZxInLmNpdHlpby5zZXJ2aWNlLnYxLkdldEdhbWVDb25maWdSZXF1ZXN0GiguY2l0eWlvLnNlcnZpY2UudjEuR2V0R2FtZUNvbmZpZ1Jlc3BvbnNlYgZwcm90bzM", [file_cityio_entity_v1_common, file_google_protobuf_duration]);
 
 /**
+ * ResourceAmount is a one-shot amount (e.g. a build cost).
+ *
  * @generated from message cityio.service.v1.ResourceAmount
  */
 export type ResourceAmount = Message<"cityio.service.v1.ResourceAmount"> & {
@@ -37,6 +41,30 @@ export const ResourceAmountSchema: GenMessage<ResourceAmount> = /*@__PURE__*/
   messageDesc(file_cityio_service_v1_config, 0);
 
 /**
+ * ResourceRate is an ongoing flow (e.g. production per day).
+ *
+ * @generated from message cityio.service.v1.ResourceRate
+ */
+export type ResourceRate = Message<"cityio.service.v1.ResourceRate"> & {
+  /**
+   * @generated from field: string resource = 1;
+   */
+  resource: string;
+
+  /**
+   * @generated from field: cityio.entity.v1.Rate rate = 2;
+   */
+  rate?: Rate | undefined;
+};
+
+/**
+ * Describes the message cityio.service.v1.ResourceRate.
+ * Use `create(ResourceRateSchema)` to create a new message.
+ */
+export const ResourceRateSchema: GenMessage<ResourceRate> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 1);
+
+/**
  * @generated from message cityio.service.v1.BuildingLevelStats
  */
 export type BuildingLevelStats = Message<"cityio.service.v1.BuildingLevelStats"> & {
@@ -51,14 +79,14 @@ export type BuildingLevelStats = Message<"cityio.service.v1.BuildingLevelStats">
   cost: ResourceAmount[];
 
   /**
-   * @generated from field: int64 construction_time = 3;
+   * @generated from field: google.protobuf.Duration construction_time = 3;
    */
-  constructionTime: bigint;
+  constructionTime?: Duration | undefined;
 
   /**
-   * @generated from field: repeated cityio.service.v1.ResourceAmount production = 4;
+   * @generated from field: repeated cityio.service.v1.ResourceRate production = 4;
    */
-  production: ResourceAmount[];
+  production: ResourceRate[];
 
   /**
    * @generated from field: double population = 5;
@@ -71,7 +99,7 @@ export type BuildingLevelStats = Message<"cityio.service.v1.BuildingLevelStats">
  * Use `create(BuildingLevelStatsSchema)` to create a new message.
  */
 export const BuildingLevelStatsSchema: GenMessage<BuildingLevelStats> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_config, 1);
+  messageDesc(file_cityio_service_v1_config, 2);
 
 /**
  * @generated from message cityio.service.v1.BuildingConfig
@@ -93,7 +121,7 @@ export type BuildingConfig = Message<"cityio.service.v1.BuildingConfig"> & {
  * Use `create(BuildingConfigSchema)` to create a new message.
  */
 export const BuildingConfigSchema: GenMessage<BuildingConfig> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_config, 2);
+  messageDesc(file_cityio_service_v1_config, 3);
 
 /**
  * @generated from message cityio.service.v1.GetGameConfigRequest
@@ -106,7 +134,7 @@ export type GetGameConfigRequest = Message<"cityio.service.v1.GetGameConfigReque
  * Use `create(GetGameConfigRequestSchema)` to create a new message.
  */
 export const GetGameConfigRequestSchema: GenMessage<GetGameConfigRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_config, 3);
+  messageDesc(file_cityio_service_v1_config, 4);
 
 /**
  * @generated from message cityio.service.v1.GetGameConfigResponse
@@ -128,14 +156,19 @@ export type GetGameConfigResponse = Message<"cityio.service.v1.GetGameConfigResp
   visionRadius: number;
 
   /**
-   * @generated from field: int32 building_production_frequency = 4;
+   * @generated from field: google.protobuf.Duration building_tick = 4;
    */
-  buildingProductionFrequency: number;
+  buildingTick?: Duration | undefined;
 
   /**
    * @generated from field: repeated cityio.service.v1.BuildingConfig buildings = 5;
    */
   buildings: BuildingConfig[];
+
+  /**
+   * @generated from field: google.protobuf.Duration city_tick = 6;
+   */
+  cityTick?: Duration | undefined;
 };
 
 /**
@@ -143,7 +176,7 @@ export type GetGameConfigResponse = Message<"cityio.service.v1.GetGameConfigResp
  * Use `create(GetGameConfigResponseSchema)` to create a new message.
  */
 export const GetGameConfigResponseSchema: GenMessage<GetGameConfigResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_config, 4);
+  messageDesc(file_cityio_service_v1_config, 5);
 
 /**
  * @generated from service cityio.service.v1.ConfigService
