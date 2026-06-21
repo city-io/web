@@ -37,6 +37,7 @@
   let loaded = new Map<string, Container>();
   let tileData = new Map<string, { city?: City; building?: Building }>();
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
+  let starvingGfx = new Map<string, Graphics>();
   let selGfx: Graphics | null = null;
 
   // ── UI state ────────────────────────────────────────────
@@ -131,6 +132,10 @@
       const active = td?.building?.constructionEnd && Number(td.building.constructionEnd.seconds) * 1000 > Date.now();
       if (!active) entry.gfx.visible = false;
     }
+    // Immediately hide starvation markers for cities that recovered
+    for (const [k, gfx] of starvingGfx) {
+      if (!tileData.get(k)?.city?.starving) gfx.visible = false;
+    }
     if (sel) {
       const t = tileData.get(tileKey(sel.x, sel.y));
       sel = { x: sel.x, y: sel.y, ...t };
@@ -202,6 +207,7 @@
     for (const [, c] of loaded) c.destroy({ children: true });
     loaded.clear();
     constructionGfx.clear();
+    starvingGfx.clear();
     if (selGfx) {
       selGfx.destroy();
       selGfx = null;
@@ -298,6 +304,32 @@
         gfx.arc(0, 0, radius, startAngle, endAngle);
         gfx.stroke({ color, width: 2.5, alpha: 0.7 });
       }
+
+      // Starvation markers — urgent pulsing red on starving cities' centers
+      const sPulse = 0.5 + 0.5 * Math.sin(t * 4);
+      for (const [, gfx] of starvingGfx) {
+        if (!gfx.visible) continue;
+        gfx.clear();
+
+        // Red tint over the tile
+        gfx.poly(HEX_VERTS);
+        gfx.fill({ color: 0xef4444, alpha: 0.1 + 0.12 * sPulse });
+
+        // Pulsing red ring
+        gfx.circle(0, 0, S * 0.44);
+        gfx.stroke({ color: 0xef4444, width: 2.5 + 1.5 * sPulse, alpha: 0.4 + 0.5 * sPulse });
+
+        // Warning triangle floating above the center
+        const ay = -S * 0.85;
+        gfx.poly([0, ay - 9, -8, ay + 6, 8, ay + 6]);
+        gfx.fill({ color: 0xef4444, alpha: 0.7 + 0.3 * sPulse });
+        gfx.poly([0, ay - 9, -8, ay + 6, 8, ay + 6]);
+        gfx.stroke({ color: 0xfee2e2, width: 1, alpha: 0.6 });
+        // exclamation mark
+        gfx.rect(-0.9, ay - 3, 1.8, 5);
+        gfx.rect(-0.9, ay + 3.5, 1.8, 1.8);
+        gfx.fill({ color: 0xfff1f2, alpha: 0.9 });
+      }
     });
   };
 
@@ -350,6 +382,14 @@
         tc.addChild(cg);
         constructionGfx.set(k, { gfx: cg, startMs, endMs, cx: px, cy: py });
       }
+    }
+
+    // Starvation marker — pulsing red on the starving city's center tile
+    if (!inFog && td?.city?.starving && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) {
+      const sg = new Graphics();
+      sg.zIndex = 2e6;
+      tc.addChild(sg);
+      starvingGfx.set(k, sg);
     }
 
     if (!inFog) {
