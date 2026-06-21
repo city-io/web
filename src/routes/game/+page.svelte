@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { buildings, cities, mapCenter, token, username, gold, food, foodIncomePerHour, foodUpkeepPerHour, userId, gameConfig } from '$lib/stores';
+  import { buildings, cities, mapCenter, token, username, gold, food, userId, gameConfig } from '$lib/stores';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import { fly, fade } from 'svelte/transition';
@@ -97,8 +97,12 @@
     return resources.length === 1 ? `${resources[0]}/hr` : '/hr';
   };
 
-  // Net food into/out of the shared pool per hour across all owned cities.
-  $: netFoodPerHour = $foodIncomePerHour - $foodUpkeepPerHour;
+  // Empire-wide food balance per hour = sum of each owned city's net flow
+  // (production − upkeep). Derived from the same per-city netFoodFlow shown in
+  // the city list so the top-bar total stays exactly consistent with them.
+  // (The user-level foodIncome/foodUpkeep are realized shared-pool flows on a
+  // coarser rolling-average window, so they read noisier and don't line up.)
+  $: netFoodPerHour = $cities.filter((c) => c.owner?.value === $userId).reduce((sum, c) => sum + ratePerHour(c.netFoodFlow), 0);
 
   // Live city state (food rates / starving) is pushed into the $cities store per
   // tick, while myCities is a one-shot snapshot — look up the fresh copy by id.
