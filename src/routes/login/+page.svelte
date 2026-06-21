@@ -54,7 +54,7 @@
         </svg>
       </div>
       <h1 class="text-2xl font-semibold tracking-tight text-gray-50">city.io</h1>
-      <p class="mt-1 text-sm text-gray-400">Build cities, hoard gold, try not to starve.</p>
+      <p class="mt-1 text-sm text-gray-400">Build, expand, and command your empire.</p>
     </div>
 
     <!-- card -->

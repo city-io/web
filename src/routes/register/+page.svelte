@@ -54,7 +54,7 @@
         </svg>
       </div>
       <h1 class="text-2xl font-semibold tracking-tight text-gray-50">city.io</h1>
-      <p class="mt-1 text-sm text-gray-400">Claim your first hex and grow from there.</p>
+      <p class="mt-1 text-sm text-gray-400">Create your account and found your first city.</p>
     </div>
 
     <!-- card -->
