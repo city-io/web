@@ -252,6 +252,31 @@
     drawSel(col, row);
   };
 
+  // Pan the camera by a pixel delta (shared by trackpad scroll + keyboard).
+  const panBy = (dx: number, dy: number) => {
+    if (!cont) return;
+    cont.x += dx;
+    cont.y += dy;
+    clampCam();
+    loadVisible();
+    mapCenter.set(getCenter());
+  };
+
+  // Zoom by a multiplicative factor anchored at screen point (ax, ay), clamped.
+  const zoomAt = (ax: number, ay: number, factor: number) => {
+    if (!cont) return;
+    const cur = cont.scale.x;
+    const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, cur * factor));
+    if (next === cur) return;
+    const f = next / cur;
+    cont.x = ax - (ax - cont.x) * f;
+    cont.y = ay - (ay - cont.y) * f;
+    cont.scale.set(next);
+    clampCam();
+    loadVisible();
+    mapCenter.set(getCenter());
+  };
+
   // ── data actions ────────────────────────────────────────
   const rebuildTiles = () => {
     for (const [, c] of loaded) c.destroy({ children: true });
@@ -296,6 +321,7 @@
     window.addEventListener('resize', onR);
     return () => {
       window.removeEventListener('resize', onR);
+      app?.canvas?.removeEventListener('wheel', onWheel);
       app?.destroy(true, { children: true });
     };
   });
@@ -312,7 +338,7 @@
     cw = el.clientWidth;
     ch = el.clientHeight;
     app = new Application();
-    await app.init({ width: cw, height: ch, backgroundColor: 0x0f1f10, antialias: true });
+    await app.init({ width: cw, height: ch, backgroundColor: 0x0f1f10, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
     el.appendChild(app.canvas);
     cont = new Container();
     cont.sortableChildren = true;
@@ -581,21 +607,35 @@
       drag = false;
     });
 
-    cont.on('wheel', (e) => {
-      const dir = e.deltaY < 0 ? 1 : -1;
-      const cur = cont.scale.x;
-      const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, cur * (1 + dir * 0.08)));
-      if (next === cur) return;
-      const mx = e.data.global.x,
-        my = e.data.global.y;
-      const f = next / cur;
-      cont.x = mx - (mx - cont.x) * f;
-      cont.y = my - (my - cont.y) * f;
-      cont.scale.set(next);
-      clampCam();
-      loadVisible();
-      mapCenter.set(getCenter());
-    });
+    // Native wheel handler so we can read ctrlKey / deltaX and preventDefault —
+    // Pixi's federated wheel event doesn't reliably expose these. This gives
+    // trackpad-first behavior while keeping the mouse-wheel zoom users liked:
+    //   • pinch (ctrlKey, incl. macOS trackpad pinch) → smooth proportional zoom
+    //   • two-finger trackpad scroll → pan
+    //   • classic mouse wheel → stepped zoom (unchanged feel)
+    app.canvas.addEventListener('wheel', onWheel, { passive: false });
+  };
+
+  // A mouse wheel emits large, vertical-only, integer steps (often |deltaY| ~100,
+  // or line/page deltaMode); a trackpad emits small/fractional pixel deltas that
+  // frequently carry a horizontal component. Used to route scroll → pan vs zoom.
+  const isTrackpadScroll = (e: WheelEvent) => e.deltaMode === 0 && (e.deltaX !== 0 || !Number.isInteger(e.deltaY) || Math.abs(e.deltaY) < 50);
+
+  const onWheel = (e: WheelEvent) => {
+    if (!cont) return;
+    e.preventDefault();
+    const rect = app.canvas.getBoundingClientRect();
+    const mx = e.clientX - rect.left;
+    const my = e.clientY - rect.top;
+    if (e.ctrlKey) {
+      // Pinch-zoom: proportional to gesture speed, anchored under the cursor.
+      zoomAt(mx, my, Math.exp(-e.deltaY * 0.01));
+    } else if (isTrackpadScroll(e)) {
+      panBy(-e.deltaX, -e.deltaY);
+    } else {
+      // Classic mouse wheel — preserve the original stepped 8% zoom.
+      zoomAt(mx, my, e.deltaY < 0 ? 1.08 : 1 / 1.08);
+    }
   };
 
   const logout = () => {
@@ -715,7 +755,11 @@
                 {fmtPerHour(foodNet)}/hr
               </span>
               <span class="flex items-center gap-1 {popGrowth < 0 ? 'font-semibold text-red-400' : 'text-sky-300/90'}" title="Population growth / hr">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><path d="M9 11a3 3 0 100-6 3 3 0 000 6zm0 2c-2.7 0-6 1.34-6 4v2h9v-2c0-.86.37-1.6.97-2.2A8.5 8.5 0 009 13zm7 0c-.3 0-.62.02-.96.06.6.6.96 1.34.96 2.2v.74h5v-2c0-2.21-2.69-3-5-3zm0-2a2.5 2.5 0 100-5 2.5 2.5 0 000 5z" /></svg>
+                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"
+                  ><path
+                    d="M9 11a3 3 0 100-6 3 3 0 000 6zm0 2c-2.7 0-6 1.34-6 4v2h9v-2c0-.86.37-1.6.97-2.2A8.5 8.5 0 009 13zm7 0c-.3 0-.62.02-.96.06.6.6.96 1.34.96 2.2v.74h5v-2c0-2.21-2.69-3-5-3zm0-2a2.5 2.5 0 100-5 2.5 2.5 0 000 5z"
+                  /></svg
+                >
                 {fmtPerHour(popGrowth)}/hr
               </span>
             </div>
