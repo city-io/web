@@ -33,6 +33,19 @@
     csx = 0,
     csy = 0;
 
+  // camera easing — cont.x/y/scale are the rendered values; inputs set these
+  // targets and the ticker glides the view toward them. Drag is 1:1 and seeds
+  // release momentum (velX/velY, px/sec). Disabled under prefers-reduced-motion.
+  let tgtX = 0,
+    tgtY = 0,
+    tgtScale = 1;
+  let velX = 0,
+    velY = 0;
+  let lastMoveT = 0,
+    lastMoveX = 0,
+    lastMoveY = 0;
+  let easeMotion = true;
+
   // tiles
   let loaded = new Map<string, Container>();
   let tileData = new Map<string, { city?: City; building?: Building }>();
@@ -219,25 +232,38 @@
     return pixelToHex((-cont.x + cw / 2) / cont.scale.x, (-cont.y + ch / 2) / cont.scale.y);
   };
 
-  const clampCam = () => {
-    if (!cont) return;
-    const s = cont.scale.x;
+  // Clamp a container position to the map bounds for a given scale (pure).
+  const clampPos = (x: number, y: number, s: number) => {
     const pad = 200;
     const mapW = $gameConfig.mapSize * 1.5 * S;
     const mapH = $gameConfig.mapSize * HEX_H;
-    const xMin = cw - mapW * s - pad;
-    const xMax = pad;
-    if (xMin < xMax) cont.x = Math.max(xMin, Math.min(xMax, cont.x));
-    const yMin = ch - mapH * s - pad;
-    const yMax = pad;
-    if (yMin < yMax) cont.y = Math.max(yMin, Math.min(yMax, cont.y));
+    const xMin = cw - mapW * s - pad,
+      xMax = pad;
+    const yMin = ch - mapH * s - pad,
+      yMax = pad;
+    if (xMin < xMax) x = Math.max(xMin, Math.min(xMax, x));
+    if (yMin < yMax) y = Math.max(yMin, Math.min(yMax, y));
+    return { x, y };
   };
 
-  const centerCam = (col: number, row: number) => {
+  // Snap the rendered camera to the current target immediately (used for init
+  // and when motion easing is disabled).
+  const applyCamNow = () => {
+    if (!cont) return;
+    cont.x = tgtX;
+    cont.y = tgtY;
+    cont.scale.set(tgtScale);
+    loadVisible();
+    mapCenter.set(getCenter());
+  };
+
+  const centerCam = (col: number, row: number, snap = false) => {
     const p = hexToPixel(col, row);
-    cont.x = -p.x * cont.scale.x + cw / 2;
-    cont.y = -p.y * cont.scale.y + ch / 2;
-    clampCam();
+    const c = clampPos(-p.x * tgtScale + cw / 2, -p.y * tgtScale + ch / 2, tgtScale);
+    tgtX = c.x;
+    tgtY = c.y;
+    velX = velY = 0;
+    if (snap || !easeMotion) applyCamNow();
   };
 
   // Pan to a city's center and select it: focus the actual city/town-center
@@ -247,9 +273,8 @@
     const col = center?.coords?.x ?? (city.start ? city.start.x + Math.floor(city.size / 2) : undefined);
     const row = center?.coords?.y ?? (city.start ? city.start.y + Math.floor(city.size / 2) : undefined);
     if (col === undefined || row === undefined) return;
+    // Glide to the city (centerCam eases toward the target).
     centerCam(col, row);
-    loadVisible();
-    mapCenter.set(getCenter());
     // Focus the center tile so its detail panel opens, same as a map click.
     sel = { x: col, y: row, ...tileData.get(tileKey(col, row)) };
     err = '';
@@ -260,24 +285,62 @@
   // Pan the camera by a pixel delta (shared by trackpad scroll + keyboard).
   const panBy = (dx: number, dy: number) => {
     if (!cont) return;
-    cont.x += dx;
-    cont.y += dy;
-    clampCam();
-    loadVisible();
-    mapCenter.set(getCenter());
+    const c = clampPos(tgtX + dx, tgtY + dy, tgtScale);
+    tgtX = c.x;
+    tgtY = c.y;
+    if (!easeMotion) applyCamNow();
   };
 
   // Zoom by a multiplicative factor anchored at screen point (ax, ay), clamped.
   const zoomAt = (ax: number, ay: number, factor: number) => {
     if (!cont) return;
-    const cur = cont.scale.x;
-    const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, cur * factor));
-    if (next === cur) return;
-    const f = next / cur;
-    cont.x = ax - (ax - cont.x) * f;
-    cont.y = ay - (ay - cont.y) * f;
-    cont.scale.set(next);
-    clampCam();
+    const next = Math.max(MIN_ZOOM, Math.min(MAX_ZOOM, tgtScale * factor));
+    if (next === tgtScale) return;
+    const f = next / tgtScale;
+    const c = clampPos(ax - (ax - tgtX) * f, ay - (ay - tgtY) * f, next);
+    tgtScale = next;
+    tgtX = c.x;
+    tgtY = c.y;
+    if (!easeMotion) applyCamNow();
+  };
+
+  // Per-frame camera step: apply release momentum to the target, then ease the
+  // rendered camera toward it. Frame-rate independent via exponential decay.
+  const animateCam = (dtMs: number) => {
+    if (!cont) return;
+    const dt = Math.min(dtMs, 50) / 1000;
+
+    // Drag-release glide: coast the target, decay velocity, stop at edges.
+    if (easeMotion && !drag && (Math.abs(velX) > 1 || Math.abs(velY) > 1)) {
+      const reqX = tgtX + velX * dt,
+        reqY = tgtY + velY * dt;
+      const c = clampPos(reqX, reqY, tgtScale);
+      if (c.x !== reqX) velX = 0;
+      if (c.y !== reqY) velY = 0;
+      tgtX = c.x;
+      tgtY = c.y;
+      const decay = Math.pow(0.0025, dt);
+      velX *= decay;
+      velY *= decay;
+      if (Math.abs(velX) < 1) velX = 0;
+      if (Math.abs(velY) < 1) velY = 0;
+    }
+
+    if (cont.x === tgtX && cont.y === tgtY && cont.scale.x === tgtScale) return;
+
+    // Ease toward target (snap instantly when motion easing is off).
+    const k = easeMotion ? 1 - Math.pow(0.0001, dt) : 1;
+    let nx = cont.x + (tgtX - cont.x) * k;
+    let ny = cont.y + (tgtY - cont.y) * k;
+    let ns = cont.scale.x + (tgtScale - cont.scale.x) * k;
+    if (Math.abs(nx - tgtX) < 0.05 && Math.abs(ny - tgtY) < 0.05 && Math.abs(ns - tgtScale) < 0.0002) {
+      nx = tgtX;
+      ny = tgtY;
+      ns = tgtScale;
+    }
+    cont.x = nx;
+    cont.y = ny;
+    cont.scale.set(ns);
     loadVisible();
     mapCenter.set(getCenter());
   };
@@ -336,6 +399,9 @@
     cw = el.clientWidth;
     ch = el.clientHeight;
     app.renderer.resize(cw, ch);
+    const c = clampPos(tgtX, tgtY, tgtScale);
+    tgtX = c.x;
+    tgtY = c.y;
     loadVisible();
   };
 
@@ -350,13 +416,16 @@
     cont.interactive = true;
     cont.hitArea = new Rectangle(-1e5, -1e5, 2e5, 2e5);
     app.stage.addChild(cont);
-    centerCam($mapCenter.x, $mapCenter.y);
+    easeMotion = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
+    centerCam($mapCenter.x, $mapCenter.y, true);
     setupInput();
     loadVisible();
 
     // Selection pulse + construction overlay animation
     app.ticker.add(() => {
       const t = performance.now() / 1000;
+
+      animateCam(app.ticker.deltaMS);
 
       if (selGfx) {
         selGfx.alpha = 0.85 + 0.15 * Math.sin(t * 2.5);
@@ -576,23 +645,43 @@
       dsy = p.y;
       csx = cont.x;
       csy = cont.y;
+      velX = velY = 0;
+      lastMoveT = performance.now();
+      lastMoveX = p.x;
+      lastMoveY = p.y;
     });
 
     cont.on('pointermove', (e) => {
       if (!drag) return;
       const p = e.data.global;
-      cont.x = csx + (p.x - dsx);
-      cont.y = csy + (p.y - dsy);
-      clampCam();
+      // Drag is 1:1 (no easing); keep the target locked to the rendered camera.
+      const c = clampPos(csx + (p.x - dsx), csy + (p.y - dsy), cont.scale.x);
+      cont.x = c.x;
+      cont.y = c.y;
+      tgtX = c.x;
+      tgtY = c.y;
+      // Track pointer velocity (px/sec) to seed release momentum.
+      const nowT = performance.now();
+      const dt = (nowT - lastMoveT) / 1000;
+      if (dt > 0) {
+        velX = (p.x - lastMoveX) / dt;
+        velY = (p.y - lastMoveY) / dt;
+      }
+      lastMoveT = nowT;
+      lastMoveX = p.x;
+      lastMoveY = p.y;
       loadVisible();
+      mapCenter.set(getCenter());
     });
 
     cont.on('pointerup', (e) => {
       if (!drag) return;
+      drag = false;
       const p = e.data.global;
       const dx = p.x - dsx,
         dy = p.y - dsy;
       if (Math.sqrt(dx * dx + dy * dy) < CLICK_DIST) {
+        velX = velY = 0;
         const mc = pixelToHex((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
         if (mc.x >= 0 && mc.y >= 0 && mc.x < $gameConfig.mapSize && mc.y < $gameConfig.mapSize) {
           const t = tileData.get(tileKey(mc.x, mc.y));
@@ -601,10 +690,15 @@
           showBuild = false;
           drawSel(mc.x, mc.y);
         }
-      } else {
+      } else if (!easeMotion || performance.now() - lastMoveT > 80) {
+        // No flick (or motion easing off): stop where released.
+        velX = velY = 0;
         mapCenter.set(getCenter());
+      } else {
+        // Flick: cap the throw speed; the ticker coasts the target from here.
+        velX = Math.max(-4000, Math.min(4000, velX));
+        velY = Math.max(-4000, Math.min(4000, velY));
       }
-      drag = false;
     });
 
     cont.on('pointerupoutside', () => {
@@ -694,7 +788,7 @@
         zoomAt(cw / 2, ch / 2, 1 / 1.15);
         break;
       case '0':
-        if (cont) zoomAt(cw / 2, ch / 2, 1 / cont.scale.x);
+        if (cont) zoomAt(cw / 2, ch / 2, 1 / tgtScale);
         break;
       case 'c':
       case 'C': {
