@@ -1,12 +1,12 @@
 <script lang="ts">
-  import { buildings, cities, mapCenter, token, username, gold, food, foodIncomePerDay, foodUpkeepPerDay, userId, gameConfig } from '$lib/stores';
+  import { buildings, cities, mapCenter, token, username, gold, food, foodIncomePerHour, foodUpkeepPerHour, userId, gameConfig } from '$lib/stores';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import { Application, Container, Graphics, Rectangle, Sprite } from 'pixi.js';
   import { S, HEX_H, HEX_VERTS, hexToPixel, pixelToHex, tileKey, hexNeighbors } from '$lib/game/hex';
   import { getTileTexture, TILE_ANCHOR_X, TILE_ANCHOR_Y, type TileKind } from '$lib/game/tiles';
-  import { ratePerDay, fmtPerDay, durationSeconds } from '$lib/game/rates';
+  import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import { BuildingType, CityType } from '$lib/gen/cityio/entity/v1/common_pb';
@@ -82,11 +82,11 @@
   // One-shot amounts (build costs): plain "<n> <resource>".
   const fmtRes = (r: { resource: string; amount: bigint }): string => `${r.amount.toString()} ${r.resource}`;
 
-  // Ongoing production flows, always normalized to per-day: "<n>/day <resource>".
-  const fmtProd = (r: ResourceRate): string => `${Math.round(ratePerDay(r.rate)).toLocaleString()}/day ${r.resource}`;
+  // Ongoing production flows, always normalized to per-hour: "<n>/hr <resource>".
+  const fmtProd = (r: ResourceRate): string => `${Math.round(ratePerHour(r.rate)).toLocaleString()}/hr ${r.resource}`;
 
-  // Net food into/out of the shared pool per day across all owned cities.
-  $: netFoodPerDay = $foodIncomePerDay - $foodUpkeepPerDay;
+  // Net food into/out of the shared pool per hour across all owned cities.
+  $: netFoodPerHour = $foodIncomePerHour - $foodUpkeepPerHour;
 
   // Live city state (food rates / starving) is pushed into the $cities store per
   // tick, while myCities is a one-shot snapshot — look up the fresh copy by id.
@@ -508,8 +508,8 @@
       <span class="text-xs text-gray-400">Gold <span class="tabular-nums text-amber-300">{$gold.toLocaleString()}</span></span>
       <span class="flex items-center gap-1.5 text-xs text-gray-400">
         Food <span class="tabular-nums text-emerald-300">{$food.toLocaleString()}</span>
-        {#if Math.round(netFoodPerDay) !== 0}
-          <span class="text-[10px] tabular-nums {netFoodPerDay > 0 ? 'text-emerald-400/70' : 'text-red-400'}" title="Net food into the shared pool per day">{fmtPerDay(netFoodPerDay)}/day</span>
+        {#if Math.round(netFoodPerHour) !== 0}
+          <span class="text-[10px] tabular-nums {netFoodPerHour > 0 ? 'text-emerald-400/70' : 'text-red-400'}" title="Net food into the shared pool per hour">{fmtPerHour(netFoodPerHour)}/hr</span>
         {/if}
       </span>
     </div>
@@ -594,19 +594,19 @@
             </div>
             <!-- Food economy is owner-only intel; non-owners receive these unset -->
             {#if sel.city.owner?.value === $userId}
-              {@const netFlow = ratePerDay(sel.city.netFoodFlow)}
+              {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
               <div class="mt-2 space-y-1 border-t border-white/[0.06] pt-2">
                 <div class="flex items-center justify-between text-[10px]">
                   <span class="text-gray-500">Food produced</span>
-                  <span class="tabular-nums text-emerald-400">{Math.round(ratePerDay(sel.city.foodProduction)).toLocaleString()}/day</span>
+                  <span class="tabular-nums text-emerald-400">{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
                 </div>
                 <div class="flex items-center justify-between text-[10px]">
                   <span class="text-gray-500">Food upkeep</span>
-                  <span class="tabular-nums text-red-400/80">{fmtPerDay(-ratePerDay(sel.city.foodUpkeep))}/day</span>
+                  <span class="tabular-nums text-red-400/80">{fmtPerHour(-ratePerHour(sel.city.foodUpkeep))}/hr</span>
                 </div>
                 <div class="flex items-center justify-between text-[10px]">
                   <span class="text-gray-500">{netFlow >= 0 ? 'Surplus to pool' : 'Drawn from pool'}</span>
-                  <span class="font-semibold tabular-nums {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerDay(netFlow)}/day</span>
+                  <span class="font-semibold tabular-nums {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerHour(netFlow)}/hr</span>
                 </div>
               </div>
             {/if}

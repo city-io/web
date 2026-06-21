@@ -25,9 +25,9 @@ export const username = persisted('user-name');
 export const gold = writable<bigint>(0n);
 export const food = writable<bigint>(0n);
 
-// Shared food pool flow rates, normalized to per-day, sampled live from the stream
-export const foodIncomePerDay = writable<number>(0);
-export const foodUpkeepPerDay = writable<number>(0);
+// Shared food pool flow rates, normalized to per-hour, sampled live from the stream
+export const foodIncomePerHour = writable<number>(0);
+export const foodUpkeepPerHour = writable<number>(0);
 
 // Game config (loaded from server). buildingTick/cityTick are actor cadences.
 export const gameConfig = writable<{

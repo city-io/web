@@ -1,7 +1,7 @@
 <script lang="ts">
   import { mapClient, userClient, configClient } from '$lib/api/client';
-  import { buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerDay, foodUpkeepPerDay, gameConfig, gold, mapCenter, userId } from '$lib/stores';
-  import { ratePerDay } from '$lib/game/rates';
+  import { buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerHour, foodUpkeepPerHour, gameConfig, gold, mapCenter, userId } from '$lib/stores';
+  import { ratePerHour } from '$lib/game/rates';
 
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
@@ -65,8 +65,8 @@
           if (u) {
             gold.set(u.gold);
             food.set(u.food);
-            foodIncomePerDay.set(ratePerDay(u.foodIncome));
-            foodUpkeepPerDay.set(ratePerDay(u.foodUpkeep));
+            foodIncomePerHour.set(ratePerHour(u.foodIncome));
+            foodUpkeepPerHour.set(ratePerHour(u.foodUpkeep));
           }
 
           // City delta updates (upsert by ID)
