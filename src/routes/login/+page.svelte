@@ -1,111 +1,143 @@
 <script lang="ts">
-	import { goto } from '$app/navigation';
-	import { userClient } from '$lib/api/client';
-	import {
-		email as emailStore,
-		username as usernameStore,
-		gold,
-		food,
-		token as tokenStore,
-		userId as userIdStore
-	} from '$lib/stores';
+  import { goto } from '$app/navigation';
+  import { userClient } from '$lib/api/client';
+  import { email as emailStore, username as usernameStore, gold, food, token as tokenStore, userId as userIdStore } from '$lib/stores';
 
-	let identifier = '';
-	let password = '';
-	let isLoading = false;
-	let errorMessage = '';
+  let identifier = '';
+  let password = '';
+  let showPassword = false;
+  let isLoading = false;
+  let errorMessage = '';
 
-	const handleLogin = async () => {
-		isLoading = true;
-		errorMessage = '';
+  const handleLogin = async () => {
+    isLoading = true;
+    errorMessage = '';
 
-		try {
-			const response = await userClient.login({ identifier, password });
-			tokenStore.set(response.token);
+    try {
+      const response = await userClient.login({ identifier, password });
+      tokenStore.set(response.token);
 
-			const user = response.user!;
-			userIdStore.set(user.userId?.value);
-			emailStore.set(user.email);
-			usernameStore.set(user.username);
-			gold.set(user.gold);
-			food.set(user.food);
+      const user = response.user!;
+      userIdStore.set(user.userId?.value);
+      emailStore.set(user.email);
+      usernameStore.set(user.username);
+      gold.set(user.gold);
+      food.set(user.food);
 
-			goto('/game');
-		} catch (error: unknown) {
-			errorMessage = error instanceof Error ? error.message : 'Invalid login credentials';
-		} finally {
-			isLoading = false;
-		}
-	};
+      goto('/game');
+    } catch (error: unknown) {
+      errorMessage = error instanceof Error ? error.message : 'Invalid login credentials';
+    } finally {
+      isLoading = false;
+    }
+  };
 </script>
 
 <svelte:head>
-	<title>Sign In - city.io</title>
+  <title>Sign In - city.io</title>
 </svelte:head>
 
-<main class="bg-gray-50">
-	<div class="mx-auto flex flex-col items-center justify-center px-6 py-8 md:h-screen lg:py-0">
-		<p class="font-heavy mb-6 flex items-center text-3xl text-gray-900">Sign in to city.io</p>
-		<div class="w-full rounded-lg bg-white shadow sm:max-w-md md:mt-0 xl:p-0">
-			{#if errorMessage}
-				<div class="border-l-4 border-red-500 bg-red-100 p-4 text-red-700" role="alert">
-					<p>{errorMessage}</p>
-				</div>
-			{/if}
-			<div class="space-y-4 p-6 sm:p-8 md:space-y-6">
-				<form class="space-y-4 md:space-y-6" on:submit|preventDefault={handleLogin}>
-					<div>
-						<label for="identifier" class="mb-2 block text-sm font-medium text-gray-900"
-							>Username or Email</label
-						>
-						<input
-							class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-gray-900 focus:border-blue-600 focus:ring-blue-600 sm:text-sm"
-							id="identifier"
-							type="text"
-							placeholder="example@prayujt.com"
-							bind:value={identifier}
-						/>
-					</div>
-					<div>
-						<label for="password" class="mb-2 block text-sm font-medium text-gray-900"
-							>Password</label
-						>
-						<input
-							class="block w-full rounded-lg border border-gray-300 bg-gray-50 p-2.5 text-gray-900 focus:border-blue-600 focus:ring-blue-600 sm:text-sm"
-							id="password"
-							type="password"
-							placeholder="******************"
-							bind:value={password}
-						/>
-					</div>
-					<button
-						class="flex w-full items-center justify-center rounded-lg bg-blue-600 px-5 py-2.5 text-center text-sm font-medium text-white hover:bg-blue-700 focus:outline-none"
-						type="submit"
-						disabled={isLoading}
-						style="min-width: 120px;"
-					>
-						{#if isLoading}
-							<span>Signing In...</span>
-							<div
-								class="ml-2 h-4 w-4 animate-spin rounded-full border-2 border-white border-t-transparent"
-							></div>
-						{:else}
-							Sign In
-						{/if}
-					</button>
-					<div class="flex items-center justify-center">
-						<a class="text-sm font-medium text-blue-600 hover:cursor-not-allowed hover:font-bold"
-							>Forgot password?</a
-						>
-					</div>
-					<p class="text-sm font-light">
-						Don't have an account?
-						<button class="font-medium text-blue-600" on:click={() => goto('/register')}>
-							Sign up
-						</button>
-					</p>
-				</form>
-			</div>
-		</div>
-	</div>
+<main class="relative flex min-h-screen items-center justify-center overflow-hidden bg-[#0b1a0e] px-4">
+  <!-- ambient background -->
+  <div class="pointer-events-none absolute inset-0">
+    <div class="absolute -left-24 top-1/4 h-80 w-80 rounded-full bg-emerald-500/10 blur-3xl"></div>
+    <div class="bottom-1/5 absolute -right-20 h-80 w-80 rounded-full bg-emerald-700/10 blur-3xl"></div>
+    <div class="absolute inset-0 bg-[radial-gradient(ellipse_at_top,_rgba(16,31,16,0)_0%,_rgba(8,18,10,0.6)_100%)]"></div>
+  </div>
+
+  <div class="relative w-full max-w-sm">
+    <!-- brand -->
+    <div class="mb-8 flex flex-col items-center text-center">
+      <div class="mb-4 flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-400 to-emerald-700 shadow-lg shadow-emerald-900/40">
+        <svg viewBox="0 0 24 24" fill="none" class="h-6 w-6 text-white">
+          <path d="M4 20V9l5-3v3l5-3v3l6-2v13H4z" fill="currentColor" opacity="0.95" />
+        </svg>
+      </div>
+      <h1 class="text-2xl font-semibold tracking-tight text-gray-50">city.io</h1>
+      <p class="mt-1 text-sm text-gray-500">Build, expand, and command your empire.</p>
+    </div>
+
+    <!-- card -->
+    <div class="rounded-2xl border border-white/10 bg-gray-900/60 p-6 shadow-2xl backdrop-blur-xl sm:p-7">
+      <h2 class="mb-5 text-sm font-semibold uppercase tracking-widest text-gray-500">Welcome back</h2>
+
+      {#if errorMessage}
+        <div class="mb-4 flex items-start gap-2 rounded-lg border border-red-500/20 bg-red-500/10 px-3 py-2.5 text-[13px] text-red-300" role="alert">
+          <svg viewBox="0 0 20 20" fill="currentColor" class="mt-0.5 h-4 w-4 shrink-0 text-red-400">
+            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 9a1 1 0 012 0v4a1 1 0 11-2 0V9zm1-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
+          </svg>
+          <span>{errorMessage}</span>
+        </div>
+      {/if}
+
+      <form class="space-y-4" on:submit|preventDefault={handleLogin}>
+        <div>
+          <label for="identifier" class="mb-1.5 block text-xs font-medium text-gray-400">Username or email</label>
+          <input
+            class="block w-full rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 text-sm text-gray-100 placeholder-gray-600 transition-colors focus:border-emerald-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+            id="identifier"
+            type="text"
+            autocomplete="username"
+            placeholder="you@example.com"
+            bind:value={identifier}
+          />
+        </div>
+
+        <div>
+          <label for="password" class="mb-1.5 block text-xs font-medium text-gray-400">Password</label>
+          <div class="relative">
+            <input
+              class="block w-full rounded-lg border border-white/10 bg-white/[0.04] px-3.5 py-2.5 pr-10 text-sm text-gray-100 placeholder-gray-600 transition-colors focus:border-emerald-500/50 focus:bg-white/[0.06] focus:outline-none focus:ring-1 focus:ring-emerald-500/40"
+              id="password"
+              type={showPassword ? 'text' : 'password'}
+              autocomplete="current-password"
+              placeholder="••••••••••••"
+              bind:value={password}
+            />
+            <button
+              type="button"
+              class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-gray-500 transition-colors hover:text-gray-300"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+              on:click={() => (showPassword = !showPassword)}
+            >
+              {#if showPassword}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4"
+                  ><path
+                    stroke-linecap="round"
+                    stroke-linejoin="round"
+                    d="M3 3l18 18M10.6 10.6a2 2 0 002.8 2.8M9.4 5.1A9.8 9.8 0 0112 5c5 0 9 4 9 7a11 11 0 01-2.3 3.2M6.2 6.2A11 11 0 003 12c0 3 4 7 9 7 1.2 0 2.3-.2 3.3-.6"
+                  /></svg
+                >
+              {:else}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="h-4 w-4"
+                  ><path stroke-linecap="round" stroke-linejoin="round" d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" /><circle cx="12" cy="12" r="2.5" /></svg
+                >
+              {/if}
+            </button>
+          </div>
+          <div class="mt-1.5 flex justify-end">
+            <button type="button" disabled class="cursor-not-allowed text-xs text-gray-600" title="Coming soon">Forgot password?</button>
+          </div>
+        </div>
+
+        <button
+          class="flex w-full items-center justify-center gap-2 rounded-lg bg-emerald-600 px-5 py-2.5 text-sm font-semibold text-white shadow-lg shadow-emerald-900/30 transition-colors hover:bg-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-500/40 disabled:cursor-not-allowed disabled:opacity-60"
+          type="submit"
+          disabled={isLoading}
+        >
+          {#if isLoading}
+            <div class="h-4 w-4 animate-spin rounded-full border-2 border-white/40 border-t-white"></div>
+            <span>Signing in…</span>
+          {:else}
+            Sign in
+          {/if}
+        </button>
+      </form>
+    </div>
+
+    <p class="mt-6 text-center text-sm text-gray-500">
+      Don't have an account?
+      <button class="font-medium text-emerald-400 transition-colors hover:text-emerald-300" on:click={() => goto('/register')}>Create one</button>
+    </p>
+  </div>
 </main>
