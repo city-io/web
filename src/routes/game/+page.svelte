@@ -829,8 +829,8 @@
 {#snippet popChip(rate: number)}
   {@const up = rate >= 0.5}
   {@const down = rate <= -0.5}
-  <span class="inline-flex items-center gap-1 {up ? 'text-emerald-400' : down ? 'text-red-400' : 'text-gray-500'}" title="Population change / hr">
-    <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3"
+  <span class="inline-flex shrink-0 items-center gap-1 whitespace-nowrap {up ? 'text-emerald-400' : down ? 'text-red-400' : 'text-gray-500'}" title="Population change / hr">
+    <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3 shrink-0"
       ><path
         d="M9 11a3.5 3.5 0 100-7 3.5 3.5 0 000 7zm0 1.5c-3.3 0-6 1.7-6 3.8V18h12v-1.7c0-2.1-2.7-3.8-6-3.8zm7.5-1.5a3 3 0 100-6 3 3 0 000 6zm.5 1.5c-.6 0-1.2.07-1.7.2 1.1.8 1.7 1.9 1.7 3.1V18h5v-1.5c0-1.9-2.3-3.5-5-3.5z"
       /></svg
@@ -937,12 +937,12 @@
                 {/if}
               </span>
             </div>
-            <div class="flex items-center gap-3 pl-3.5 text-[10px] tabular-nums">
-              <span class="flex items-center gap-1 text-amber-300/90" title="Gold production / hr">
+            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 pl-3.5 text-[10px] tabular-nums">
+              <span class="flex items-center gap-1 whitespace-nowrap text-amber-300/90" title="Gold production / hr">
                 <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><circle cx="12" cy="12" r="9" /></svg>
                 {Math.round(prod.gold).toLocaleString()}/hr
               </span>
-              <span class="flex items-center gap-1 {foodNet < 0 ? 'font-semibold text-red-400' : 'text-emerald-300/90'}" title="Net food / hr (production − upkeep)">
+              <span class="flex items-center gap-1 whitespace-nowrap {foodNet < 0 ? 'font-semibold text-red-400' : 'text-emerald-300/90'}" title="Net food / hr (production − upkeep)">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3"
                   ><path d="M3 14.5c0-4 3.5-6.5 9-6.5s9 2.5 9 6.5a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 14.5z" /><path d="M8.5 11c-.5 1.4-.5 2.8 0 4.2" /><path d="M12 10.6c-.5 1.5-.5 3 0 4.6" /><path
                     d="M15.5 11c-.5 1.4-.5 2.8 0 4.2"
@@ -990,10 +990,10 @@
                 <span class="rounded bg-gray-500/15 px-1.5 py-0.5 text-[9px] font-bold text-gray-400">NEUTRAL</span>
               {/if}
             </div>
-            <div class="mt-1 flex items-center gap-2 text-[11px] text-gray-500">
-              <span>{cName(sel.city.type)}</span>
+            <div class="mt-1 flex flex-wrap items-center gap-x-2 gap-y-1 text-[11px] text-gray-500">
+              <span class="whitespace-nowrap">{cName(sel.city.type)}</span>
               <span class="text-gray-700">&middot;</span>
-              <span>Pop {sel.city.population.toFixed(0)}<span class="text-gray-600">/{sel.city.populationCap.toFixed(0)}</span></span>
+              <span class="whitespace-nowrap">Pop {sel.city.population.toFixed(0)}<span class="text-gray-600">/{sel.city.populationCap.toFixed(0)}</span></span>
               <span class="text-gray-700">&middot;</span>
               {@render popChip(ratePerHour(sel.city.populationGrowth))}
               {#if sel.city.starving}
