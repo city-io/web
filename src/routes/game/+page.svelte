@@ -1,5 +1,6 @@
 <script lang="ts">
-  import { buildings, cities, mapCenter, token, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { buildings, cities, mapCenter, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import { fly, fade } from 'svelte/transition';
@@ -738,9 +739,7 @@
   };
 
   const logout = () => {
-    token.set(undefined);
-    username.set(undefined);
-    userId.set(undefined);
+    clearSession();
     goto('/login');
   };
 

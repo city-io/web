@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { userClient } from '$lib/api/client';
   import { token as tokenStore, userId as userIdStore } from '$lib/stores';
+  import { clearSession } from '$lib/session';
 
   let username = '';
   let email = '';
@@ -18,6 +19,8 @@
     }
     isLoading = true;
     errorMessage = '';
+    // Start from a clean slate so no prior session leaks into the new account.
+    clearSession();
 
     try {
       const response = await userClient.register({ username, email, password });

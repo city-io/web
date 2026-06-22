@@ -2,6 +2,7 @@
   import { goto } from '$app/navigation';
   import { userClient } from '$lib/api/client';
   import { email as emailStore, username as usernameStore, gold, food, token as tokenStore, userId as userIdStore } from '$lib/stores';
+  import { clearSession } from '$lib/session';
 
   let identifier = '';
   let password = '';
@@ -12,6 +13,8 @@
   const handleLogin = async () => {
     isLoading = true;
     errorMessage = '';
+    // Drop any prior session so a new login can never inherit stale state.
+    clearSession();
 
     try {
       const response = await userClient.login({ identifier, password });

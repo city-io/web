@@ -1,14 +1,23 @@
 <script lang="ts">
   import { mapClient, userClient, configClient } from '$lib/api/client';
-  import { buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerHour, foodUpkeepPerHour, gameConfig, gold, mapCenter, userId } from '$lib/stores';
+  import { token, buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerHour, foodUpkeepPerHour, gameConfig, gold, mapCenter, userId } from '$lib/stores';
   import { ratePerHour } from '$lib/game/rates';
+  import { isTokenValid, handleUnauthenticated } from '$lib/session';
+  import { Code, ConnectError } from '@connectrpc/connect';
 
+  import { get } from 'svelte/store';
   import { goto } from '$app/navigation';
   import { onMount } from 'svelte';
 
   let mapLoaded = false;
 
   onMount(() => {
+    // Never enter the game with an obviously dead token.
+    if (!isTokenValid(get(token))) {
+      handleUnauthenticated();
+      return;
+    }
+
     const abortController = new AbortController();
 
     loadConfig();
@@ -48,7 +57,10 @@
       }
 
       mapLoaded = true;
-    } catch {
+    } catch (err) {
+      // The auth interceptor already redirects on Unauthenticated; only handle
+      // other (network) failures here.
+      if (err instanceof ConnectError && err.code === Code.Unauthenticated) return;
       goto('/');
     }
   };
@@ -107,7 +119,11 @@
         }
       } catch (err: unknown) {
         if (signal.aborted) return;
-        // Reconnect after a delay
+        // A rejected session ends the stream for good; otherwise reconnect.
+        if (err instanceof ConnectError && err.code === Code.Unauthenticated) {
+          handleUnauthenticated();
+          return;
+        }
         await new Promise((r) => setTimeout(r, 3000));
       }
     }
