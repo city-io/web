@@ -5,6 +5,7 @@ import type { Duration } from '@bufbuild/protobuf/wkt';
 import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
 import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
 import type { BuildingConfig } from '$lib/gen/cityio/service/v1/config_pb';
+import type { WorldMap } from '$lib/game/world';
 
 const persisted = (key: string) => {
   const init = typeof window !== 'undefined' ? localStorage.getItem(key) || '' : '';
@@ -37,7 +38,14 @@ export const gameConfig = writable<{
   buildingTick?: Duration;
   cityTick?: Duration;
   buildings: BuildingConfig[];
-}>({ mapSize: 128, citySize: 5, visionRadius: 5, buildings: [] });
+  // These defaults must match the server (internal/constants/constants.go).
+  // They used to be 128/5/5, which only mattered if GetGameConfig failed —
+  // but terrain is generated from mapSize, so a wrong value here would build a
+  // different world for anyone whose config request didn't land.
+}>({ mapSize: 75, citySize: 5, visionRadius: 3, buildings: [] });
+
+/** Generated terrain. Null until the game layout has built it. */
+export const world = writable<WorldMap | null>(null);
 
 export const capital = writable<City | null>(null);
 export const mapCenter = writable<{ x: number; y: number }>({ x: 0, y: 0 });

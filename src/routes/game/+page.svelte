@@ -1,12 +1,16 @@
 <script lang="ts">
-  import { buildings, cities, mapCenter, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { buildings, cities, mapCenter, username, gold, food, userId, gameConfig, world } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import { fly, fade } from 'svelte/transition';
-  import { Application, Container, Graphics, Rectangle, Sprite } from 'pixi.js';
+  import { Application, Container, Graphics, Rectangle, Sprite, type Texture } from 'pixi.js';
   import { S, HEX_H, HEX_VERTS, hexToPixel, pixelToHex, tileKey, hexNeighbors } from '$lib/game/hex';
-  import { getTileTexture, TILE_ANCHOR_X, TILE_ANCHOR_Y, type TileKind } from '$lib/game/tiles';
+  import { varyColor } from '$lib/game/colors';
+  import { ANCHOR_X, ANCHOR_Y } from '$lib/game/render/geometry';
+  import { featureTexture, groundTexture, reliefTexture, riverTexture, specialTexture } from '$lib/game/render/terrainTex';
+  import { buildingTexture } from '$lib/game/render/buildingTex';
+  import { describeTile, Feature, Relief, Special, Terrain, SPECIAL_NAME } from '$lib/game/world';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
@@ -19,6 +23,8 @@
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
+  /** Cool desaturating multiply applied to terrain outside vision range. */
+  const FOG_TINT = 0x63758a;
 
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
@@ -494,6 +500,8 @@
     if (col < 0 || row < 0 || col >= $gameConfig.mapSize || row >= $gameConfig.mapSize) return;
     const k = tileKey(col, row);
     if (loaded.has(k)) return;
+    const w = $world;
+    if (!w) return;
 
     const td = tileData.get(k);
     const { x: px, y: py } = hexToPixel(col, row);
@@ -506,27 +514,36 @@
 
     const dist = myCities.length > 0 ? getVisDist(col, row) : 0;
     const inFog = dist > $gameConfig.visionRadius;
+    const i = row * w.w + col;
 
-    let kind: TileKind;
-    if (inFog) {
-      kind = 'fog';
-    } else if (td?.building) {
-      const bt = td.building.type;
-      if (bt === BuildingType.FARM) kind = 'farm';
-      else if (bt === BuildingType.MINE) kind = 'mine';
-      else if (bt === BuildingType.BARRACKS) kind = 'barracks';
-      else if (bt === BuildingType.CITY_CENTER) kind = 'city_center';
-      else if (bt === BuildingType.TOWN_CENTER) kind = 'town_center';
-      else kind = 'house';
-    } else if (td?.city) {
-      kind = 'city';
-    } else {
-      kind = 'grass';
+    // Terrain is drawn everywhere; outside vision it is desaturated rather than
+    // blacked out. Nothing leaks — the server filters entities by vision, so a
+    // fogged tile has no city or building to reveal in the first place.
+    const tint = inFog ? FOG_TINT : varyColor(0xffffff, col, row, 10);
+
+    const layer = (texture: Texture) => {
+      const spr = new Sprite(texture);
+      spr.anchor.set(ANCHOR_X, ANCHOR_Y);
+      spr.tint = tint;
+      tc.addChild(spr);
+      return spr;
+    };
+
+    const ground = w.terrain[i] as Terrain;
+    // Peaks are capped and conifers turn boreal on cold ground. Derived from
+    // the ground plane rather than a shipped temperature field.
+    const cold = ground === Terrain.TUNDRA || ground === Terrain.SNOW;
+    layer(groundTexture(ground, col, row));
+
+    if (w.rivers[i]) layer(riverTexture(w.rivers[i], col, row));
+    if (w.relief[i] !== Relief.FLAT) layer(reliefTexture(w.relief[i] as Relief, col, row, cold));
+    if (w.feature[i] !== Feature.UNSPECIFIED) layer(featureTexture(w.feature[i] as Feature, col, row, cold));
+    if (w.special[i] && !inFog) layer(specialTexture(w.special[i] as Special));
+
+    if (td?.building) {
+      const bt = buildingTexture(td.building.type);
+      if (bt) layer(bt);
     }
-
-    const spr = new Sprite(getTileTexture(kind, col, row));
-    spr.anchor.set(TILE_ANCHOR_X, TILE_ANCHOR_Y);
-    tc.addChild(spr);
 
     // Construction-in-progress overlay
     if (!inFog && td?.building?.constructionStart && td?.building?.constructionEnd) {

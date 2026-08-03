@@ -28,10 +28,19 @@ src/
 │   │   ├── transport.ts    # Connect RPC transport + JWT auth interceptor
 │   │   └── client.ts       # Service client exports (user, city, building, map, config)
 │   ├── game/
-│   │   ├── hex.ts          # Hex grid math (flat-top, odd-q offset), coordinate conversion
+│   │   ├── hex.ts          # Hex grid math (flat-top, odd-q offset), neighbor offsets
 │   │   ├── colors.ts       # Deterministic per-tile color variation, darken utility
-│   │   ├── tiles.ts        # Pixi tile texture generation per TileKind (grass, fog, buildings)
-│   │   └── rates.ts        # Rate/Duration proto → per-hour display numbers
+│   │   ├── rates.ts        # Rate/Duration proto → per-hour display numbers
+│   │   ├── world/          # Procedural terrain generation (client-side, purely visual)
+│   │   │   ├── rng.ts      # Deterministic hashing + mulberry32
+│   │   │   ├── noise.ts    # Gradient noise, fBm, ridged, domain warp, quantile
+│   │   │   ├── terrain.ts  # Terrain/Relief/Feature/Special planes + generateWorld
+│   │   │   ├── settlements.ts # Carves land under server-placed cities
+│   │   │   └── index.ts    # Re-exports + WORLD_SEED
+│   │   └── render/
+│   │       ├── geometry.ts # Shared texture geometry, anchors, hex/extrusion drawing
+│   │       ├── terrainTex.ts  # Ground / relief / feature / river / special textures
+│   │       └── buildingTex.ts # Transparent building sprites
 │   ├── gen/cityio/         # Generated protobuf code, entity/v1 + service/v1 (DO NOT edit manually)
 │   ├── session.ts          # clearSession, token validity check, 401 → /login handling
 │   └── stores.ts           # Svelte stores (auth, resources, game config, map state)
@@ -53,7 +62,35 @@ proto/cityio/               # Protobuf definitions (mirrored from backend)
 - Tile size: `S = 50` (center-to-vertex, ~100px wide)
 - Coordinate conversion in `src/lib/game/hex.ts`
 - 3D effect: extruded side faces + directional lighting bevel on top face
-- Fog of war: Chebyshev distance from owned city AABBs
+- Fog of war: Chebyshev distance from owned city AABBs. Kept Chebyshev on
+  purpose — it mirrors `domain.PointVisible` on the server, and switching the
+  client to true hex distance would make the fog ring disagree with which
+  entities actually arrive.
+
+### Terrain (client-side, purely visual)
+The server has no concept of terrain: it serves only cities and buildings on a
+featureless 75×75 grid. Terrain is generated in the browser from a fixed seed
+(`WORLD_SEED`), so every player sees the same continents and they survive both a
+reload and a backend reboot. It has **no gameplay effect** — no yields, no
+placement rules.
+
+- **Three orthogonal planes** — ground `Terrain`, `Relief`, `Feature` — rather
+  than one flat biome enum, so a feature composites over any ground and
+  forest-on-tundra costs no extra art.
+- **Sample noise in pixel space** via `hexToPixel`, never on `(col, row)`.
+  Columns are `1.5*S` apart and rows `HEX_H`, so grid-space sampling stretches
+  every coastline 1.73× horizontally on screen.
+- **No `Math.sin/cos/pow/exp/log` anywhere under `world/`.** ECMAScript permits
+  implementation-defined accuracy for transcendentals, so one of them would let
+  two browsers generate different worlds. `Math.sqrt` and `+ - * /` are
+  correctly rounded and safe.
+- **Thresholds are quantiles, not constants**, so retuning the noise can't
+  flood or drown the map — land is exactly `LAND_FRACTION`.
+- **`settlements.ts` carves land under settlements**, because the server drops
+  towns wherever it likes. It recomputes from the pristine planes every time so
+  it can never compound, and only ever raises ground.
+- `/dev/world` is an unlinked tuning page that renders the whole map without a
+  backend. Query params: `seed`, `zoom`, `cx`, `cy`, `carve=0`.
 
 ### RPC Services
 All defined in `proto/cityio/service/v1/` (package `cityio.service.v1`, so procedure names are
@@ -97,7 +134,9 @@ Requires the `buf` CLI on `PATH` (tested with v1.69.0). Without it `yarn generat
 
 ## Code Style
 
-- Tabs for indentation (in Svelte/TS files)
+- **2 spaces** for indentation — `.prettierrc` is `useTabs: false, tabWidth: 2`.
+  (This file previously claimed tabs; the config is authoritative, and the few
+  tab-indented files that disagreed with it failed `yarn lint`.)
 - Single quotes, no trailing commas
 - Print width: 200
 - Prettier plugins: svelte, tailwindcss

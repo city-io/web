@@ -1,0 +1,61 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+// The map is described by three orthogonal planes rather than one flat list of
+// biomes. Collapsed into one, forest-on-tundra and forest-on-plains would be
+// separate values needing separate art; kept apart, a feature composites over
+// any ground and the client's texture count stays small.
+//
+// Every plane is transmitted as one byte per tile holding these enum values, so
+// the numbering here is the wire format — inserting a value in the middle
+// silently reinterprets every existing tile.
+
+// TerrainType is the ground cover of a tile.
+enum TerrainType {
+  TERRAIN_TYPE_UNSPECIFIED = 0;
+  TERRAIN_TYPE_DEEP_OCEAN = 1;
+  TERRAIN_TYPE_OCEAN = 2;
+  TERRAIN_TYPE_COAST = 3;
+  TERRAIN_TYPE_LAKE = 4;
+  TERRAIN_TYPE_BEACH = 5;
+  TERRAIN_TYPE_GRASSLAND = 6;
+  TERRAIN_TYPE_PLAINS = 7;
+  TERRAIN_TYPE_DESERT = 8;
+  TERRAIN_TYPE_TUNDRA = 9;
+  TERRAIN_TYPE_SNOW = 10;
+}
+
+// ReliefType is the landform, drawn over the ground.
+enum ReliefType {
+  RELIEF_TYPE_UNSPECIFIED = 0;
+  RELIEF_TYPE_FLAT = 1;
+  RELIEF_TYPE_HILLS = 2;
+  RELIEF_TYPE_MOUNTAINS = 3;
+}
+
+// FeatureType is vegetation or surface cover, drawn over both. The unspecified
+// zero doubles as "no feature": a tile with none specified simply has none.
+enum FeatureType {
+  FEATURE_TYPE_UNSPECIFIED = 0;
+  FEATURE_TYPE_FOREST = 1;
+  FEATURE_TYPE_JUNGLE = 2;
+  FEATURE_TYPE_MARSH = 3;
+  FEATURE_TYPE_OASIS = 4;
+  FEATURE_TYPE_ICE = 5;
+}
+
+// SpecialType marks a bonus resource. Decorative for now — terrain has no
+// effect on yields. The unspecified zero doubles as "no resource".
+enum SpecialType {
+  SPECIAL_TYPE_UNSPECIFIED = 0;
+  SPECIAL_TYPE_WHEAT = 1;
+  SPECIAL_TYPE_GAME = 2;
+  SPECIAL_TYPE_FURS = 3;
+  SPECIAL_TYPE_FISH = 4;
+  SPECIAL_TYPE_WHALES = 5;
+  SPECIAL_TYPE_COAL = 6;
+  SPECIAL_TYPE_IRON = 7;
+  SPECIAL_TYPE_GOLD = 8;
+  SPECIAL_TYPE_GEMS = 9;
+}

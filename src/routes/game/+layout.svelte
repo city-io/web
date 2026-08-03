@@ -1,6 +1,6 @@
 <script lang="ts">
   import { mapClient, userClient, configClient } from '$lib/api/client';
-  import { token, buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerHour, foodUpkeepPerHour, gameConfig, gold, mapCenter, userId } from '$lib/stores';
+  import { token, buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerHour, foodUpkeepPerHour, gameConfig, gold, mapCenter, userId, world } from '$lib/stores';
   import { ratePerHour } from '$lib/game/rates';
   import { isTokenValid, handleUnauthenticated } from '$lib/session';
   import { Code, ConnectError } from '@connectrpc/connect';
@@ -20,10 +20,14 @@
 
     const abortController = new AbortController();
 
-    loadConfig();
-    // Load map first, then start stream so the stream's initial snapshot
-    // (from actor memory, always fresh) upserts over potentially stale DB data
-    loadMap().then(() => startStream(abortController.signal));
+    // Config, entities and terrain load in parallel; nothing renders until all
+    // three have landed. The stream starts last so its snapshot (from actor
+    // memory, always fresh) upserts over potentially stale DB data.
+    Promise.all([loadConfig(), loadMap(), loadTerrain()]).then(([, mapOk, terrainOk]) => {
+      if (!mapOk || !terrainOk) return;
+      mapLoaded = true;
+      startStream(abortController.signal);
+    });
 
     return () => {
       abortController.abort();
@@ -39,7 +43,21 @@
     }
   };
 
-  const loadMap = async () => {
+  // Terrain is generated and owned by the server. It never changes, so this is
+  // fetched once and cached for the session.
+  const loadTerrain = async (): Promise<boolean> => {
+    try {
+      const t = await mapClient.getTerrain({});
+      world.set({ w: t.width, h: t.height, seed: t.seed, terrain: t.terrain, relief: t.relief, feature: t.feature, special: t.special, rivers: t.rivers });
+      return true;
+    } catch (err) {
+      if (err instanceof ConnectError && err.code === Code.Unauthenticated) return false;
+      goto('/');
+      return false;
+    }
+  };
+
+  const loadMap = async (): Promise<boolean> => {
     try {
       const response = await mapClient.getMap({});
       citiesStore.set(response.entities?.cities ?? []);
@@ -56,12 +74,13 @@
         });
       }
 
-      mapLoaded = true;
+      return true;
     } catch (err) {
       // The auth interceptor already redirects on Unauthenticated; only handle
       // other (network) failures here.
-      if (err instanceof ConnectError && err.code === Code.Unauthenticated) return;
+      if (err instanceof ConnectError && err.code === Code.Unauthenticated) return false;
       goto('/');
+      return false;
     }
   };
 
