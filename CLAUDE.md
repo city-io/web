@@ -101,3 +101,42 @@ Requires the `buf` CLI on `PATH` (tested with v1.69.0). Without it `yarn generat
 - Single quotes, no trailing commas
 - Print width: 200
 - Prettier plugins: svelte, tailwindcss
+
+# Git & PR Conventions
+
+These rules are STRICT and MUST be followed exactly. No exceptions.
+
+## Conventional Commits (REQUIRED)
+
+Every commit message MUST follow the [Conventional Commits](https://www.conventionalcommits.org/) spec:
+
+```
+<type>(<optional scope>): <description>
+
+<optional body>
+
+<optional footer>
+```
+
+- **Allowed types:** `feat`, `fix`, `docs`, `style`, `refactor`, `perf`, `test`, `build`, `ci`, `chore`, `revert`
+- The `<description>` MUST be lowercase, imperative mood ("add" not "added"/"adds"), and MUST NOT end with a period.
+- Keep the subject line under 72 characters.
+- Use a `!` after the type/scope (e.g. `feat!:`) or a `BREAKING CHANGE:` footer for breaking changes.
+- Scope is optional but encouraged; use a short, lowercase noun (e.g. `feat(game): ...`, `fix(api): ...`).
+- Put the "why" in the body, not just the "what". Wrap body lines at 72 characters.
+
+## PR Titles (REQUIRED)
+
+- PR titles MUST also follow Conventional Commits format, identical to a commit subject line.
+- Example: `feat(game): add fog-of-war reveal animation`
+- Do NOT include ticket numbers, emojis, or trailing punctuation in the title.
+
+## PR Descriptions (REQUIRED)
+
+PR descriptions MUST be clean, structured, and complete:
+
+- Start with a short `## Summary` section (1-3 bullet points) explaining what changed and why.
+- Include a `## Test plan` section with a markdown checklist of how the change was verified.
+- Reference related issues where applicable (e.g. `Closes #123`).
+- No filler, no AI attribution, no auto-generated noise.
+- Keep it concise and skimmable — reviewers should understand the change without reading every line of the diff.
