@@ -1,6 +1,7 @@
 <script lang="ts">
   import { mapClient, userClient, configClient } from '$lib/api/client';
   import { token, buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerHour, foodUpkeepPerHour, gameConfig, gold, mapCenter, userId, world } from '$lib/stores';
+  import { applyVisibility, worldFromTerrain } from '$lib/game/world';
   import { ratePerHour } from '$lib/game/rates';
   import { isTokenValid, handleUnauthenticated } from '$lib/session';
   import { Code, ConnectError } from '@connectrpc/connect';
@@ -43,12 +44,13 @@
     }
   };
 
-  // Terrain is generated and owned by the server. It never changes, so this is
-  // fetched once and cached for the session.
+  // Terrain is generated and owned by the server. The bootstrap carries the
+  // whole charted map — remembered ground stays known — plus what is lit right
+  // now; the stream keeps both current as units move.
   const loadTerrain = async (): Promise<boolean> => {
     try {
       const t = await mapClient.getTerrain({});
-      world.set({ w: t.width, h: t.height, seed: t.seed, terrain: t.terrain, relief: t.relief, feature: t.feature, special: t.special, rivers: t.rivers });
+      world.set(worldFromTerrain(t));
       return true;
     } catch (err) {
       if (err instanceof ConnectError && err.code === Code.Unauthenticated) return false;
@@ -88,6 +90,15 @@
     while (!signal.aborted) {
       try {
         for await (const state of userClient.streamState({}, { signal })) {
+          // Vision moved: chart any newly seen ground and update the lit set.
+          // Absent on most ticks, since only a city or army moving changes it.
+          if (state.visibility) {
+            world.update((w) => {
+              if (w) applyVisibility(w, state.visibility!);
+              return w;
+            });
+          }
+
           const bag = state.entities;
           if (!bag) continue;
 
