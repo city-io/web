@@ -5,6 +5,7 @@ package cityio.service.v1;
 import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/user.proto";
 import "cityio/entity/v1/bag.proto";
+import "cityio/service/v1/map.proto";
 
 message RegisterRequest {
   string email = 1;
@@ -42,6 +43,10 @@ message StreamStateRequest {}
 // StreamStateResponse wraps an EntityBag pushed to a client whenever state changes.
 message StreamStateResponse {
   cityio.entity.v1.EntityBag entities = 1;
+  // The player's currently visible ground, sent whole whenever it changes and
+  // omitted when it has not. Absent on most ticks, since vision only moves when
+  // a city, army or watchtower does.
+  optional VisibleTerrain visible_terrain = 2;
 }
 
 // UserService manages player accounts and the per-user resource stream.

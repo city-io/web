@@ -1,6 +1,7 @@
 <script lang="ts">
   import { mapClient, userClient, configClient } from '$lib/api/client';
   import { token, buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerHour, foodUpkeepPerHour, gameConfig, gold, mapCenter, userId, world } from '$lib/stores';
+  import { applyVisibleTerrain, emptyWorld } from '$lib/game/world';
   import { ratePerHour } from '$lib/game/rates';
   import { isTokenValid, handleUnauthenticated } from '$lib/session';
   import { Code, ConnectError } from '@connectrpc/connect';
@@ -43,12 +44,15 @@
     }
   };
 
-  // Terrain is generated and owned by the server. It never changes, so this is
-  // fetched once and cached for the session.
+  // Terrain is generated and owned by the server, and only the ground the
+  // player can currently see is sent. Vision is ephemeral, so the stream keeps
+  // this up to date as cities, armies and held structures move.
   const loadTerrain = async (): Promise<boolean> => {
     try {
       const t = await mapClient.getTerrain({});
-      world.set({ w: t.width, h: t.height, seed: t.seed, terrain: t.terrain, relief: t.relief, feature: t.feature, special: t.special, rivers: t.rivers });
+      const w = emptyWorld(t.width, t.height, t.seed);
+      if (t.visible) applyVisibleTerrain(w, t.visible);
+      world.set(w);
       return true;
     } catch (err) {
       if (err instanceof ConnectError && err.code === Code.Unauthenticated) return false;
@@ -88,6 +92,15 @@
     while (!signal.aborted) {
       try {
         for await (const state of userClient.streamState({}, { signal })) {
+          // Vision moved: replace what the player can see. Absent on most
+          // ticks, since only a city, army or watchtower moving changes it.
+          if (state.visibleTerrain) {
+            world.update((w) => {
+              if (w) applyVisibleTerrain(w, state.visibleTerrain!);
+              return w;
+            });
+          }
+
           const bag = state.entities;
           if (!bag) continue;
 

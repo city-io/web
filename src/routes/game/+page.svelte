@@ -8,7 +8,7 @@
   import { S, HEX_H, HEX_VERTS, hexToPixel, pixelToHex, tileKey, hexNeighbors } from '$lib/game/hex';
   import { varyColor } from '$lib/game/colors';
   import { ANCHOR_X, ANCHOR_Y } from '$lib/game/render/geometry';
-  import { featureTexture, groundTexture, reliefTexture, riverTexture, specialTexture } from '$lib/game/render/terrainTex';
+  import { featureTexture, groundTexture, reliefTexture, riverTexture, shroudTexture, specialTexture } from '$lib/game/render/terrainTex';
   import { buildingTexture } from '$lib/game/render/buildingTex';
   import { describeTile, Feature, Relief, Special, Terrain, SPECIAL_NAME } from '$lib/game/world';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
@@ -23,8 +23,6 @@
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
-  /** Cool desaturating multiply applied to terrain outside vision range. */
-  const FOG_TINT = 0x63758a;
 
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
@@ -182,6 +180,10 @@
       rebuildTiles();
     });
   };
+  // Vision moved, so the set of lit tiles changed — redraw. The store is
+  // updated in place, but Svelte notifies on every set regardless of identity.
+  $: if ($world) scheduleRender();
+
   $: if ($cities || $buildings) {
     buildLookup();
     // Immediately hide construction overlays for finished/removed constructions
@@ -220,19 +222,22 @@
   };
 
   // ── visibility (fog of war) ─────────────────────────────
-  const getVisDist = (col: number, row: number): number => {
-    let min = Infinity;
-    for (const city of myCities) {
-      if (!city.start) continue;
-      const sx = city.start.x,
-        sy = city.start.y,
-        s = city.size;
-      const dx = Math.max(sx - col, col - (sx + s - 1), 0);
-      const dy = Math.max(sy - row, row - (sy + s - 1), 0);
-      min = Math.min(min, Math.max(dx, dy));
-    }
-    return min;
+  // The server decides visibility and sends only what it grants, so ask the
+  // world rather than recomputing a distance the client would get wrong —
+  // armies grant vision too, and the client does not track their radius.
+  const tileIsVisible = (col: number, row: number): boolean => {
+    const w = $world;
+    if (!w || col < 0 || row < 0 || col >= w.w || row >= w.h) return false;
+    return w.visible[row * w.w + col] === 1;
   };
+
+  /** Terrain description for the selected tile, e.g. "Grassland · Hills · Forest". */
+  const tileTerrain = (col: number, row: number): string => {
+    const w = $world;
+    if (!w || !tileIsVisible(col, row)) return '';
+    return describeTile(w, col, row);
+  };
+
 
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
@@ -512,37 +517,38 @@
     cont.addChild(tc);
     loaded.set(k, tc);
 
-    const dist = myCities.length > 0 ? getVisDist(col, row) : 0;
-    const inFog = dist > $gameConfig.visionRadius;
     const i = row * w.w + col;
-
-    // Terrain is drawn everywhere; outside vision it is desaturated rather than
-    // blacked out. Nothing leaks — the server filters entities by vision, so a
-    // fogged tile has no city or building to reveal in the first place.
-    const tint = inFog ? FOG_TINT : varyColor(0xffffff, col, row, 10);
+    // The server decides what is visible and sends only that ground. Vision is
+    // ephemeral, so a tile goes dark again the moment nothing of the player's
+    // is watching it — there is no remembered terrain to fall back on.
+    const inFog = w.visible[i] !== 1;
 
     const layer = (texture: Texture) => {
       const spr = new Sprite(texture);
       spr.anchor.set(ANCHOR_X, ANCHOR_Y);
-      spr.tint = tint;
+      spr.tint = varyColor(0xffffff, col, row, 10);
       tc.addChild(spr);
       return spr;
     };
 
-    const ground = w.terrain[i] as Terrain;
-    // Peaks are capped and conifers turn boreal on cold ground. Derived from
-    // the ground plane rather than a shipped temperature field.
-    const cold = ground === Terrain.TUNDRA || ground === Terrain.SNOW;
-    layer(groundTexture(ground, col, row));
+    if (inFog) {
+      layer(shroudTexture());
+    } else {
+      const ground = w.terrain[i] as Terrain;
+      // Peaks are capped and conifers turn boreal on cold ground. Derived from
+      // the ground plane rather than a shipped temperature field.
+      const cold = ground === Terrain.TUNDRA || ground === Terrain.SNOW;
+      layer(groundTexture(ground, col, row));
 
-    if (w.rivers[i]) layer(riverTexture(w.rivers[i], col, row));
-    if (w.relief[i] !== Relief.FLAT) layer(reliefTexture(w.relief[i] as Relief, col, row, cold));
-    if (w.feature[i] !== Feature.UNSPECIFIED) layer(featureTexture(w.feature[i] as Feature, col, row, cold));
-    if (w.special[i] && !inFog) layer(specialTexture(w.special[i] as Special));
+      if (w.rivers[i]) layer(riverTexture(w.rivers[i], col, row));
+      if (w.relief[i] !== Relief.FLAT) layer(reliefTexture(w.relief[i] as Relief, col, row, cold));
+      if (w.feature[i] !== Feature.UNSPECIFIED) layer(featureTexture(w.feature[i] as Feature, col, row, cold));
+      if (w.special[i]) layer(specialTexture(w.special[i] as Special));
 
-    if (td?.building) {
-      const bt = buildingTexture(td.building.type);
-      if (bt) layer(bt);
+      if (td?.building) {
+        const bt = buildingTexture(td.building.type);
+        if (bt) layer(bt);
+      }
     }
 
     // Construction-in-progress overlay
@@ -582,8 +588,16 @@
         }
       }
 
-      // Visibility edge glow
-      if (dist >= $gameConfig.visionRadius - 1) {
+      // Visibility edge glow — a lit tile with an unlit neighbour is the edge
+      // of what the player can currently see.
+      let onVisionEdge = false;
+      for (const [nc, nr] of hexNeighbors(col, row)) {
+        if (nc < 0 || nr < 0 || nc >= w.w || nr >= w.h || w.visible[nr * w.w + nc] !== 1) {
+          onVisionEdge = true;
+          break;
+        }
+      }
+      if (onVisionEdge) {
         g.poly(HEX_VERTS);
         g.stroke({ color: 0x40a0b0, width: 1.5, alpha: 0.2 });
         hasOverlay = true;
@@ -978,7 +992,15 @@
       <div class="pointer-events-auto space-y-3 rounded-lg bg-gray-900/85 p-3 backdrop-blur-sm" transition:fly={{ x: 16, duration: 200 }}>
         <!-- Header -->
         <div class="flex items-center justify-between">
-          <span class="rounded-md bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-gray-500">{sel.x}, {sel.y}</span>
+          <span class="flex items-center gap-2">
+            <span class="rounded-md bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-gray-500">{sel.x}, {sel.y}</span>
+            {#if tileTerrain(sel.x, sel.y)}
+              <span class="text-[11px] text-gray-400">{tileTerrain(sel.x, sel.y)}</span>
+            {/if}
+            {#if tileIsVisible(sel.x, sel.y) && $world && $world.special[sel.y * $world.w + sel.x]}
+              <span class="rounded-md bg-amber-500/15 px-1.5 py-0.5 text-[10px] text-amber-300">{SPECIAL_NAME[$world.special[sel.y * $world.w + sel.x]]}</span>
+            {/if}
+          </span>
           <button
             aria-label="Close"
             class="flex h-5 w-5 items-center justify-center rounded-lg text-gray-600 transition-colors duration-150 hover:bg-white/[0.06] hover:text-gray-300"
@@ -1198,7 +1220,7 @@
         {:else if !sel.city}
           <!-- Empty tile message -->
           <div class="py-3 text-center text-xs text-gray-600">
-            {myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius ? 'Beyond visibility range' : 'No structures on this tile'}
+            {tileIsVisible(sel.x, sel.y) ? 'No structures on this tile' : 'Nothing of yours is watching this tile'}
           </div>
         {/if}
       </div>

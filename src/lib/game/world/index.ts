@@ -18,6 +18,55 @@ export interface WorldMap {
   special: Uint8Array;
   /** 6-bit mask per tile: bit i means a river continues toward neighbor i. */
   rivers: Uint8Array;
+  /**
+   * 1 where the player can see the ground right now. Vision is ephemeral — it
+   * lasts only while a city, army or held structure is watching — so tiles
+   * leave this set as readily as they enter it, and the planes above are only
+   * meaningful where it is set.
+   */
+  visible: Uint8Array;
+}
+
+export function emptyWorld(w: number, h: number, seed: bigint): WorldMap {
+  const n = w * h;
+  return {
+    w,
+    h,
+    seed,
+    terrain: new Uint8Array(n),
+    relief: new Uint8Array(n),
+    feature: new Uint8Array(n),
+    special: new Uint8Array(n),
+    rivers: new Uint8Array(n),
+    visible: new Uint8Array(n)
+  };
+}
+
+/**
+ * Replace what the player can see with the set the server just sent.
+ *
+ * The whole set arrives every time rather than a reveal-only delta, because
+ * losing sight of ground is as common as gaining it. Clearing first is what
+ * makes a tile actually go dark when the army watching it walks away.
+ */
+export function applyVisibleTerrain(world: WorldMap, v: { indices: number[]; terrain: Uint8Array; relief: Uint8Array; feature: Uint8Array; special: Uint8Array; rivers: Uint8Array }): void {
+  world.terrain.fill(0);
+  world.relief.fill(0);
+  world.feature.fill(0);
+  world.special.fill(0);
+  world.rivers.fill(0);
+  world.visible.fill(0);
+
+  for (let k = 0; k < v.indices.length; k++) {
+    const i = v.indices[k];
+    if (i < 0 || i >= world.visible.length) continue;
+    world.terrain[i] = v.terrain[k];
+    world.relief[i] = v.relief[k];
+    world.feature[i] = v.feature[k];
+    world.special[i] = v.special[k];
+    world.rivers[i] = v.rivers[k];
+    world.visible[i] = 1;
+  }
 }
 
 export const isWater = (t: TerrainType) => t >= TerrainType.DEEP_OCEAN && t <= TerrainType.LAKE;
