@@ -90,7 +90,7 @@ export const CoordinatesSchema: GenMessage<Coordinates> = /*@__PURE__*/
 /**
  * Rate expresses a value-per-time as an integer "value" and a "scale" in
  * seconds. value / scale is the rate per second. For resource flows scale is
- * typically 86400 (per day).
+ * typically 3600 (per hour).
  *
  * @generated from message cityio.entity.v1.Rate
  */

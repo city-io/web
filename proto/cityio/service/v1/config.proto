@@ -11,7 +11,7 @@ message ResourceAmount {
   int64 amount = 2;
 }
 
-// ResourceRate is an ongoing flow (e.g. production per day).
+// ResourceRate is an ongoing flow (e.g. production per hour).
 message ResourceRate {
   string resource = 1;
   cityio.entity.v1.Rate rate = 2;

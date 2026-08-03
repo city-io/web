@@ -29,8 +29,11 @@ src/
 │   │   └── client.ts       # Service client exports (user, city, building, map, config)
 │   ├── game/
 │   │   ├── hex.ts          # Hex grid math (flat-top, odd-q offset), coordinate conversion
-│   │   └── colors.ts       # Deterministic per-tile color variation, darken utility
-│   ├── gen/cityio/v1/      # Generated protobuf code (DO NOT edit manually)
+│   │   ├── colors.ts       # Deterministic per-tile color variation, darken utility
+│   │   ├── tiles.ts        # Pixi tile texture generation per TileKind (grass, fog, buildings)
+│   │   └── rates.ts        # Rate/Duration proto → per-hour display numbers
+│   ├── gen/cityio/         # Generated protobuf code, entity/v1 + service/v1 (DO NOT edit manually)
+│   ├── session.ts          # clearSession, token validity check, 401 → /login handling
 │   └── stores.ts           # Svelte stores (auth, resources, game config, map state)
 ├── routes/
 │   ├── +page.svelte        # Home/landing page
@@ -39,7 +42,9 @@ src/
 │   └── game/
 │       ├── +layout.svelte  # Loads map data, game config, starts resource stream
 │       └── +page.svelte    # Main game: Pixi.js hex rendering, UI panels, building CRUD
-proto/cityio/v1/            # Protobuf definitions (mirrored from backend)
+proto/cityio/               # Protobuf definitions (mirrored from backend)
+├── entity/v1/              # Typed IDs, enums, Coordinates, Rate, entities, EntityBag
+└── service/v1/             # RPC request/response messages + service definitions
 ```
 
 ## Key Architecture
@@ -51,7 +56,8 @@ proto/cityio/v1/            # Protobuf definitions (mirrored from backend)
 - Fog of war: Chebyshev distance from owned city AABBs
 
 ### RPC Services
-All defined in `proto/cityio/v1/`:
+All defined in `proto/cityio/service/v1/` (package `cityio.service.v1`, so procedure names are
+`/cityio.service.v1.UserService/Login` etc.):
 - **ConfigService** — `GetGameConfig` (map size, vision radius, etc.)
 - **UserService** — Register, Login, GetUser, StreamState (gold/food SSE)
 - **CityService** — GetCity, CreateCity, ListCities
@@ -71,17 +77,23 @@ Svelte writable stores in `src/lib/stores.ts`:
 
 ## Proto Generation
 
-Proto files live in `proto/` and must match the backend (`cityio-backend/proto/`). To regenerate after proto changes:
+Proto files live in `proto/` and are a manual copy of the backend's — the backend repo is the
+authoritative side, and nothing enforces that the two stay in sync. Regenerate after any proto
+change:
 
 ```sh
-# Copy updated protos from backend
-cp ../cityio-backend/proto/cityio/v1/*.proto proto/cityio/v1/
+# Copy the whole tree from the sibling backend checkout (entity/v1 + service/v1)
+cp -R ../backend/proto/cityio/ proto/cityio/
 
-# Regenerate TypeScript
-buf generate
+# Verify they now match — this must print nothing
+diff -r ../backend/proto proto
+
+# Regenerate TypeScript into src/lib/gen/
+yarn generate
 ```
 
-Requires `buf` CLI installed (tested with v1.69.0).
+Requires the `buf` CLI on `PATH` (tested with v1.69.0). Without it `yarn generate` fails with
+`buf: command not found`, and the generated code silently keeps describing the old contract.
 
 ## Code Style
 
