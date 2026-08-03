@@ -41,7 +41,7 @@ export const ResourceAmountSchema: GenMessage<ResourceAmount> = /*@__PURE__*/
   messageDesc(file_cityio_service_v1_config, 0);
 
 /**
- * ResourceRate is an ongoing flow (e.g. production per day).
+ * ResourceRate is an ongoing flow (e.g. production per hour).
  *
  * @generated from message cityio.service.v1.ResourceRate
  */

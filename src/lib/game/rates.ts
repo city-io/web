@@ -3,7 +3,7 @@ import type { Duration } from '@bufbuild/protobuf/wkt';
 
 // Canonical period for all displayed rates: every resource flow is shown
 // normalized to one hour. The backend ships Rate values as value/scale per
-// second (scale is typically 86400), so display is just per-second × 3600.
+// second (scale is currently always 3600), so display is just per-second × 3600.
 export const SECONDS_PER_HOUR = 3600;
 
 // ratePerHour converts a Rate (value per `scale` seconds) into a per-hour
