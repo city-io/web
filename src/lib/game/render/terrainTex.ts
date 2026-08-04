@@ -543,15 +543,43 @@ function renderSpecial(kind: Special): HTMLCanvasElement {
 
 function renderShroud(): HTMLCanvasElement {
   const ctx = newCanvas();
+  // Unknown ground: a flat, cool fog kept deliberately unlike any terrain so
+  // the edge of the charted map reads clearly. The old shroud was dark green
+  // and passed for unlit grass. A faint mottle stops it looking like a dead
+  // fill without suggesting anything is actually there.
   drawSides(ctx, [
-    [40, 50, 42],
-    [30, 38, 32],
-    [22, 28, 24]
+    [46, 54, 64],
+    [36, 43, 52],
+    [26, 32, 40]
   ]);
-  drawTop(ctx, 0x354535);
-  drawOutline(ctx, 0x354535, 0.15);
+  drawTop(ctx, 0x2b333e);
+  ctx.save();
+  clipTop(ctx, S * 0.95);
+  const rng = mulberry32(20260804);
+  for (let i = 0; i < 14; i++) {
+    const x = CX + (rng() - 0.5) * S * 1.5;
+    const y = CY + (rng() - 0.5) * 22;
+    const r = 5 + rng() * 9;
+    const g = ctx.createRadialGradient(x, y, 0, x, y, r);
+    g.addColorStop(0, `rgba(122,134,152,${0.05 + rng() * 0.06})`);
+    g.addColorStop(1, 'rgba(122,134,152,0)');
+    ctx.fillStyle = g;
+    ctx.beginPath();
+    ctx.arc(x, y, r, 0, Math.PI * 2);
+    ctx.fill();
+  }
+  ctx.restore();
+  drawOutline(ctx, 0x2b333e, 0.2);
   return ctx.canvas;
 }
+
+/** Representative flat color for a terrain, for the minimap. */
+export function terrainColor(t: Terrain): number {
+  return GROUND[t]?.top ?? 0x2b333e;
+}
+
+/** The shroud color, for painting unexplored tiles on the minimap. */
+export const SHROUD_COLOR = 0x1c222b;
 
 // ── cache ────────────────────────────────────────────────
 

@@ -8,7 +8,7 @@
   import { S, HEX_H, HEX_VERTS, hexToPixel, pixelToHex, tileKey, hexNeighbors } from '$lib/game/hex';
   import { varyColor } from '$lib/game/colors';
   import { ANCHOR_X, ANCHOR_Y } from '$lib/game/render/geometry';
-  import { featureTexture, groundTexture, reliefTexture, riverTexture, shroudTexture, specialTexture } from '$lib/game/render/terrainTex';
+  import { featureTexture, groundTexture, reliefTexture, riverTexture, shroudTexture, specialTexture, terrainColor, SHROUD_COLOR } from '$lib/game/render/terrainTex';
   import { buildingTexture } from '$lib/game/render/buildingTex';
   import { describeTile, Feature, Relief, Special, Terrain, SPECIAL_NAME } from '$lib/game/world';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
@@ -24,7 +24,7 @@
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
   /** Cool multiply for explored-but-unwatched ground, drawn from memory. */
-  const DIM_TINT = 0x5b6b78;
+  const DIM_TINT = 0x74808c;
 
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
@@ -246,11 +246,113 @@
     return describeTile(w, col, row);
   };
 
-
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
     return pixelToHex((-cont.x + cw / 2) / cont.scale.x, (-cont.y + ch / 2) / cont.scale.y);
   };
+
+  // ── minimap ─────────────────────────────────────────────
+  // The whole world at ~2px/tile, painted from the same planes the map renders:
+  // shroud for unknown, dimmed for remembered, bright for lit. The terrain layer
+  // is cached to an offscreen buffer and only repainted when vision changes, so
+  // panning (which fires many times a second) just blits it and redraws the
+  // viewport box.
+  const MINI_SX = 2;
+  const MINI_SY = MINI_SX * (HEX_H / (1.5 * S));
+  let miniCanvas: HTMLCanvasElement;
+  let miniOff: HTMLCanvasElement | null = null;
+  let miniW = 0,
+    miniH = 0;
+
+  const rgb = (c: number) => [(c >> 16) & 0xff, (c >> 8) & 0xff, c & 0xff];
+
+  const buildMiniTerrain = () => {
+    const w = $world;
+    if (!w) return;
+    if (!miniOff) miniOff = document.createElement('canvas');
+    miniOff.width = w.w;
+    miniOff.height = w.h;
+    const octx = miniOff.getContext('2d')!;
+    const img = octx.createImageData(w.w, w.h);
+    for (let i = 0; i < w.w * w.h; i++) {
+      let r: number, g: number, b: number;
+      if (w.explored[i] !== 1) {
+        [r, g, b] = rgb(SHROUD_COLOR);
+      } else {
+        [r, g, b] = rgb(terrainColor(w.terrain[i] as Terrain));
+        if (w.visible[i] !== 1) {
+          // Remember, don't light: pull toward the shroud so charted-but-unseen
+          // ground reads a step below what a unit is currently watching.
+          r = Math.round(r * 0.55 + 14);
+          g = Math.round(g * 0.55 + 16);
+          b = Math.round(b * 0.55 + 20);
+        }
+      }
+      const o = i * 4;
+      img.data[o] = r;
+      img.data[o + 1] = g;
+      img.data[o + 2] = b;
+      img.data[o + 3] = 255;
+    }
+    octx.putImageData(img, 0, 0);
+  };
+
+  const drawMinimap = () => {
+    const w = $world;
+    if (!w || !miniCanvas) return;
+    if (!miniOff) buildMiniTerrain();
+    miniW = w.w * MINI_SX;
+    miniH = w.h * MINI_SY;
+    if (miniCanvas.width !== miniW) miniCanvas.width = miniW;
+    if (miniCanvas.height !== miniH) miniCanvas.height = miniH;
+
+    const ctx = miniCanvas.getContext('2d')!;
+    ctx.clearRect(0, 0, miniW, miniH);
+    ctx.imageSmoothingEnabled = false;
+    if (miniOff) ctx.drawImage(miniOff, 0, 0, w.w, w.h, 0, 0, miniW, miniH);
+
+    // Owned cities as gold pips, so you can find yourself on the map.
+    const kx = MINI_SX / (1.5 * S);
+    const ky = MINI_SY / HEX_H;
+    ctx.fillStyle = '#f5c542';
+    for (const c of $cities) {
+      if (c.owner?.value !== $userId || !c.start) continue;
+      const px = (c.start.x + c.size / 2) * 1.5 * S;
+      const py = (c.start.y + c.size / 2) * HEX_H;
+      ctx.beginPath();
+      ctx.arc(px * kx, py * ky, 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // Current viewport, mapped from the container's world-pixel window.
+    if (cont) {
+      const sc = cont.scale.x;
+      const vx = (-cont.x / sc) * kx;
+      const vy = (-cont.y / sc) * ky;
+      const vw = (cw / sc) * kx;
+      const vh = (ch / sc) * ky;
+      ctx.strokeStyle = 'rgba(255,255,255,0.85)';
+      ctx.lineWidth = 1;
+      ctx.strokeRect(Math.round(vx) + 0.5, Math.round(vy) + 0.5, Math.round(vw), Math.round(vh));
+    }
+  };
+
+  const onMinimapClick = (e: MouseEvent) => {
+    const w = $world;
+    if (!w || !miniCanvas) return;
+    const rect = miniCanvas.getBoundingClientRect();
+    const worldX = ((e.clientX - rect.left) / rect.width) * (w.w * 1.5 * S);
+    const worldY = ((e.clientY - rect.top) / rect.height) * (w.h * HEX_H);
+    const t = pixelToHex(worldX, worldY);
+    centerCam(t.x, t.y);
+  };
+
+  // Repaint the terrain buffer when vision changes; reblit on pan (mapCenter).
+  $: if ($world) {
+    buildMiniTerrain();
+    drawMinimap();
+  }
+  $: if ($mapCenter) drawMinimap();
 
   // Clamp a container position to the map bounds for a given scale (pure).
   const clampPos = (x: number, y: number, s: number) => {
@@ -1247,9 +1349,22 @@
     </div>
   {/if}
 
+  <!-- Minimap -->
+  {#if $world}
+    <div class="pointer-events-auto absolute bottom-4 left-4 rounded-lg bg-gray-900/85 p-1.5 ring-1 ring-white/[0.06] backdrop-blur-sm">
+      <canvas
+        bind:this={miniCanvas}
+        on:click={onMinimapClick}
+        class="block cursor-pointer rounded"
+        style="width:150px;height:{Math.round((150 * ($gameConfig.mapSize * HEX_H)) / ($gameConfig.mapSize * 1.5 * S))}px"
+        title="Click to jump"
+      ></canvas>
+    </div>
+  {/if}
+
   <!-- Keyboard shortcuts toggle -->
   <button
-    class="pointer-events-auto absolute bottom-4 left-4 flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900/85 text-xs font-bold text-gray-400 backdrop-blur-sm transition-colors hover:text-gray-100"
+    class="pointer-events-auto absolute bottom-4 left-[186px] flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900/85 text-xs font-bold text-gray-400 backdrop-blur-sm transition-colors hover:text-gray-100"
     title="Keyboard shortcuts (?)"
     on:click={() => (showHelp = !showHelp)}>?</button
   >
