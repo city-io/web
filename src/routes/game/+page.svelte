@@ -4,16 +4,17 @@
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import { fly, fade } from 'svelte/transition';
-  import { Application, Container, Graphics, Rectangle, Sprite } from 'pixi.js';
-  import { S, HEX_H, HEX_VERTS, hexToPixel, pixelToHex, tileKey, hexNeighbors } from '$lib/game/hex';
-  import { getTileTexture, TILE_ANCHOR_X, TILE_ANCHOR_Y, type TileKind } from '$lib/game/tiles';
+  import { Application, Container, Graphics, Rectangle } from 'pixi.js';
+  import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
+  import { initSprites, getTileSprite, type TileKind } from '$lib/game/sprites';
+  import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import { BuildingType, CityType } from '$lib/gen/cityio/entity/v1/common_pb';
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
   import type { Duration } from '@bufbuild/protobuf/wkt';
-  import { mapClient, buildingClient, cityClient } from '$lib/api/client';
+  import { buildingClient, cityClient } from '$lib/api/client';
 
   // ── constants ──────────────────────────────────────────
   const MIN_ZOOM = 0.4;
@@ -71,6 +72,10 @@
   let showHelp = false;
   let cityCycleIdx = -1;
   const PAN_STEP = 110;
+
+  // Minimap viewport rectangle span (tile units), updated by loadVisible.
+  let viewTilesW = 0;
+  let viewTilesH = 0;
 
   // ── live clock (1s tick for construction progress) ───────
   let now = Date.now();
@@ -230,18 +235,17 @@
 
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
-    return pixelToHex((-cont.x + cw / 2) / cont.scale.x, (-cont.y + ch / 2) / cont.scale.y);
+    return screenToTile((-cont.x + cw / 2) / cont.scale.x, (-cont.y + ch / 2) / cont.scale.y);
   };
 
-  // Clamp a container position to the map bounds for a given scale (pure).
+  // Clamp a container position to the iso map's screen-space AABB (pure).
   const clampPos = (x: number, y: number, s: number) => {
     const pad = 200;
-    const mapW = $gameConfig.mapSize * 1.5 * S;
-    const mapH = $gameConfig.mapSize * HEX_H;
-    const xMin = cw - mapW * s - pad,
-      xMax = pad;
-    const yMin = ch - mapH * s - pad,
-      yMax = pad;
+    const b = mapBounds($gameConfig.mapSize);
+    const xMin = cw - pad - b.maxX * s,
+      xMax = pad - b.minX * s;
+    const yMin = ch - pad - b.maxY * s,
+      yMax = pad - b.minY * s;
     if (xMin < xMax) x = Math.max(xMin, Math.min(xMax, x));
     if (yMin < yMax) y = Math.max(yMin, Math.min(yMax, y));
     return { x, y };
@@ -259,8 +263,8 @@
   };
 
   const centerCam = (col: number, row: number, snap = false) => {
-    const p = hexToPixel(col, row);
-    const c = clampPos(-p.x * tgtScale + cw / 2, -p.y * tgtScale + ch / 2, tgtScale);
+    const p = tileToScreen(col, row);
+    const c = clampPos(-p.sx * tgtScale + cw / 2, -p.sy * tgtScale + ch / 2, tgtScale);
     tgtX = c.x;
     tgtY = c.y;
     velX = velY = 0;
@@ -384,7 +388,7 @@
   // ── pixi init ───────────────────────────────────────────
   onMount(() => {
     buildLookup();
-    initPixi();
+    initSprites().then(() => initPixi());
     loadCities();
     const onR = () => resize();
     window.addEventListener('resize', onR);
@@ -410,7 +414,7 @@
     cw = el.clientWidth;
     ch = el.clientHeight;
     app = new Application();
-    await app.init({ width: cw, height: ch, backgroundColor: 0x0f1f10, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
+    await app.init({ width: cw, height: ch, backgroundColor: 0x1d1811, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
     el.appendChild(app.canvas);
     cont = new Container();
     cont.sortableChildren = true;
@@ -441,13 +445,13 @@
         const done = nowMs >= endMs;
         const color = done ? 0x34d399 : 0xf59e0b;
 
-        // Pulsing hex fill — steady when done, pulsing while building
+        // Pulsing diamond fill — steady when done, pulsing while building
         const pulse = done ? 0.1 : 0.08 + 0.06 * Math.sin(t * 3);
-        gfx.poly(HEX_VERTS);
+        gfx.poly(DIAMOND_VERTS);
         gfx.fill({ color, alpha: pulse });
 
         // Progress ring
-        const radius = S * 0.35;
+        const radius = HW * 0.42;
         const startAngle = -Math.PI / 2;
         const endAngle = startAngle + pct * Math.PI * 2;
         gfx.circle(0, 0, radius);
@@ -476,7 +480,7 @@
         // tile center (small upward offset) so it reads as being on the center
         // building rather than drifting up onto the tile above it.
         if (isCenter) {
-          const ay = -S * 0.18;
+          const ay = -HH * 0.6;
           gfx.poly([0, ay - 11, -10, ay + 8, 10, ay + 8]);
           gfx.fill({ color: 0xef4444, alpha: 0.82 + 0.18 * sPulse });
           gfx.poly([0, ay - 11, -10, ay + 8, 10, ay + 8]);
@@ -496,11 +500,13 @@
     if (loaded.has(k)) return;
 
     const td = tileData.get(k);
-    const { x: px, y: py } = hexToPixel(col, row);
+    const { sx: px, sy: py } = tileToScreen(col, row);
     const tc = new Container();
     tc.x = px;
     tc.y = py;
-    tc.zIndex = Math.round(py);
+    // Iso depth: back-to-front by (col+row); tall sprites anchored near the base
+    // diamond so higher (col+row) tiles correctly overdraw the ones behind.
+    tc.zIndex = (col + row) * 8;
     cont.addChild(tc);
     loaded.set(k, tc);
 
@@ -524,8 +530,7 @@
       kind = 'grass';
     }
 
-    const spr = new Sprite(getTileTexture(kind, col, row));
-    spr.anchor.set(TILE_ANCHOR_X, TILE_ANCHOR_Y);
+    const spr = getTileSprite(kind, col, row);
     tc.addChild(spr);
 
     // Construction-in-progress overlay
@@ -549,17 +554,15 @@
         const cityId = td.city.cityId;
         const owner = td.city.owner;
         const oc = owner?.value === $userId ? 0x4499ff : owner ? 0xdd4444 : 0x999999;
-        const neighbors = hexNeighbors(col, row);
-        for (let i = 0; i < 6; i++) {
-          const [nc, nr] = neighbors[i];
-          const nk = tileKey(nc, nr);
-          const nd = tileData.get(nk);
+        for (let i = 0; i < 4; i++) {
+          const [dc, dr] = EDGE_TO_NEIGHBOR[i];
+          const nd = tileData.get(tileKey(col + dc, row + dr));
           if (nd?.city?.cityId?.value === cityId?.value) continue;
-          // This edge is a boundary — draw it
+          // This diamond edge is a boundary — draw it
           const vi = i * 2,
-            vn = ((i + 1) % 6) * 2;
-          g.moveTo(HEX_VERTS[vi], HEX_VERTS[vi + 1]);
-          g.lineTo(HEX_VERTS[vn], HEX_VERTS[vn + 1]);
+            vn = ((i + 1) % 4) * 2;
+          g.moveTo(DIAMOND_VERTS[vi], DIAMOND_VERTS[vi + 1]);
+          g.lineTo(DIAMOND_VERTS[vn], DIAMOND_VERTS[vn + 1]);
           g.stroke({ color: oc, width: 3, alpha: 0.8 });
           hasOverlay = true;
         }
@@ -567,7 +570,7 @@
 
       // Visibility edge glow
       if (dist >= $gameConfig.visionRadius - 1) {
-        g.poly(HEX_VERTS);
+        g.poly(DIAMOND_VERTS);
         g.stroke({ color: 0x40a0b0, width: 1.5, alpha: 0.2 });
         hasOverlay = true;
       }
@@ -578,14 +581,13 @@
       // caution icon on the city/town center. Added last so it draws on top.
       if (td?.city?.starving) {
         const cityId = td.city.cityId;
-        const neighbors = hexNeighbors(col, row);
         const segs: number[][] = [];
-        for (let i = 0; i < 6; i++) {
-          const [nc, nr] = neighbors[i];
-          if (tileData.get(tileKey(nc, nr))?.city?.cityId?.value === cityId?.value) continue;
+        for (let i = 0; i < 4; i++) {
+          const [dc, dr] = EDGE_TO_NEIGHBOR[i];
+          if (tileData.get(tileKey(col + dc, row + dr))?.city?.cityId?.value === cityId?.value) continue;
           const vi = i * 2,
-            vn = ((i + 1) % 6) * 2;
-          segs.push([HEX_VERTS[vi], HEX_VERTS[vi + 1], HEX_VERTS[vn], HEX_VERTS[vn + 1]]);
+            vn = ((i + 1) % 4) * 2;
+          segs.push([DIAMOND_VERTS[vi], DIAMOND_VERTS[vi + 1], DIAMOND_VERTS[vn], DIAMOND_VERTS[vn + 1]]);
         }
         const isCenter = td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER;
         if (segs.length || isCenter) {
@@ -600,14 +602,34 @@
   const loadVisible = () => {
     if (!cont) return;
     const s = cont.scale.x;
-    const ox = -cont.x / s,
-      oy = -cont.y / s;
-    const vw = cw / s,
-      vh = ch / s;
-    const colMin = Math.floor(ox / (1.5 * S)) - 2;
-    const colMax = Math.ceil((ox + vw) / (1.5 * S)) + 2;
-    const rowMin = Math.floor(oy / HEX_H) - 2;
-    const rowMax = Math.ceil((oy + vh) / HEX_H) + 2;
+    // Map the 4 viewport corners into tile space; the affine image of a rect is
+    // a parallelogram, so its tile-space AABB is the min/max over the corners.
+    const corners = [
+      [0, 0],
+      [cw, 0],
+      [0, ch],
+      [cw, ch]
+    ];
+    let xMin = Infinity,
+      xMax = -Infinity,
+      yMin = Infinity,
+      yMax = -Infinity;
+    for (const [px, py] of corners) {
+      const t = screenToTile((px - cont.x) / s, (py - cont.y) / s);
+      xMin = Math.min(xMin, t.x);
+      xMax = Math.max(xMax, t.x);
+      yMin = Math.min(yMin, t.y);
+      yMax = Math.max(yMax, t.y);
+    }
+    // Pad sides by 2; extend the bottom rows by 4 so tall sprites poking up from
+    // below the viewport still render.
+    const colMin = Math.floor(xMin) - 2,
+      colMax = Math.ceil(xMax) + 2;
+    const rowMin = Math.floor(yMin) - 2,
+      rowMax = Math.ceil(yMax) + 4;
+    // Feed the minimap's viewport rectangle (tile-space AABB of the view).
+    viewTilesW = xMax - xMin;
+    viewTilesH = yMax - yMin;
     for (let col = colMin; col <= colMax; col++) for (let row = rowMin; row <= rowMax; row++) renderTile(col, row);
   };
 
@@ -618,11 +640,11 @@
       selGfx.destroy();
     }
     selGfx = new Graphics();
-    const { x: px, y: py } = hexToPixel(col, row);
+    const { sx: px, sy: py } = tileToScreen(col, row);
     selGfx.position.set(px, py);
-    selGfx.poly(HEX_VERTS);
+    selGfx.poly(DIAMOND_VERTS);
     selGfx.fill({ color: 0xffd700, alpha: 0.15 });
-    selGfx.poly(HEX_VERTS);
+    selGfx.poly(DIAMOND_VERTS);
     selGfx.stroke({ color: 0xffd700, width: 3, alpha: 0.9 });
     selGfx.zIndex = 1e7;
     cont.addChild(selGfx);
@@ -683,7 +705,7 @@
         dy = p.y - dsy;
       if (Math.sqrt(dx * dx + dy * dy) < CLICK_DIST) {
         velX = velY = 0;
-        const mc = pixelToHex((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
+        const mc = screenToTile((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
         if (mc.x >= 0 && mc.y >= 0 && mc.x < $gameConfig.mapSize && mc.y < $gameConfig.mapSize) {
           const t = tileData.get(tileKey(mc.x, mc.y));
           sel = { x: mc.x, y: mc.y, ...t };
@@ -841,24 +863,24 @@
   </span>
 {/snippet}
 
-<div class="relative h-screen w-screen overflow-hidden" style="background:#0f1f10">
+<div class="relative h-screen w-screen overflow-hidden bg-stone-900">
   <!-- Canvas -->
   <div bind:this={el} class="absolute inset-0 cursor-grab active:cursor-grabbing"></div>
 
   <!-- Top bar -->
   <div class="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 py-3">
     <!-- Username -->
-    <div class="pointer-events-auto flex items-center gap-2.5 rounded-lg bg-gray-900/85 px-4 py-2 backdrop-blur-sm">
+    <div class="panel pointer-events-auto flex items-center gap-2.5 px-4 py-2">
       <div class="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]"></div>
-      <span class="text-sm font-medium tracking-wide text-gray-100">{$username}</span>
+      <span class="text-sm font-semibold tracking-wide text-stone-50">{$username}</span>
     </div>
 
     <!-- Resources (hover for per-hour rates, click to pin) -->
     <div class="group pointer-events-auto relative" bind:this={ratesEl}>
-      <button type="button" class="flex items-center gap-4 rounded-lg bg-gray-900/85 px-3.5 py-2 backdrop-blur-sm" on:click={() => (ratesOpen = !ratesOpen)}>
-        <span class="text-xs text-gray-400">Gold <span class="tabular-nums text-amber-300">{$gold.toLocaleString()}</span></span>
-        <span class="text-xs text-gray-400">Food <span class="tabular-nums text-emerald-300">{$food.toLocaleString()}</span></span>
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-gray-600 transition-transform duration-150 group-hover:rotate-180 {ratesOpen ? 'rotate-180' : ''}">
+      <button type="button" class="panel flex items-center gap-4 px-3.5 py-2" on:click={() => (ratesOpen = !ratesOpen)}>
+        <span class="text-xs text-stone-300">Gold <span class="font-semibold tabular-nums text-bronze-300">{$gold.toLocaleString()}</span></span>
+        <span class="text-xs text-stone-300">Food <span class="font-semibold tabular-nums text-emerald-300">{$food.toLocaleString()}</span></span>
+        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-stone-400 transition-transform duration-150 group-hover:rotate-180 {ratesOpen ? 'rotate-180' : ''}">
           <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
         </svg>
       </button>
@@ -870,8 +892,8 @@
           ? 'opacity-100'
           : ''}"
       >
-        <div class="rounded-lg bg-gray-900/95 p-2.5 shadow-xl ring-1 ring-white/[0.06] backdrop-blur-sm">
-          <div class="mb-1.5 text-[9px] font-semibold uppercase tracking-widest text-gray-500">Production / hr</div>
+        <div class="panel p-2.5">
+          <div class="panel-title mb-1.5 text-[9px]">Production / hr</div>
           <div class="flex items-center justify-between gap-3 text-[11px]">
             <span class="flex items-center gap-1.5 text-gray-400">
               <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5 text-amber-300"><circle cx="12" cy="12" r="9" /></svg>Gold
@@ -901,16 +923,14 @@
     </div>
 
     <!-- Logout -->
-    <button class="pointer-events-auto rounded-lg bg-gray-900/85 px-3 py-1.5 text-xs font-medium text-gray-500 backdrop-blur-sm transition-colors hover:text-gray-200" on:click={logout}
-      >Sign Out</button
-    >
+    <button class="btn pointer-events-auto px-3 py-1.5 text-xs" on:click={logout}>Sign Out</button>
   </div>
 
   <!-- Right panel -->
   <div class="pointer-events-none absolute bottom-4 right-4 top-16 flex w-60 flex-col gap-2.5">
     {#if myCities.length > 0}
-      <div class="pointer-events-auto rounded-lg bg-gray-900/85 p-3 backdrop-blur-sm">
-        <div class="mb-2 text-[10px] font-semibold uppercase tracking-widest text-gray-500">Your Cities</div>
+      <div class="panel pointer-events-auto p-3">
+        <div class="panel-title mb-2">Your Cities</div>
         {#each myCities as rawCity}
           {@const city = liveCity(rawCity)}
           {@const prod = cityProd(city)}
@@ -958,7 +978,7 @@
     {/if}
 
     {#if sel}
-      <div class="pointer-events-auto space-y-3 rounded-lg bg-gray-900/85 p-3 backdrop-blur-sm" transition:fly={{ x: 16, duration: 200 }}>
+      <div class="panel pointer-events-auto space-y-3 p-3" transition:fly={{ x: 16, duration: 200 }}>
         <!-- Header -->
         <div class="flex items-center justify-between">
           <span class="rounded-md bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-gray-500">{sel.x}, {sel.y}</span>
@@ -1191,15 +1211,20 @@
   <!-- Bottom hint -->
   {#if !sel}
     <div class="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2" transition:fade={{ duration: 200 }}>
-      <div class="rounded-full bg-gray-900/80 px-4 py-1.5 backdrop-blur-sm">
-        <span class="text-xs font-medium text-gray-500">Select a hex tile to inspect</span>
+      <div class="panel px-4 py-1.5">
+        <span class="text-xs font-medium text-stone-300">Select a tile to inspect</span>
       </div>
     </div>
   {/if}
 
+  <!-- Minimap -->
+  <div class="pointer-events-auto absolute bottom-4 left-4">
+    <MiniMap onPan={(col, row) => centerCam(col, row)} viewCols={viewTilesW} viewRows={viewTilesH} />
+  </div>
+
   <!-- Keyboard shortcuts toggle -->
   <button
-    class="pointer-events-auto absolute bottom-4 left-4 flex h-7 w-7 items-center justify-center rounded-lg bg-gray-900/85 text-xs font-bold text-gray-400 backdrop-blur-sm transition-colors hover:text-gray-100"
+    class="btn pointer-events-auto absolute bottom-4 left-[186px] flex h-8 w-8 items-center justify-center !p-0 text-sm font-bold"
     title="Keyboard shortcuts (?)"
     on:click={() => (showHelp = !showHelp)}>?</button
   >
@@ -1213,9 +1238,9 @@
       role="presentation"
       transition:fade={{ duration: 150 }}
     >
-      <div class="w-72 rounded-xl bg-gray-900/95 p-5 shadow-2xl ring-1 ring-white/[0.08] backdrop-blur-sm" on:click|stopPropagation on:keydown|stopPropagation role="presentation">
-        <div class="mb-3 text-[11px] font-semibold uppercase tracking-widest text-gray-500">Keyboard Shortcuts</div>
-        <div class="space-y-1.5 text-xs text-gray-300">
+      <div class="panel w-72 p-5" on:click|stopPropagation on:keydown|stopPropagation role="presentation">
+        <div class="panel-title mb-3 text-[11px]">Keyboard Shortcuts</div>
+        <div class="space-y-1.5 text-xs text-stone-200">
           {#each [['Pan', 'WASD / arrows'], ['Pan faster', 'Shift + move'], ['Zoom', '+ / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Deselect', 'Esc'], ['Toggle this help', '?']] as [label, keys]}
             <div class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{label}</span>
