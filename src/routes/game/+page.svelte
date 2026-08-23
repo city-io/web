@@ -117,6 +117,25 @@
   let taxDraft = 10;
   let policyDraftDirty = false;
   let policySaving = false;
+  let activeGameTooltip: { title: string; detail: string; x: number; y: number; below: boolean } | null = null;
+
+  const showGameTooltip = (event: MouseEvent | FocusEvent, title: string, detail: string) => {
+    const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
+    const halfWidth = 88;
+    const edgeGap = 10;
+    const below = rect.top < 90;
+    activeGameTooltip = {
+      title,
+      detail,
+      x: Math.max(edgeGap + halfWidth, Math.min(window.innerWidth - edgeGap - halfWidth, rect.left + rect.width / 2)),
+      y: below ? rect.bottom + 9 : rect.top - 9,
+      below
+    };
+  };
+
+  const hideGameTooltip = () => {
+    activeGameTooltip = null;
+  };
 
   // Resource details stay compact; entity management lives in the right rail.
   let ratesOpen = false;
@@ -1824,6 +1843,22 @@
   }}
 />
 
+{#if activeGameTooltip}
+  <div
+    class="pointer-events-none fixed z-[100] w-44 border border-[#61777b] bg-[#172427]/95 px-2.5 py-2 text-left shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-sm"
+    style={`left: ${activeGameTooltip.x}px; top: ${activeGameTooltip.y}px; transform: translate(-50%, ${activeGameTooltip.below ? '0' : '-100%'});`}
+    transition:fade={{ duration: 100 }}
+  >
+    <strong class="block text-[10px] font-bold text-[#edf3f1]">{activeGameTooltip.title}</strong>
+    <span class="mt-0.5 block text-[9px] font-normal leading-relaxed text-[#9baaa9]">{activeGameTooltip.detail}</span>
+    <span
+      class="absolute left-1/2 h-2 w-2 -translate-x-1/2 rotate-45 border-[#61777b] bg-[#172427] {activeGameTooltip.below
+        ? 'bottom-full translate-y-1/2 border-l border-t'
+        : 'top-full -translate-y-1/2 border-b border-r'}"
+    ></span>
+  </div>
+{/if}
+
 <!-- Population change chip: people icon + direction, so it's clearly tied to
      population. Growing = green ▲, declining = red ▼, steady = gray. -->
 {#snippet popChip(rate: number)}
@@ -1841,26 +1876,22 @@
   </span>
 {/snippet}
 
-{#snippet gameTooltip(title: string, detail: string, alignRight: boolean)}
+{#snippet populationSegment(label: string, count: number, detail: string, color: string, width: number)}
   <span
-    class="pointer-events-none absolute bottom-full z-40 mb-2 w-44 border border-[#61777b] bg-[#172427]/95 px-2.5 py-2 text-left opacity-0 shadow-[0_8px_24px_rgba(0,0,0,0.45)] backdrop-blur-sm transition-opacity duration-150 group-hover/game-tooltip:opacity-100 group-focus/game-tooltip:opacity-100 {alignRight
-      ? 'right-0'
-      : 'left-1/2 -translate-x-1/2'}"
-  >
-    <strong class="block text-[10px] font-bold text-[#edf3f1]">{title}</strong>
-    <span class="mt-0.5 block text-[9px] font-normal leading-relaxed text-[#9baaa9]">{detail}</span>
-    <span class="absolute top-full h-2 w-2 -translate-y-1/2 rotate-45 border-b border-r border-[#61777b] bg-[#172427] {alignRight ? 'right-3' : 'left-1/2 -translate-x-1/2'}"></span>
-  </span>
-{/snippet}
-
-{#snippet populationSegment(label: string, count: number, detail: string, color: string, width: number, alignTooltipRight: boolean)}
-  <span class="group/game-tooltip relative block h-full" style={`width: ${width}%; background-color: ${color}`}>
-    {@render gameTooltip(`${count.toLocaleString()} ${label}`, detail, alignTooltipRight)}
-  </span>
+    class="relative block h-full"
+    style={`width: ${width}%; background-color: ${color}`}
+    role="img"
+    aria-label={`${count.toLocaleString()} ${label}. ${detail}`}
+    on:mouseenter={(event) => showGameTooltip(event, `${count.toLocaleString()} ${label}`, detail)}
+    on:mouseleave={hideGameTooltip}
+  ></span>
 {/snippet}
 
 {#snippet populationUse(city: City)}
   {@const totalResidents = residents(city)}
+  {@const totalCapacity = housingCapacity(city)}
+  {@const displayedCapacity = Math.max(totalCapacity, totalResidents)}
+  {@const openHousing = Math.max(0, totalCapacity - totalResidents)}
   {@const militiaResidents = Math.min(totalResidents, militiaPopulation(city))}
   {@const taxpayerResidents = totalResidents - militiaResidents}
   {@const recruitableResidents = Math.min(taxpayerResidents, trainablePopulation(city))}
@@ -1869,11 +1900,11 @@
     <div class="flex items-end justify-between gap-3">
       <div>
         <div class="inspector-label">Population use</div>
-        <div class="mt-0.5 text-[9px] text-[#758486]">Every resident belongs to one of the two groups below.</div>
+        <div class="mt-0.5 text-[9px] text-[#758486]">Resident roles and remaining housing capacity.</div>
       </div>
       <div class="text-right">
         <div class="text-[9px] uppercase tracking-wide text-[#718083]">All residents</div>
-        <strong class="block text-base tabular-nums text-[#eef1e8]">{totalResidents.toLocaleString()}</strong>
+        <strong class="block text-base tabular-nums text-[#eef1e8]">{totalResidents.toLocaleString()} / {totalCapacity.toLocaleString()}</strong>
       </div>
     </div>
 
@@ -1881,19 +1912,18 @@
       {@render populationSegment(
         'taxpayers',
         taxpayerResidents,
-        'Residents who pay tax: core plus recruitable population.',
+        'Residents who pay tax: core civilians plus recruitable residents.',
         '#c8ac6d',
-        totalResidents > 0 ? (taxpayerResidents / totalResidents) * 100 : 0,
-        false
+        displayedCapacity > 0 ? (taxpayerResidents / displayedCapacity) * 100 : 0
       )}
       {@render populationSegment(
         'militia',
         militiaResidents,
         'Local defenders who consume food but do not pay tax.',
         '#78a9b5',
-        totalResidents > 0 ? (militiaResidents / totalResidents) * 100 : 0,
-        true
+        displayedCapacity > 0 ? (militiaResidents / displayedCapacity) * 100 : 0
       )}
+      {@render populationSegment('open housing', openHousing, 'Capacity available for future population growth.', '#303c3c', displayedCapacity > 0 ? (openHousing / displayedCapacity) * 100 : 0)}
     </div>
 
     <div class="mt-2 grid grid-cols-[minmax(0,2fr)_minmax(7rem,1fr)] gap-2">
@@ -1901,13 +1931,13 @@
         <div class="flex items-start justify-between gap-3">
           <div>
             <div class="text-[9px] font-bold uppercase tracking-wide text-amber-100/80">Taxpayers</div>
-            <div class="mt-0.5 text-[8px] text-[#7d8580]">Core + recruitable residents</div>
+            <div class="mt-0.5 text-[8px] text-[#7d8580]">Core civilians + recruitable residents</div>
           </div>
           <strong class="text-sm tabular-nums text-amber-100">{taxpayerResidents.toLocaleString()}</strong>
         </div>
         <div class="mt-2 grid grid-cols-2 gap-3 border-l border-white/[0.09] pl-2.5">
           <div>
-            <div class="inspector-stat-label">Core</div>
+            <div class="inspector-stat-label">Core civilians</div>
             <div class="inspector-stat-value">{coreResidents.toLocaleString()}</div>
           </div>
           <div>
@@ -1917,33 +1947,36 @@
         </div>
         <div class="mt-1.5 flex h-1.5 bg-white/[0.06]">
           {@render populationSegment(
-            'core residents',
+            'core civilians',
             coreResidents,
-            'Protected taxpayers who cannot be recruited.',
+            'Core civilians pay tax and cannot be recruited.',
             '#7f8e77',
-            taxpayerResidents > 0 ? (coreResidents / taxpayerResidents) * 100 : 0,
-            false
+            taxpayerResidents > 0 ? (coreResidents / taxpayerResidents) * 100 : 0
           )}
           {@render populationSegment(
             'recruitable residents',
             recruitableResidents,
             'Taxpayers currently available to transfer into troop training.',
             '#77bfa6',
-            taxpayerResidents > 0 ? (recruitableResidents / taxpayerResidents) * 100 : 0,
-            true
+            taxpayerResidents > 0 ? (recruitableResidents / taxpayerResidents) * 100 : 0
           )}
         </div>
       </div>
       <div class="border border-blue-200/15 bg-blue-200/[0.045] px-2.5 py-2">
-        <div class="text-[9px] font-bold uppercase tracking-wide text-blue-200/80">Militia</div>
-        <strong class="mt-1 block text-sm tabular-nums text-blue-200">{militiaResidents.toLocaleString()}</strong>
-        <div class="mt-1 text-[8px] leading-relaxed text-[#7d898b]">Local defenders who do not pay tax.</div>
+        <div class="flex items-start justify-between gap-3">
+          <div>
+            <div class="text-[9px] font-bold uppercase tracking-wide text-blue-200/80">Militia</div>
+            <div class="mt-0.5 text-[8px] leading-relaxed text-[#7d898b]">Local defenders; no tax</div>
+          </div>
+          <strong class="text-sm tabular-nums text-blue-200">{militiaResidents.toLocaleString()}</strong>
+        </div>
       </div>
     </div>
 
     <div class="mt-2 space-y-0.5 border-t border-white/[0.06] pt-1.5 text-[8px] tabular-nums text-[#718083]">
-      <div>{coreResidents.toLocaleString()} core + {recruitableResidents.toLocaleString()} recruitable = {taxpayerResidents.toLocaleString()} taxpayers</div>
+      <div>{coreResidents.toLocaleString()} core civilians + {recruitableResidents.toLocaleString()} recruitable = {taxpayerResidents.toLocaleString()} taxpayers</div>
       <div>{taxpayerResidents.toLocaleString()} taxpayers + {militiaResidents.toLocaleString()} militia = {totalResidents.toLocaleString()} residents</div>
+      <div>{totalResidents.toLocaleString()} residents + {openHousing.toLocaleString()} open housing = {totalCapacity.toLocaleString()} capacity</div>
     </div>
   </div>
 {/snippet}
@@ -1958,8 +1991,9 @@
     </svg>
   {:else}
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter">
-      <path d="M12 21V5M12 9 8 6M12 13l-5-3M12 17l-4-2M12 9l4-3M12 13l5-3M12 17l4-2" />
-      <path d="m8 6-2-2M7 10 4 8M8 15l-3-2M16 6l2-2M17 10l3-2M16 15l3-2" />
+      <path d="M4 12c0-4.6 3.6-8 8-8s8 3.4 8 8v8H4v-8Z" fill="currentColor" opacity=".14" />
+      <path d="M4 12c0-4.6 3.6-8 8-8s8 3.4 8 8v8H4v-8ZM4 15h16" />
+      <path d="m7.5 8.5 2.5 3M11 6.5l2.5 3M15 7.5l2.5 3" />
     </svg>
   {/if}
 {/snippet}
@@ -1987,23 +2021,22 @@
 
 {#snippet troopGlyph(type: TroopType)}
   {@const tier = 'I'}
-  <span class="unit-token" title={`${troopName(type, 1)} · tier ${tier}`}>
+  <span class="unit-token">
     <svg viewBox="0 0 36 36" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
       {#if type === TroopType.SOLDIER}
-        <path d="M18 5v24M13 8h10M12 30h12" stroke-width="2" />
-        <path d="M8 13c5 1 8 4 8 9v6c-5-1-8-4-8-9v-6Z" fill="currentColor" opacity=".22" stroke-width="1.5" />
-        <path d="m22 7 4 4M26 7l-4 4" stroke-width="1.5" />
+        <path d="m18 4 4 4-2.5 15h-3L14 8l4-4Z" fill="currentColor" opacity=".18" stroke-width="1.9" />
+        <path d="M10 23h16M18 23v8M14.5 31h7" stroke-width="2" />
       {:else if type === TroopType.ARCHER}
         <path d="M10 6c13 4 13 20 0 24M10 6v24M8 18h20M25 15l4 3-4 3" stroke-width="1.8" />
         <path d="m10 18 7-7M10 18l7 7" stroke-width="1.2" opacity=".65" />
       {:else if type === TroopType.CAVALRY}
-        <path d="M8 25c2-8 6-14 13-16l6 5-3 4-5-1-2 4 8 7H11l-3-3Z" fill="currentColor" opacity=".2" stroke-width="1.5" />
-        <path d="M13 28v3M23 28l3 3M20 9l-1-4M22 10l4-3" stroke-width="1.7" />
-        <circle cx="23.5" cy="14" r="1.2" fill="currentColor" stroke="none" />
+        <path d="M8 30h21M11 28c.5-7 3.2-12.7 8.5-16.5L18 6l6 3 3-4 1 8 3 4-2.5 5-7 .5-4 3.5-1 4" fill="currentColor" opacity=".18" stroke-width="1.7" />
+        <path d="m12 25 6-2.5M18 11.5l6 4M24.5 9l2.5 4" stroke-width="1.5" />
+        <circle cx="26.5" cy="16.5" r="1.15" fill="currentColor" stroke="none" />
       {:else}
-        <circle cx="12" cy="25" r="5" stroke-width="2" />
-        <circle cx="12" cy="25" r="1.4" fill="currentColor" stroke="none" />
-        <path d="M8 21 23 10l5 2-2 4-15 6M17 15l4 7M7 30h19" stroke-width="1.8" />
+        <circle cx="10" cy="27" r="4" stroke-width="1.8" /><circle cx="25" cy="27" r="4" stroke-width="1.8" />
+        <circle cx="10" cy="27" r="1" fill="currentColor" stroke="none" /><circle cx="25" cy="27" r="1" fill="currentColor" stroke="none" />
+        <path d="M6 23h22M11 23l9-10 9-3 1.5 4-10 4-4 5M17 17l5 6" fill="currentColor" opacity=".14" stroke-width="1.8" />
       {/if}
     </svg>
     <span class="unit-tier">{tier}</span>
@@ -2637,10 +2670,19 @@
                   </button>
                 {/if}
                 {#if selectedStack.length > 1}
-                  <button class="game-action game-action-secondary group/game-tooltip relative" disabled={busy} on:click={() => mergeOwnedArmies(selectedStack, selectedArmyId ?? undefined)}>
+                  <button
+                    class="game-action game-action-secondary"
+                    disabled={busy}
+                    on:mouseenter={(event) =>
+                      showGameTooltip(event, 'Combine armies', `The selected army remains. ${selectedStack.length - 1} other ${selectedStack.length - 1 === 1 ? 'army joins' : 'armies join'} it.`)}
+                    on:mouseleave={hideGameTooltip}
+                    on:focus={(event) =>
+                      showGameTooltip(event, 'Combine armies', `The selected army remains. ${selectedStack.length - 1} other ${selectedStack.length - 1 === 1 ? 'army joins' : 'armies join'} it.`)}
+                    on:blur={hideGameTooltip}
+                    on:click={() => mergeOwnedArmies(selectedStack, selectedArmyId ?? undefined)}
+                  >
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 5h4l3 5 3-5h4M3 15h4l3-5 3 5h4" /></svg>
                     Combine {selectedStack.length} armies
-                    {@render gameTooltip('Combine armies', `The selected army remains. ${selectedStack.length - 1} other ${selectedStack.length - 1 === 1 ? 'army joins' : 'armies join'} it.`, true)}
                   </button>
                   <div class="merge-note">{selectedStack.length} formations → this army</div>
                 {/if}
@@ -2677,19 +2719,9 @@
                 {/if}
               </div>
 
-              <div class="grid grid-cols-3 gap-x-3 gap-y-2">
-                <div>
-                  <div class="inspector-stat-label">Total residents</div>
-                  <div class="inspector-stat-value">{cityResidents.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div class="inspector-stat-label">Housing</div>
-                  <div class="inspector-stat-value">{cityHousing.toLocaleString()}</div>
-                </div>
-                <div>
-                  <div class="inspector-stat-label">Growth</div>
-                  <div class="mt-1 text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</div>
-                </div>
+              <div class="inspector-row">
+                <span>Population trend</span>
+                <span class="text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</span>
               </div>
 
               {#if sel.city.starving}
@@ -2745,7 +2777,7 @@
                         on:input={() => (policyDraftDirty = true)}
                       />
                       <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]"
-                        >Local defenders outside the protected core. They consume food, do not pay tax, and refill through future growth.</span
+                        >Local defenders separate from core civilians. They consume food, do not pay tax, and refill through future growth.</span
                       >
                     </label>
                     <label class="block border-t border-white/[0.06] pt-2.5">
