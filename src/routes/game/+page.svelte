@@ -2760,6 +2760,11 @@
               {/if}
             </section>
             {#if isBarracks && sel.city?.owner?.value === $userId && !isBuilding}
+              {@const barracksResidents = residents(sel.city!)}
+              {@const barracksHousing = housingCapacity(sel.city!)}
+              {@const barracksCore = corePopulation(sel.city!)}
+              {@const barracksMilitia = militiaPopulation(sel.city!)}
+              {@const barracksTaxable = taxablePopulation(sel.city!)}
               <section class="inspector-section">
                 {#if trainingOrdersAvailable && selectedTrainingOrders.length > 0}
                   {@const activeOrder = selectedTrainingOrders[0]}
@@ -2793,6 +2798,36 @@
                 <div class="mb-2 flex items-center justify-between gap-3">
                   <span class="inspector-label">Train troops</span>
                   <span class="text-[10px] tabular-nums text-[#818a83]">Batch limit {trainingCapacity}</span>
+                </div>
+                <div class="mb-3 border border-[#465a5f] bg-black/[0.08] px-3 py-2.5">
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <span class="inspector-label">Population available</span>
+                    <span class="text-[9px] tabular-nums text-[#758486]">{barracksResidents.toLocaleString()} / {barracksHousing.toLocaleString()} residents</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-x-4">
+                    <div>
+                      <div class="inspector-stat-label">Core residents</div>
+                      <div class="inspector-stat-value">{barracksCore.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div class="inspector-stat-label">Taxpayers</div>
+                      <div class="inspector-stat-value text-amber-100">{barracksTaxable.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div class="inspector-stat-label">Recruitable</div>
+                      <div class="inspector-stat-value text-emerald-200">{availablePopulation.toLocaleString()}</div>
+                    </div>
+                  </div>
+                  <div class="mt-2 flex h-1.5 overflow-hidden bg-white/[0.06]">
+                    <div class="h-full bg-[#7f8e77]" style={`width: ${barracksHousing > 0 ? Math.min(100, (barracksCore / barracksHousing) * 100) : 0}%`}></div>
+                    <div class="h-full bg-blue-300/75" style={`width: ${barracksHousing > 0 ? Math.min(100, (barracksMilitia / barracksHousing) * 100) : 0}%`}></div>
+                    <div class="h-full bg-emerald-300/70" style={`width: ${barracksHousing > 0 ? Math.min(100, (availablePopulation / barracksHousing) * 100) : 0}%`}></div>
+                  </div>
+                  <div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-[#7f8e8f]">
+                    <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#7f8e77]"></i>Protected</span>
+                    <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-blue-300/75"></i>Militia</span>
+                    <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-emerald-300/70"></i>Recruitable now</span>
+                  </div>
                 </div>
                 <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
                   {#each TROOP_TYPES as type}
