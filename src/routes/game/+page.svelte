@@ -28,6 +28,7 @@
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
+  const DOUBLE_CLICK_MS = 350;
   // Set this above zero if movement orders should have a deliberate client-side submit delay.
   const MOVE_ORDER_SUBMIT_DELAY_MS = 0;
   type MovePreviewResult = 'loaded' | 'failed' | 'superseded';
@@ -58,6 +59,8 @@
   let lastMoveT = 0,
     lastMoveX = 0,
     lastMoveY = 0;
+  let lastTileClickKey: string | null = null;
+  let lastTileClickAt = 0;
   let easeMotion = true;
 
   // tiles
@@ -1627,7 +1630,12 @@
         const mc = screenToTile((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
         if (mc.x >= 0 && mc.y >= 0 && mc.x < worldWidth && mc.y < worldHeight) {
           cancelMoveMode();
-          const t = tileData.get(tileKey(mc.x, mc.y));
+          const clickedKey = tileKey(mc.x, mc.y);
+          const clickedAt = performance.now();
+          const t = tileData.get(clickedKey);
+          const openBuildingManagement = !!t?.building && lastTileClickKey === clickedKey && clickedAt - lastTileClickAt <= DOUBLE_CLICK_MS;
+          lastTileClickKey = clickedKey;
+          lastTileClickAt = clickedAt;
           if (t?.armies?.length === 1 && !t.building) {
             focusArmy(t.armies[0], false);
           } else {
@@ -1640,6 +1648,7 @@
             showCityManagement = false;
             recruitCount = 1;
             drawSel(mc.x, mc.y);
+            if (openBuildingManagement) openSelectedManagement();
           }
         }
       } else if (!easeMotion || performance.now() - lastMoveT > 80) {
@@ -2221,6 +2230,9 @@
       : `pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[800px] -translate-x-1/2 sm:bottom-4 ${
           !selectedArmy && !sel?.armies?.length && !showBuild ? 'sm:max-w-[460px]' : ''
         } ${managementOpen ? 'lg:left-4 lg:right-[22rem] lg:mx-auto lg:w-[calc(100%-23rem)] lg:translate-x-0' : ''}`}
+    on:pointerdown|self={() => {
+      if (showCityManagement && sel?.city && !selectedArmy) showCityManagement = false;
+    }}
   >
     {#if sel}
       {@const selectedVisibility = visibilityAt(sel.x, sel.y)}
@@ -3019,8 +3031,11 @@
                   </div>
                 </div>
                 <button class="game-action game-action-primary mt-3 w-full" disabled={busy || !canTrain} on:click={queueTroops}>
-                  {@render managementGlyph('training')}
-                  {busy ? 'Working…' : `Train ${batchCount} ${troopName(recruitType, batchCount)}`}
+                  <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter">
+                    <circle cx="9" cy="7" r="3" />
+                    <path d="M3.5 19v-1.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5V19M18 8v6M15 11h6" />
+                  </svg>
+                  {busy ? 'Working…' : 'Train'}
                 </button>
               </section>
             {/if}
