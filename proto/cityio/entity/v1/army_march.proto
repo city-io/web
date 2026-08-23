@@ -15,7 +15,6 @@ enum ArmyMarchDisclosure {
 
 message ArmyRouteStep {
   Coordinates coords = 1;
-  bool explored = 2;
 }
 
 // ArmyMarch is the active movement order and its current projected route.

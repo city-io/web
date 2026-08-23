@@ -27,7 +27,8 @@
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
-  const MOVE_ORDER_SUBMIT_DELAY_MS = 1000;
+  // Set this above zero if movement orders should have a deliberate client-side submit delay.
+  const MOVE_ORDER_SUBMIT_DELAY_MS = 0;
 
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
@@ -79,7 +80,7 @@
   let trackedArmyId: string | null = null;
   let moveTarget: { x: number; y: number } | null = null;
   let moveHover: { x: number; y: number } | null = null;
-  let moveRoute: (ArmyPathStep & { explored: boolean })[] | null = null;
+  let moveRoute: ArmyPathStep[] | null = null;
   let moveRouteComplete = true;
   let moveRouteLoading = false;
   let moveRouteError = '';
@@ -373,6 +374,10 @@
 
   // ── visibility (fog of war) ─────────────────────────────
   const visibilityAt = (col: number, row: number): TileVisibilityState => $tileVisibility.get(tileKey(col, row)) ?? TileVisibilityState.UNEXPLORED;
+  const routeStepExplored = (step: ArmyPathStep): boolean => {
+    const visibility = visibilityAt(step.x, step.y);
+    return visibility === TileVisibilityState.EXPLORED || visibility === TileVisibilityState.VISIBLE;
+  };
 
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
@@ -694,7 +699,7 @@
     if (request !== movePreviewRequest || moveArmyId !== army.armyId.value) return false;
     moveRouteLoading = false;
     moveRouteError = '';
-    moveRoute = (steps ?? []).flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y, explored: step.explored }] : []));
+    moveRoute = (steps ?? []).flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y }] : []));
     const routeEnd = moveRoute.at(-1);
     moveRouteComplete = (army.coords.x === destination.x && army.coords.y === destination.y) || (routeEnd?.x === destination.x && routeEnd?.y === destination.y);
     moveRouteDurationMs = durationSeconds(estimatedDuration) * 1000;
@@ -704,7 +709,7 @@
     if (moveRoute) {
       for (let index = 1; index < points.length - 1; index++) {
         const point = points[index];
-        const known = moveRoute[index - 1]?.explored;
+        const known = routeStepExplored(moveRoute[index - 1]);
         route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
         route.fill({ color: known ? 0x6ca7dc : 0x9aa4a0, alpha: known ? 0.11 : 0.07 });
         route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
@@ -716,7 +721,7 @@
         route.moveTo(from.sx, from.sy);
         route.lineTo(to.sx, to.sy);
         route.stroke({ color: 0x111611, width: 7, alpha: 0.85 });
-        if (moveRoute[index - 1]?.explored) {
+        if (routeStepExplored(moveRoute[index - 1])) {
           route.moveTo(from.sx, from.sy);
           route.lineTo(to.sx, to.sy);
           route.stroke({ color: 0x7eb5ec, width: 3, alpha: 1 });
@@ -1726,7 +1731,7 @@
         {#if moveArmyId && movingArmy}
           {@const previewTarget = moveTarget ?? moveHover}
           {@const steps = moveRoute?.length ?? 0}
-          {@const unknownSteps = moveRoute?.filter((step) => !step.explored).length ?? 0}
+          {@const unknownSteps = moveRoute?.filter((step) => !routeStepExplored(step)).length ?? 0}
           <div class="flex flex-wrap items-center gap-3 border-b px-4 py-2.5 {moveConfirmationPending ? 'border-red-300/30 bg-red-400/[0.09]' : 'border-blue-300/20 bg-blue-300/[0.07]'}">
             <div class="min-w-0 flex-1">
               <div class="text-xs font-semibold {moveConfirmationPending || (previewTarget && !moveRoute && !moveRouteLoading) ? 'text-red-200' : 'text-blue-200'}">
