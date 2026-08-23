@@ -87,7 +87,9 @@ function clipDiamond(ctx: CanvasRenderingContext2D, cx: number, cy: number, scal
 }
 
 function drawFlatGround(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: number) {
-  diamondPath(ctx, cx, cy);
+  // Slightly overlap neighboring terrain bases so scaled sprites cannot expose
+  // transparent antialiasing pixels as a visible diamond grid.
+  diamondPath(ctx, cx, cy, 1.04);
   ctx.fillStyle = css(color);
   ctx.fill();
 }
