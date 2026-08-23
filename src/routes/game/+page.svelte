@@ -106,7 +106,7 @@
   // Resource details stay compact; entity management lives in the right rail.
   let ratesOpen = false;
   let ratesEl: HTMLDivElement;
-  let managementOpen = true;
+  let managementOpen = false;
   let managementTab: 'armies' | 'cities' | 'training' = 'armies';
   const toggleManagementTab = (tab: typeof managementTab) => {
     if (managementOpen && managementTab === tab) {
@@ -1490,7 +1490,92 @@
   </span>
 {/snippet}
 
-<div class="relative h-screen w-screen overflow-hidden bg-[#0e110f]">
+{#snippet resourceGlyph(kind: 'gold' | 'food')}
+  {#if kind === 'gold'}
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
+      <circle cx="12" cy="12" r="8" fill="currentColor" opacity=".18" />
+      <circle cx="12" cy="12" r="8" />
+      <circle cx="12" cy="12" r="4.5" />
+      <path d="M12 8.5v7M9.5 10.5h3.8a1.7 1.7 0 0 1 0 3.4H9.5" />
+    </svg>
+  {:else}
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter">
+      <path d="M12 21V5M12 9 8 6M12 13l-5-3M12 17l-4-2M12 9l4-3M12 13l5-3M12 17l4-2" />
+      <path d="m8 6-2-2M7 10 4 8M8 15l-3-2M16 6l2-2M17 10l3-2M16 15l3-2" />
+    </svg>
+  {/if}
+{/snippet}
+
+{#snippet managementGlyph(tab: 'armies' | 'cities' | 'training')}
+  {#if tab === 'armies'}
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M12 3 20 6v5c0 5-3.2 8.3-8 10-4.8-1.7-8-5-8-10V6l8-3Z" fill="currentColor" opacity=".12" />
+      <path d="M12 3 20 6v5c0 5-3.2 8.3-8 10-4.8-1.7-8-5-8-10V6l8-3Z" />
+      <path d="M8 12h8M9 9.5c1.8-2 4.2-2 6 0V15H9V9.5Z" />
+    </svg>
+  {:else if tab === 'cities'}
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="miter">
+      <path d="M3 21h18M5 21V9h4v12M9 21V5h6v16M15 21V10h4v11" />
+      <path d="M5 9V6h4v3M9 5V2h6v3M15 10V7h4v3M11 21v-5h2v5" />
+    </svg>
+  {:else}
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      <path d="M5 12c0-4.5 3-8 7-8s7 3.5 7 8H5ZM7 12v3h10v-3M6 18h12M9 15v3M15 15v3" fill="currentColor" opacity=".12" />
+      <path d="M5 12c0-4.5 3-8 7-8s7 3.5 7 8H5ZM7 12v3h10v-3M6 18h12M9 15v3M15 15v3" />
+      <path d="M18 4v5M15.5 6.5h5" />
+    </svg>
+  {/if}
+{/snippet}
+
+{#snippet troopGlyph(type: TroopType)}
+  {@const tier = type === TroopType.SOLDIER ? 'I' : type === TroopType.ARCHER ? 'II' : type === TroopType.CAVALRY ? 'III' : 'IV'}
+  <span class="unit-token" title={`${troopName(type, 1)} · tier ${tier}`}>
+    <svg viewBox="0 0 36 36" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+      {#if type === TroopType.SOLDIER}
+        <path d="M18 5v24M13 8h10M12 30h12" stroke-width="2" />
+        <path d="M8 13c5 1 8 4 8 9v6c-5-1-8-4-8-9v-6Z" fill="currentColor" opacity=".22" stroke-width="1.5" />
+        <path d="m22 7 4 4M26 7l-4 4" stroke-width="1.5" />
+      {:else if type === TroopType.ARCHER}
+        <path d="M10 6c13 4 13 20 0 24M10 6v24M8 18h20M25 15l4 3-4 3" stroke-width="1.8" />
+        <path d="m10 18 7-7M10 18l7 7" stroke-width="1.2" opacity=".65" />
+      {:else if type === TroopType.CAVALRY}
+        <path d="M8 25c2-8 6-14 13-16l6 5-3 4-5-1-2 4 8 7H11l-3-3Z" fill="currentColor" opacity=".2" stroke-width="1.5" />
+        <path d="M13 28v3M23 28l3 3M20 9l-1-4M22 10l4-3" stroke-width="1.7" />
+        <circle cx="23.5" cy="14" r="1.2" fill="currentColor" stroke="none" />
+      {:else}
+        <circle cx="12" cy="25" r="5" stroke-width="2" />
+        <circle cx="12" cy="25" r="1.4" fill="currentColor" stroke="none" />
+        <path d="M8 21 23 10l5 2-2 4-15 6M17 15l4 7M7 30h19" stroke-width="1.8" />
+      {/if}
+    </svg>
+    <span class="unit-tier">{tier}</span>
+  </span>
+{/snippet}
+
+{#snippet structureGlyph(type: BuildingType, level: number)}
+  <span class="structure-token">
+    <svg viewBox="0 0 42 42" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+      {#if type === BuildingType.FARM}
+        <path d="M8 34V17l13-8 13 8v17H8Z" fill="currentColor" opacity=".12" />
+        <path d="m6 18 15-10 15 10M9 17v17h24V17M15 34V23h12v11" />
+        <path d="M15 25h12M19 23v11M23 23v11" opacity=".7" />
+      {:else if type === BuildingType.MINE}
+        <path d="M8 34 14 16h14l6 18H8Z" fill="currentColor" opacity=".12" />
+        <path d="M8 34 14 16h14l6 18M12 27h18M21 16v18M10 34h24" />
+        <path d="m14 13 14-5M25 7l5 3" />
+      {:else if type === BuildingType.BARRACKS}
+        <path d="M7 34V15h28v19H7Z" fill="currentColor" opacity=".12" />
+        <path d="M7 34V15h28v19M5 15h32M11 15V9h6v6M25 15V9h6v6M17 34V24h8v10M11 21h4M27 21h4" />
+      {:else}
+        <path d="M8 34V18L21 8l13 10v16H8Z" fill="currentColor" opacity=".12" />
+        <path d="m6 19 15-12 15 12M9 18v16h24V18M17 34V23h8v11" />
+      {/if}
+    </svg>
+    <span class="structure-level" title={`Level ${level}`}>{level || '…'}</span>
+  </span>
+{/snippet}
+
+<div class="game-ui relative h-screen w-screen overflow-hidden bg-[#0e110f]">
   <!-- Canvas -->
   <div bind:this={el} class="absolute inset-0 {drag ? 'cursor-map-drag' : moveConfirmationPending ? 'cursor-army-confirm' : moveArmyId ? 'cursor-army-move' : 'cursor-map-pan'}"></div>
 
@@ -1514,27 +1599,21 @@
     </div>
 
     <!-- Resources (hover for per-hour rates, click to pin) -->
-    <div class="hud-surface group pointer-events-auto absolute left-0 sm:left-1/2 sm:-translate-x-1/2" bind:this={ratesEl}>
-      <button type="button" class="flex h-12 items-center gap-4 px-3 text-left sm:gap-6 sm:px-4" on:click={() => (ratesOpen = !ratesOpen)} aria-expanded={ratesOpen}>
-        <span class="flex min-w-[3.5rem] items-center gap-2.5">
-          <span class="hidden h-6 w-6 items-center justify-center rounded-sm bg-amber-300/10 text-amber-200 sm:flex">
-            <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5"><circle cx="10" cy="10" r="7" /><circle cx="10" cy="10" r="3" fill="#171c18" opacity="0.55" /></svg>
-          </span>
-          <span class="flex flex-col gap-1.5 leading-none">
-            <span class="text-[11px] text-[#969d97]">Gold</span>
-            <span class="text-[15px] font-semibold tabular-nums text-amber-100">{$gold.toLocaleString()}</span>
+    <div class="hud-surface group pointer-events-auto absolute left-1/2 -translate-x-1/2" bind:this={ratesEl}>
+      <button type="button" class="flex h-12 items-center text-left" on:click={() => (ratesOpen = !ratesOpen)} aria-expanded={ratesOpen} aria-label="Treasury and food stores">
+        <span class="resource-counter">
+          <span class="resource-medallion text-[#d9bd58]">{@render resourceGlyph('gold')}</span>
+          <span class="leading-none">
+            <strong class="block text-[13px] font-bold tabular-nums text-[#f5e5a4] sm:text-[15px]">{$gold.toLocaleString()}</strong>
+            <span class="resource-rate text-[#c7aa58]">{fmtPerHour(goldPerHour)}/hr</span>
           </span>
         </span>
-        <span class="h-7 w-px bg-white/[0.08]"></span>
-        <span class="flex min-w-[3.5rem] items-center gap-2.5">
-          <span class="hidden h-6 w-6 items-center justify-center rounded-sm bg-emerald-300/10 text-emerald-300 sm:flex">
-            <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4"
-              ><path d="M4 13c0-3.2 2.4-5 6-5s6 1.8 6 5a1 1 0 01-1 1H5a1 1 0 01-1-1zM7.5 9.5v4M10 8.8V14M12.5 9.5v4" /></svg
-            >
-          </span>
-          <span class="flex flex-col gap-1.5 leading-none">
-            <span class="text-[11px] text-[#969d97]">Food</span>
-            <span class="text-[15px] font-semibold tabular-nums text-emerald-200">{$food.toLocaleString()}</span>
+        <span class="h-8 w-px bg-[#52666c]"></span>
+        <span class="resource-counter">
+          <span class="resource-medallion text-[#afc778]">{@render resourceGlyph('food')}</span>
+          <span class="leading-none">
+            <strong class="block text-[13px] font-bold tabular-nums text-[#e5ddad] sm:text-[15px]">{$food.toLocaleString()}</strong>
+            <span class="resource-rate {netFoodPerHour < 0 ? 'text-red-300' : 'text-[#a9bd77]'}">{fmtPerHour(netFoodPerHour)}/hr</span>
           </span>
         </span>
       </button>
@@ -1544,7 +1623,7 @@
           : ''}"
       >
         <div class="game-popover p-3">
-          <div class="panel-title mb-2">Production per hour</div>
+          <div class="inspector-label mb-2">Realm stores</div>
           <div class="flex items-center justify-between gap-3 text-xs">
             <span class="text-[#8d968f]">Gold</span>
             <span class="tabular-nums text-amber-200">{fmtPerHour(goldPerHour)}</span>
@@ -1561,16 +1640,19 @@
       </div>
     </div>
 
-    <div class="hud-surface pointer-events-auto ml-auto flex h-12 items-stretch overflow-hidden p-1">
-      {#each [['armies', `Armies ${ownedArmies.length}`], ['cities', `Cities ${ownedCities.length}`], ['training', `Training ${queuedTrainingCount}`]] as [tab, label]}
+    <div class="hud-surface pointer-events-auto ml-auto flex h-10 items-stretch overflow-visible">
+      {#each [['armies', ownedArmies.length], ['cities', ownedCities.length], ['training', queuedTrainingCount]] as [tab, count]}
         <button
           type="button"
-          class="px-2.5 text-[10px] font-semibold uppercase tracking-[0.07em] transition-colors sm:px-3 {managementOpen && managementTab === tab
-            ? 'bg-blue-300/[0.12] text-blue-200'
-            : 'text-[#778078] hover:bg-white/[0.04] hover:text-[#c8cec9]'}"
+          class="hud-tool {managementOpen && managementTab === tab ? 'hud-tool-active' : ''}"
           on:click={() => toggleManagementTab(tab as typeof managementTab)}
-          aria-expanded={managementOpen && managementTab === tab}>{label}</button
+          aria-label={`${tab === 'armies' ? 'Armies' : tab === 'cities' ? 'Cities' : 'Barracks training'}: ${count}`}
+          aria-expanded={managementOpen && managementTab === tab}
         >
+          {@render managementGlyph(tab as typeof managementTab)}
+          <span class="hud-count">{count}</span>
+          <span class="hud-tooltip">{tab === 'armies' ? 'Field armies' : tab === 'cities' ? 'Cities' : 'Troops training'} · {count}</span>
+        </button>
       {/each}
     </div>
   </div>
@@ -1583,8 +1665,14 @@
       <div class="border-b border-white/[0.08] px-3 pb-2 pt-3">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <div class="panel-title">{managementTab === 'armies' ? 'Armies' : managementTab === 'cities' ? 'Cities' : 'Training'}</div>
-            <div class="mt-0.5 text-[10px] text-[#727b74]">Live command overview</div>
+            <div class="text-sm font-bold text-[#e9e4cc]">{managementTab === 'armies' ? 'Field Armies' : managementTab === 'cities' ? 'Cities of the Realm' : 'Barracks'}</div>
+            <div class="mt-0.5 text-[10px] text-[#858578]">
+              {managementTab === 'armies'
+                ? `${ownedArmyTroops.toLocaleString()} troops · ${ownedMarchCount} marching`
+                : managementTab === 'cities'
+                  ? `${ownedCities.length} settlements under your rule`
+                  : `${queuedTrainingCount} formations in drill`}
+            </div>
           </div>
           <button class="flex h-7 w-7 items-center justify-center text-[#788179] transition-colors hover:text-white" aria-label="Close command panel" on:click={() => (managementOpen = false)}
             >×</button
@@ -1682,9 +1770,9 @@
     </aside>
   {/if}
 
-  <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
+  <!-- Selection details live in a compact control deck instead of a map-obscuring sidebar. -->
   <div
-    class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4 {managementOpen
+    class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1120px] -translate-x-1/2 sm:bottom-4 {managementOpen
       ? 'lg:left-4 lg:right-[22rem] lg:w-auto lg:max-w-none lg:translate-x-0'
       : ''}"
   >
@@ -1693,35 +1781,50 @@
       {@const selectedUnknown = selectedVisibility === TileVisibilityState.UNEXPLORED}
       {@const selectedTerrain = selectedUnknown ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
       <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
-        <div class="inspector-header flex items-center justify-between gap-4">
-          <div class="min-w-0">
-            <h2 class="truncate text-base font-semibold text-[#f0f2e8]">
-              {#if selectedArmy}
-                {armyTitle(selectedArmy)}
+        <div class="inspector-header flex items-center justify-between gap-3">
+          <div class="flex min-w-0 items-center gap-2.5">
+            <span class="selection-crest">
+              {#if selectedArmy || sel.armies?.length}
+                {@render managementGlyph('armies')}
               {:else if sel.building}
-                {bName(sel.building.type)}
-              {:else if sel.armies?.length}
-                {sel.armies.length === 1 ? 'Army' : `${sel.armies.length} armies`}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
+                  <path d="M4 20V10l8-6 8 6v10M2 20h20M9 20v-7h6v7" />
+                </svg>
               {:else if sel.city}
-                {sel.city.name}
+                {@render managementGlyph('cities')}
               {:else}
-                {selectedTerrain.name}
+                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" aria-hidden="true"><path d="m12 4 9 8-9 8-9-8 9-8Z" /></svg>
               {/if}
-            </h2>
-            {#if selectedArmy}
-              <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
-                <span class={selectedArmy.owner?.value === $userId ? 'font-medium text-blue-200' : 'font-medium text-red-200'}
-                  >{selectedArmy.owner?.value === $userId ? 'Your army' : 'Foreign army'}</span
-                >
-                · Tile {sel.x}, {sel.y}
-              </div>
-            {:else}
-              <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
-                {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
-                {/if}<span class="font-medium text-[#d4d5c8]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
-              </div>
-              <p class="mt-1 truncate text-[11px] text-[#8f9387]">{selectedTerrain.note}</p>
-            {/if}
+            </span>
+            <div class="min-w-0">
+              <h2 class="truncate text-[14px] font-bold text-[#eef4f2]">
+                {#if selectedArmy}
+                  {armyTitle(selectedArmy)}
+                {:else if sel.building}
+                  {bName(sel.building.type)}
+                {:else if sel.armies?.length}
+                  {sel.armies.length === 1 ? 'Army' : `${sel.armies.length} armies`}
+                {:else if sel.city}
+                  {sel.city.name}
+                {:else}
+                  {selectedTerrain.name}
+                {/if}
+              </h2>
+              {#if selectedArmy}
+                <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[10px] text-[#aaa997]">
+                  <span class={selectedArmy.owner?.value === $userId ? 'font-medium text-blue-200' : 'font-medium text-red-200'}
+                    >{selectedArmy.owner?.value === $userId ? 'Your army' : 'Foreign army'}</span
+                  >
+                  · Tile {sel.x}, {sel.y}
+                </div>
+              {:else}
+                <div class="mt-0.5 flex min-w-0 items-center gap-x-1 truncate text-[10px] text-[#aaa997]">
+                  {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
+                  {/if}<span class="font-medium text-[#d8e4e2]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
+                  <span class="hidden text-[#828275] md:inline">· {selectedTerrain.note}</span>
+                </div>
+              {/if}
+            </div>
           </div>
           <button
             aria-label="Close"
@@ -1744,42 +1847,47 @@
           {@const previewTarget = moveTarget ?? moveHover}
           {@const steps = moveRoute?.length ?? 0}
           {@const includesUnknown = movingArmy.coords && moveRoute ? routeIncludesUnknown(movingArmy.coords, moveRoute) : false}
-          <div class="flex flex-wrap items-center gap-3 border-b px-4 py-2.5 {moveConfirmationPending ? 'border-red-300/30 bg-red-400/[0.09]' : 'border-blue-300/20 bg-blue-300/[0.07]'}">
+          <div class="flex flex-wrap items-center gap-2.5 border-b px-3 py-1.5 {moveConfirmationPending ? 'border-red-300/30 bg-red-400/[0.09]' : 'border-blue-300/20 bg-blue-300/[0.07]'}">
+            <span class="selection-crest h-7 w-7 {moveConfirmationPending ? 'text-red-200' : 'text-blue-200'}">
+              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+                <circle cx="5" cy="18" r="2" /><circle cx="19" cy="6" r="2" /><path d="M7 18c7 0 3-12 10-12M13 4l4 2-2 4" />
+              </svg>
+            </span>
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-semibold {moveConfirmationPending || (previewTarget && !moveRoute && !moveRouteLoading) ? 'text-red-200' : 'text-blue-200'}">
+              <div class="text-[11px] font-bold {moveConfirmationPending || (previewTarget && !moveRoute && !moveRouteLoading) ? 'text-red-200' : 'text-blue-200'}">
                 {busy
-                  ? 'Submitting movement order…'
+                  ? 'Sending march order…'
                   : moveRouteLoading
-                    ? 'Calculating route…'
+                    ? 'Plotting route…'
                     : moveConfirmationPending && previewTarget
-                      ? `Right-click tile ${previewTarget.x}, ${previewTarget.y} again to confirm`
+                      ? `Confirm march to ${previewTarget.x}, ${previewTarget.y}`
                       : moveOrderActive && previewTarget
-                        ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
+                        ? `On march to ${previewTarget.x}, ${previewTarget.y}`
                         : previewTarget
                           ? moveRoute
                             ? moveRouteComplete
-                              ? `Route to ${previewTarget.x}, ${previewTarget.y}`
-                              : `Best known approach to ${previewTarget.x}, ${previewTarget.y}`
+                              ? `March to ${previewTarget.x}, ${previewTarget.y}`
+                              : `Known route toward ${previewTarget.x}, ${previewTarget.y}`
                             : moveRouteError || 'Route unavailable'
-                          : 'Move army'}
+                          : 'Choose a destination'}
               </div>
-              <div class="mt-0.5 text-[11px] text-[#9ba9b1]">
+              <div class="mt-0.5 truncate text-[9px] text-[#969d98]">
                 {moveConfirmationPending && previewTarget
                   ? moveRouteLoading
-                    ? 'Plotting the route. A second right-click here will confirm once it is ready; any other click cancels.'
-                    : `${moveRoute ? `${includesUnknown ? `${steps} disclosed ${steps === 1 ? 'step' : 'steps'} · continues through unexplored terrain` : `${steps} ${steps === 1 ? 'tile' : 'tiles'}`} · about ${fmtCountdown(moveRouteDurationMs)}` : 'Route unavailable'} · right-click this tile again to confirm; any other click cancels.`
+                    ? 'Wait for the route, then right-click again'
+                    : `${moveRoute ? `${steps} known ${steps === 1 ? 'step' : 'steps'} · ~${fmtCountdown(moveRouteDurationMs)}${includesUnknown ? ' · continues through fog' : ''}` : 'Route unavailable'} · right-click again`
                   : previewTarget
                     ? moveRouteLoading
-                      ? 'Checking the known terrain and plotting through the fog.'
+                      ? 'Reading known terrain'
                       : moveRoute
-                        ? `${steps} disclosed ${steps === 1 ? 'step' : 'steps'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteDurationMs)}${includesUnknown ? ' · continues through unexplored terrain' : ''}${!moveRouteComplete ? ' · stops at the closest reachable land' : ''}`
+                        ? `${steps} known ${steps === 1 ? 'step' : 'steps'}${moveOrderActive ? ' remaining' : ''} · ~${fmtCountdown(moveRouteDurationMs)}${includesUnknown ? ' · through fog' : ''}${!moveRouteComplete ? ' · nearest known land' : ''}`
                         : moveRouteError
-                          ? 'You can still right-click to send the order; the server will validate it directly.'
-                          : 'Land armies cannot cross water or cut through a blocked corner.'
-                    : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
+                          ? 'Right-click to let the server judge the route'
+                          : 'Land armies cannot cross water'
+                    : 'Hover to inspect · right-click to march'}
               </div>
             </div>
-            <span class="text-[10px] text-[#7e8981]">{moveOrderActive ? 'Esc hides route' : 'Esc cancels'}</span>
+            <span class="text-[9px] text-[#7e7f72]">{moveOrderActive ? 'Esc hide' : 'Esc cancel'}</span>
           </div>
         {/if}
 
@@ -1788,35 +1896,44 @@
             {@const selectedArmyOwned = selectedArmy.owner?.value === $userId}
             {@const selectedArmySize = armySize(selectedArmy)}
             {@const selectedStack = sel.armies?.filter((army) => army.owner?.value === $userId) ?? []}
+            {@const selectedTroops = selectedArmy.troops.filter((stack) => (stack.count ?? 1) > 0)}
             <section class="inspector-section">
-              <div class="grid grid-cols-3 gap-5">
+              <div class="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] items-center gap-3">
+                {#if selectedArmy.compositionVisibility !== ArmyCompositionVisibility.HIDDEN && selectedTroops[0]}
+                  {@render troopGlyph(selectedTroops[0].type)}
+                {:else}
+                  <span class="unit-token text-lg">?</span>
+                {/if}
                 <div>
                   <div class="inspector-stat-label">Strength</div>
                   <div class="inspector-stat-value">
                     {selectedArmy.compositionVisibility === ArmyCompositionVisibility.EXACT ? selectedArmySize.toLocaleString() : 'Unknown'}
-                    <span class="text-[#68716a]">troops</span>
                   </div>
                 </div>
                 <div>
-                  <div class="inspector-stat-label">Position</div>
+                  <div class="inspector-stat-label">Tile</div>
                   <div class="inspector-stat-value">{selectedArmy.coords?.x ?? '—'}, {selectedArmy.coords?.y ?? '—'}</div>
                 </div>
                 <div>
-                  <div class="inspector-stat-label">Orders</div>
-                  <div class="mt-1 text-xs font-medium {selectedMarch?.destination ? 'text-amber-200' : 'text-[#aab2ac]'}">
+                  <div class="inspector-stat-label">Disposition</div>
+                  <div class="mt-0.5 truncate text-[11px] font-semibold {selectedMarch?.destination ? 'text-amber-200' : 'text-[#c2c2b2]'}">
                     {selectedMarch?.destination ? `March to ${selectedMarch.destination.x}, ${selectedMarch.destination.y}` : selectedArmy.marchId ? 'Movement details restricted' : 'Hold position'}
                   </div>
                 </div>
               </div>
-              <div class="mt-3 border-t border-white/[0.07] pt-3">
-                <div class="inspector-label mb-2">Composition</div>
+              <div class="mt-2.5 border-t border-[#465a5f] pt-2.5">
+                <div class="inspector-label mb-1.5">Ranks</div>
                 {#if selectedArmy.compositionVisibility === ArmyCompositionVisibility.HIDDEN}
                   <div class="text-[11px] text-[#747d76]">Composition has not been identified.</div>
                 {:else}
-                  <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]">
-                    {#each selectedArmy.troops.filter((stack) => (stack.count ?? 1) > 0) as stack}
-                      <span class="text-[#969f98]">
-                        {#if stack.count !== undefined}<strong class="mr-1 font-semibold tabular-nums text-[#e0e2d8]">{stack.count}</strong>{/if}{troopName(stack.type, stack.count)}
+                  <div class="flex flex-wrap gap-1.5">
+                    {#each selectedTroops as stack}
+                      <span class="unit-chip">
+                        {@render troopGlyph(stack.type)}
+                        <span class="min-w-0 leading-tight">
+                          <strong class="block text-[12px] font-bold tabular-nums text-[#f0edda]">{stack.count ?? '?'}</strong>
+                          <span class="block truncate text-[9px] text-[#9d9c8d]">{troopName(stack.type, stack.count)}</span>
+                        </span>
                       </span>
                     {/each}
                   </div>
@@ -1826,23 +1943,36 @@
             {#if selectedArmyOwned}
               <div class="inspector-actions">
                 <button class="game-action game-action-primary" disabled={busy || (moveArmyId === selectedArmyId && !moveOrderActive)} on:click={() => prepareMove(selectedArmy)}>
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 16 16 3M9 3h7v7M4 8v8h8" /></svg>
                   {selectedMarch ? 'Redirect army' : 'Move army'}
                 </button>
                 {#if selectedMarch}
-                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => haltArmy(selectedArmy)}>Halt</button>
+                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => haltArmy(selectedArmy)}>
+                    <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3" aria-hidden="true"><rect x="4" y="4" width="12" height="12" /></svg>
+                    Halt march
+                  </button>
                 {/if}
                 {#if selectedStack.length > 1}
-                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => mergeOwnedArmies(selectedStack, selectedArmyId ?? undefined)}>Merge stack</button>
+                  <button
+                    class="game-action game-action-secondary"
+                    disabled={busy}
+                    title={`The selected army remains; ${selectedStack.length - 1} other ${selectedStack.length - 1 === 1 ? 'army joins' : 'armies join'} it`}
+                    on:click={() => mergeOwnedArmies(selectedStack, selectedArmyId ?? undefined)}
+                  >
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 5h4l3 5 3-5h4M3 15h4l3-5 3 5h4" /></svg>
+                    Combine {selectedStack.length} armies
+                  </button>
+                  <div class="merge-note">{selectedStack.length} formations → this army</div>
                 {/if}
-                <div class="mt-1 border-t border-white/[0.06] pt-2 text-[10px] leading-relaxed text-[#747d76]">Right-click the map to move immediately.</div>
+                <div class="mt-0.5 border-t border-[#42555a] pt-1.5 text-center text-[9px] leading-relaxed text-[#7f9294]">Select the army, then right-click its destination.</div>
               </div>
             {/if}
           {/if}
 
           {#if !selectedArmy && sel.city}
             <section class="inspector-section">
-              <div class="mb-3 flex items-center justify-between gap-3">
-                <span class="inspector-label">City resources</span>
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <span class="inspector-label">City ledger</span>
                 {#if sel.city.owner?.value === $userId}
                   <span class="flex items-center gap-1.5 text-xs font-medium text-blue-300"><span class="h-1.5 w-1.5 bg-blue-400"></span>Yours</span>
                 {:else if sel.city.owner}
@@ -1852,13 +1982,13 @@
                 {/if}
               </div>
 
-              <div class="grid grid-cols-2 gap-x-5 gap-y-3">
+              <div class="grid grid-cols-3 gap-x-4 gap-y-2">
                 <div>
                   <div class="inspector-stat-label">Population</div>
                   <div class="inspector-stat-value">{sel.city.population.toFixed(0)} <span class="text-[#636d65]">/ {sel.city.populationCap.toFixed(0)}</span></div>
                 </div>
                 <div>
-                  <div class="inspector-stat-label">Military</div>
+                  <div class="inspector-stat-label">Garrisoned</div>
                   <div class="inspector-stat-value">{sel.city.militaryPopulation.toFixed(0)}</div>
                 </div>
                 <div>
@@ -1876,17 +2006,17 @@
               <!-- Food economy is owner-only intel; non-owners receive these unset -->
               {#if sel.city.owner?.value === $userId}
                 {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
-                <div class="mt-4 border-t border-white/[0.07] pt-3">
+                <div class="mt-2.5 border-t border-[#465a5f] pt-2">
                   <div class="inspector-row">
-                    <span>Food produced</span>
+                    <span>Harvest</span>
                     <span class="text-emerald-300">{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
                   </div>
                   <div class="inspector-row">
-                    <span>Food upkeep</span>
+                    <span>Rations</span>
                     <span class="text-red-300/80">{fmtPerHour(-ratePerHour(sel.city.foodUpkeep))}/hr</span>
                   </div>
                   <div class="inspector-row mt-1 border-t border-white/[0.05] pt-2">
-                    <span>{netFlow >= 0 ? 'Net surplus' : 'Pool draw'}</span>
+                    <span>{netFlow >= 0 ? 'To the stores' : 'From the stores'}</span>
                     <span class="font-semibold {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerHour(netFlow)}/hr</span>
                   </div>
                 </div>
@@ -1896,46 +2026,52 @@
 
           {#if !selectedArmy && sel.armies?.length}
             {@const stackCompositionExact = sel.armies.every((army) => army.compositionVisibility === ArmyCompositionVisibility.EXACT)}
+            {@const friendlyArmies = sel.armies.filter((army) => army.owner?.value === $userId)}
             <section class="inspector-section">
-              <div class="mb-3 flex items-center justify-between">
-                <span class="inspector-label">Armies on this tile</span>
+              <div class="mb-2 flex items-center justify-between">
+                <span class="inspector-label">Forces present</span>
                 <span class="text-xs font-medium tabular-nums text-[#9aa39c]">
                   {stackCompositionExact ? `${sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops` : 'Strength unknown'}
                 </span>
               </div>
-              <div class="space-y-2">
+              <div class="space-y-1.5">
                 {#each sel.armies as army}
                   {@const owned = army.owner?.value === $userId}
                   {@const size = armySize(army)}
                   {@const march = marchForArmy(army)}
+                  {@const visibleTroops = army.troops.filter((stack) => (stack.count ?? 1) > 0)}
                   <button
-                    class="w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
+                    class="flex w-full items-center gap-2.5 border border-[#465a5f] bg-[#233235] p-1.5 text-left transition-colors hover:border-[#60757a] hover:bg-[#304348]"
                     on:click={() => focusArmy(army, false)}
                   >
-                    <div class="flex items-center justify-between gap-3">
-                      <div class="flex min-w-0 items-center gap-2">
-                        <span class="h-2 w-2 shrink-0 {owned ? 'bg-blue-400' : 'bg-red-400'}"></span>
-                        <span class="truncate text-xs font-semibold {owned ? 'text-blue-200' : 'text-red-200'}">{armyTitle(army)}</span>
+                    {#if army.compositionVisibility !== ArmyCompositionVisibility.HIDDEN && visibleTroops[0]}
+                      {@render troopGlyph(visibleTroops[0].type)}
+                    {:else}
+                      <span class="unit-token text-lg">?</span>
+                    {/if}
+                    <div class="min-w-0 flex-1">
+                      <div class="flex items-center gap-1.5">
+                        <span class="h-1.5 w-1.5 shrink-0 {owned ? 'bg-blue-400' : 'bg-red-400'}"></span>
+                        <span class="truncate text-[11px] font-bold {owned ? 'text-blue-200' : 'text-red-200'}">{armyTitle(army)}</span>
                       </div>
-                      <span class="text-xs font-semibold tabular-nums text-[#e2e3d8]">{army.compositionVisibility === ArmyCompositionVisibility.EXACT ? size : '?'}</span>
+                      <div class="mt-1 truncate text-[9px] {march?.destination ? 'text-amber-200/80' : 'text-[#858578]'}">
+                        {march?.destination ? `Marching to ${march.destination.x}, ${march.destination.y}` : army.marchId ? 'On the march' : 'Holding this tile'}
+                      </div>
                     </div>
-                    <p class="mt-1.5 text-[11px] leading-relaxed text-[#aeb5b0]">
-                      {army.compositionVisibility === ArmyCompositionVisibility.HIDDEN
-                        ? 'Composition unknown'
-                        : army.troops
-                            .filter((stack) => (stack.count ?? 1) > 0)
-                            .map((stack) => `${stack.count ?? 'Unknown'} ${troopName(stack.type, stack.count)}`)
-                            .join(', ') || 'No troops'}
-                    </p>
-                    <div class="mt-2 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-2 text-[10px]">
-                      <span class={march?.destination ? 'text-amber-200/80' : 'text-[#79827b]'}
-                        >{march?.destination ? `Marching to ${march.destination.x}, ${march.destination.y}` : army.marchId ? 'Marching' : 'Holding position'}</span
-                      >
-                      <span class="font-semibold text-[#aeb7b0]">View army →</span>
+                    <div class="text-right">
+                      <strong class="block text-[13px] font-bold tabular-nums text-[#edf3f1]">{army.compositionVisibility === ArmyCompositionVisibility.EXACT ? size : '?'}</strong>
+                      <span class="text-[8px] uppercase tracking-wide text-[#7f7f72]">troops</span>
                     </div>
                   </button>
                 {/each}
               </div>
+              {#if friendlyArmies.length > 1}
+                <button class="game-action game-action-secondary mt-2" disabled={busy} on:click={() => mergeOwnedArmies(friendlyArmies)}>
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 5h4l3 5 3-5h4M3 15h4l3-5 3 5h4" /></svg>
+                  Combine {friendlyArmies.length} friendly armies
+                </button>
+                <div class="merge-note mt-1">{friendlyArmies.length} formations → strongest army remains</div>
+              {/if}
             </section>
           {/if}
 
@@ -1957,11 +2093,12 @@
             {@const canTrain =
               isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && BigInt(trainingCost) <= $gold && trainingPopulation <= availablePopulation}
             <section class="inspector-section">
-              <div class="flex items-center justify-between">
-                <span class="inspector-label">Improvement</span>
-                {#if !isBuilding}
-                  <span class="text-xs font-semibold tabular-nums text-amber-200">Level {sel.building.level}</span>
-                {/if}
+              <div class="flex items-center gap-2.5">
+                {@render structureGlyph(sel.building.type, sel.building.level)}
+                <div class="min-w-0 flex-1">
+                  <strong class="block truncate text-[12px] font-bold text-[#e9f0ee]">{bName(sel.building.type)}</strong>
+                  <span class="mt-0.5 block text-[9px] text-[#829496]">{isBuilding ? 'Work underway' : `Level ${sel.building.level} city building`}</span>
+                </div>
               </div>
               {#if sel.building.constructionStart && sel.building.constructionEnd}
                 {@const startMs = Number(sel.building.constructionStart.seconds) * 1000}
@@ -1986,13 +2123,13 @@
                 <div class="mt-3 border-t border-white/[0.07] pt-2">
                   {#if stats.production.length > 0}
                     <div class="inspector-row">
-                      <span>Production</span>
+                      <span>Yield</span>
                       <span class="text-emerald-300">{stats.production.map(fmtProd).join(', ')}</span>
                     </div>
                   {/if}
                   {#if stats.population > 0}
                     <div class="inspector-row">
-                      <span>Population capacity</span>
+                      <span>Housing</span>
                       <span class="text-blue-300">+{stats.population}</span>
                     </div>
                   {/if}
@@ -2000,7 +2137,7 @@
               {/if}
               {#if nextStats && sel.city?.owner?.value === $userId}
                 <div class="mt-3 border-t border-white/[0.07] pt-3">
-                  <div class="inspector-label mb-1">Upgrade</div>
+                  <div class="inspector-label mb-1">Next level</div>
                   {#if barracksTrainingInProgress}
                     <div class="mb-2 text-[10px] text-amber-200/80">Finish the training queue before upgrading this barracks.</div>
                   {/if}
@@ -2014,7 +2151,7 @@
                   </div>
                   {#if nextStats.production.length > 0}
                     <div class="inspector-row">
-                      <span>Production</span>
+                      <span>Yield</span>
                       <span>
                         {#if stats}
                           <span class="text-[#646e66]">{stats.production.map(fmtProdNum).join(', ')}</span>
@@ -2027,7 +2164,7 @@
                   {/if}
                   {#if nextStats.population > 0}
                     <div class="inspector-row">
-                      <span>Population capacity</span>
+                      <span>Housing</span>
                       <span>
                         {#if stats}
                           <span class="text-[#646e66]">+{stats.population}</span>
@@ -2042,26 +2179,27 @@
             </section>
             {#if isBarracks && sel.city?.owner?.value === $userId && !isBuilding}
               <section class="inspector-section">
-                <div class="mb-3 flex items-center justify-between gap-3">
-                  <span class="inspector-label">Recruit troops</span>
+                <div class="mb-2 flex items-center justify-between gap-3">
+                  <span class="inspector-label">Raise troops</span>
                   <span class="text-[10px] tabular-nums text-[#818a83]">Batch limit {trainingCapacity}</span>
                 </div>
-                <div class="grid grid-cols-2 border-l border-t border-white/[0.07]">
+                <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
                   {#each TROOP_TYPES as type}
                     {@const option = TROOP_STATS[type]}
                     <button
-                      class="border-b border-r border-white/[0.07] px-2 py-2 text-left transition-colors {recruitType === type
-                        ? 'bg-blue-300/10 text-blue-100'
-                        : 'text-[#929b94] hover:bg-white/[0.04] hover:text-white'}"
+                      class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 text-center transition-colors {recruitType === type
+                        ? 'bg-[#48666d]/65 text-white'
+                        : 'text-[#9d9c8d] hover:bg-white/[0.04] hover:text-white'}"
                       on:click={() => (recruitType = type)}
                     >
-                      <span class="block text-[11px] font-semibold">{option.name}</span>
-                      <span class="mt-0.5 block text-[9px] tabular-nums text-[#7f887f]">{option.gold} gold each</span>
+                      {@render troopGlyph(type)}
+                      <span class="mt-1 block w-full truncate text-[9px] font-bold">{option.name}</span>
+                      <span class="mt-0.5 block text-[8px] tabular-nums text-[#859799]">{option.gold} gold</span>
                     </button>
                   {/each}
                 </div>
-                <div class="mt-3 flex items-center justify-between gap-3">
-                  <span class="text-[11px] text-[#8f978f]">Batch size</span>
+                <div class="mt-2 flex items-center justify-between gap-3">
+                  <span class="text-[10px] text-[#95a5a6]">Number to raise</span>
                   <div class="flex items-center border border-white/[0.1] bg-black/15">
                     <button
                       class="h-7 w-7 text-sm text-[#aeb6af] hover:bg-white/[0.06] hover:text-white"
@@ -2083,30 +2221,30 @@
                     >
                   </div>
                 </div>
-                <div class="mt-3 border-t border-white/[0.07] pt-2">
+                <div class="mt-2 border-t border-[#465a5f] pt-1.5">
                   <div class="inspector-row">
-                    <span>Order cost</span>
+                    <span>Treasury</span>
                     <span class={BigInt(trainingCost) <= $gold ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
                   </div>
                   <div class="inspector-row">
-                    <span>Population</span>
+                    <span>Recruits</span>
                     <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}
                       >{trainingPopulation} <span class="text-[#6f7770]">/ {availablePopulation} available</span></span
                     >
                   </div>
                   <div class="inspector-row">
-                    <span>Training</span>
+                    <span>Ready in</span>
                     <span>{recruitStat.trainSeconds}s each · {fmtCountdown(trainingBatchSeconds * 1000)} batch</span>
                   </div>
                   <div class="inspector-row">
-                    <span>Army upkeep</span>
+                    <span>Rations</span>
                     <span class="text-emerald-200/80">{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
                   </div>
                 </div>
                 {#if trainingOrdersAvailable && trainingOrdersBarracksId === selectedBarracksId}
-                  <div class="mt-3 border-t border-white/[0.07] pt-3">
+                  <div class="mt-2 border-t border-[#465a5f] pt-2">
                     <div class="mb-2 flex items-center justify-between gap-3">
-                      <span class="inspector-label">Training queue</span>
+                      <span class="inspector-label">Drill yard</span>
                       {#if trainingOrders.length > 0}
                         <span class="text-[10px] tabular-nums text-[#818a83]">{trainingOrders.length} {trainingOrders.length === 1 ? 'order' : 'orders'}</span>
                       {/if}
@@ -2149,20 +2287,29 @@
               <div class="inspector-actions">
                 {#if isBarracks && !isBuilding}
                   <button class="game-action game-action-primary" disabled={busy || !canTrain} on:click={queueTroops}>
-                    {busy ? 'Working...' : `Train ${batchCount} ${troopName(recruitType, batchCount)}`}
+                    {@render managementGlyph('training')}
+                    {busy ? 'Working…' : `Raise ${batchCount} ${troopName(recruitType, batchCount)}`}
                   </button>
                 {/if}
                 <button
                   class="game-action game-action-primary"
-                  disabled={busy || upgrading || barracksTrainingInProgress}
+                  disabled={busy || !nextStats || upgrading || barracksTrainingInProgress}
                   title={barracksTrainingInProgress ? 'Finish the training queue before upgrading' : undefined}
-                  on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}>{busy ? '...' : 'Upgrade'}</button
+                  on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}
                 >
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M10 17V4M5 9l5-5 5 5M4 17h12" /></svg>
+                  {busy ? 'Working…' : nextStats ? `Raise to level ${sel.building.level + 1}` : 'At highest level'}
+                </button>
                 <button
                   class="game-action game-action-danger"
                   disabled={busy || upgrading}
-                  on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}>{busy ? '...' : 'Demolish'}</button
+                  on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}
                 >
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"
+                    ><path d="M5 6h10M8 3h4l1 3H7l1-3ZM7 8v7M10 8v7M13 8v7M6 17h8l1-11H5l1 11Z" /></svg
+                  >
+                  {busy ? 'Working…' : 'Raze building'}
+                </button>
               </div>
             {/if}
           {:else if !selectedArmy && sel.city?.owner?.value === $userId}
@@ -2170,16 +2317,19 @@
               {@const buildStats = getLevelStats(buildType, 1)}
               <section class="inspector-section">
                 <div class="mb-3 flex items-center justify-between">
-                  <span class="inspector-label">City improvements</span>
+                  <span class="inspector-label">City works</span>
                   <button class="text-xs font-medium text-[#9ba097] transition-colors hover:text-white" on:click={() => (showBuild = false)}>Cancel</button>
                 </div>
-                <div class="grid grid-cols-2 border-l border-t border-white/[0.07]">
+                <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
                   {#each placeTypes as bt}
                     <button
-                      class="border-b border-r border-white/[0.07] px-2 py-2.5 text-xs font-medium transition-colors
-										{buildType === bt ? 'bg-emerald-300/10 text-emerald-200' : 'text-[#8f9891] hover:bg-white/[0.04] hover:text-white'}"
-                      on:click={() => (buildType = bt)}>{bName(bt)}</button
+                      class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 text-center transition-colors
+							{buildType === bt ? 'bg-[#48666d]/65 text-white' : 'text-[#9dacad] hover:bg-white/[0.04] hover:text-white'}"
+                      on:click={() => (buildType = bt)}
                     >
+                      {@render structureGlyph(bt, 1)}
+                      <span class="mt-1 block w-full truncate text-[9px] font-bold">{bName(bt)}</span>
+                    </button>
                   {/each}
                 </div>
                 {#if buildStats}
@@ -2200,7 +2350,7 @@
                     {/if}
                     {#if buildStats.population > 0}
                       <div class="inspector-row">
-                        <span>Population capacity</span>
+                        <span>Housing</span>
                         <span class="text-blue-300">+{buildStats.population}</span>
                       </div>
                     {/if}
@@ -2212,12 +2362,15 @@
                   class="game-action game-action-primary w-full"
                   disabled={busy}
                   on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Build failed')}
-                  >{busy ? '...' : `Place ${bName(buildType)}`}</button
+                  >{busy ? 'Working…' : `Raise ${bName(buildType)}`}</button
                 >
               </div>
             {:else}
               <div class="inspector-actions">
-                <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>Build structure</button>
+                <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 17h14M5 17V8l5-4 5 4v9M8 17v-5h4v5" /></svg>
+                  Raise a building
+                </button>
               </div>
             {/if}
           {:else if !selectedArmy && !sel.city && !sel.armies?.length}
