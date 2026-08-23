@@ -51,8 +51,8 @@
 
   <section class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-12">
     <div class="mb-8">
-      <p class="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-[#79827c]">Account</p>
-      <h2 class="text-[32px] font-semibold tracking-[-0.04em] text-white">Create an account</h2>
+      <p class="mb-2 text-sm text-[#8e9790]">Account</p>
+      <h2 class="text-[32px] font-semibold text-white">Create an account</h2>
       <p class="mt-2 text-sm text-[#8f9891]">Start a new city in a few seconds.</p>
     </div>
 

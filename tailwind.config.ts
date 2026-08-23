@@ -30,8 +30,8 @@ export default {
         parchment: '#efe2c4'
       },
       fontFamily: {
-        sans: ['"Inter Variable"', 'Inter', 'system-ui', 'sans-serif'],
-        display: ['"Press Start 2P"', 'monospace']
+        sans: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
+        display: ['Georgia', '"Times New Roman"', 'serif']
       },
       boxShadow: {
         // Raised beveled stone/metal: bright top-left, dark bottom-right.

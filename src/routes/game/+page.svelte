@@ -919,8 +919,8 @@
             <svg viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5"><circle cx="10" cy="10" r="7" /><circle cx="10" cy="10" r="3" fill="#171c18" opacity="0.55" /></svg>
           </span>
           <span class="flex flex-col gap-1.5 leading-none">
-            <span class="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#737d75]">Gold</span>
-            <span class="text-[13px] font-semibold tabular-nums text-amber-100">{$gold.toLocaleString()}</span>
+            <span class="text-[11px] text-[#969d97]">Gold</span>
+            <span class="text-[15px] font-semibold tabular-nums text-amber-100">{$gold.toLocaleString()}</span>
           </span>
         </span>
         <span class="h-7 w-px bg-white/[0.08]"></span>
@@ -931,8 +931,8 @@
             >
           </span>
           <span class="flex flex-col gap-1.5 leading-none">
-            <span class="text-[8px] font-semibold uppercase tracking-[0.16em] text-[#737d75]">Food</span>
-            <span class="text-[13px] font-semibold tabular-nums text-emerald-200">{$food.toLocaleString()}</span>
+            <span class="text-[11px] text-[#969d97]">Food</span>
+            <span class="text-[15px] font-semibold tabular-nums text-emerald-200">{$food.toLocaleString()}</span>
           </span>
         </span>
       </button>
@@ -941,7 +941,7 @@
           ? 'opacity-100'
           : ''}"
       >
-        <div class="inspector-panel p-3">
+        <div class="game-popover p-3">
           <div class="panel-title mb-2">Production per hour</div>
           <div class="flex items-center justify-between gap-3 text-xs">
             <span class="text-[#8d968f]">Gold</span>
@@ -975,7 +975,7 @@
             </svg>
           </button>
           {#if citiesOpen}
-            <div class="inspector-panel absolute right-0 top-[calc(100%+0.5rem)] w-64 overflow-hidden p-1.5">
+            <div class="game-popover absolute right-0 top-[calc(100%+0.5rem)] w-64 overflow-hidden p-1.5">
               <div class="panel-title px-2 pb-1.5 pt-1">Your cities</div>
               {#each myCities as rawCity}
                 {@const city = liveCity(rawCity)}
@@ -992,7 +992,7 @@
                   <div class="flex items-center gap-2">
                     <span class="h-1.5 w-1.5 rounded-sm {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400'}"></span>
                     <span class="min-w-0 flex-1 truncate text-xs font-medium text-[#d5dad6]">{city.name}</span>
-                    {#if city.starving}<span class="text-[9px] font-medium uppercase tracking-wide text-red-400">Starving</span>{/if}
+                    {#if city.starving}<span class="text-[11px] font-medium text-red-400">Starving</span>{/if}
                   </div>
                   <div class="mt-1 flex items-center gap-3 pl-3.5 text-[10px] tabular-nums text-[#79827b]">
                     <span class="text-amber-200/80">{Math.round(prod.gold).toLocaleString()} gold/hr</span>
@@ -1014,16 +1014,16 @@
     </div>
   </div>
 
-  <!-- The inspector only appears for an active selection, leaving the map open. -->
-  <div class="pointer-events-none absolute bottom-4 right-3 top-20 flex w-[19rem] max-w-[calc(100vw-1.5rem)] flex-col sm:right-4">
+  <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
+  <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-10 ml-auto max-w-[1000px] sm:bottom-4 sm:left-[232px] sm:right-4">
     {#if sel}
-      <div class="inspector-panel pointer-events-auto max-h-full overflow-y-auto" transition:fly={{ x: 16, duration: 200 }}>
+      <div class="inspector-panel pointer-events-auto max-h-[60vh] overflow-y-auto sm:max-h-64" transition:fly={{ y: 16, duration: 180 }}>
         <div class="inspector-header flex items-start justify-between gap-4">
           <div class="min-w-0">
             <div class="inspector-label mb-1">
               {#if sel.building}Structure{:else if sel.armies?.length}Forces{:else if sel.city}{cName(sel.city.type)}{:else}Terrain{/if}
             </div>
-            <h2 class="truncate text-base font-semibold tracking-[-0.02em] text-[#f0f2f0]">
+            <h2 class="truncate text-lg font-semibold text-[#f0f2e8]">
               {#if sel.building}
                 {bName(sel.building.type)}
               {:else if sel.armies?.length}
@@ -1034,7 +1034,7 @@
                 Open ground
               {/if}
             </h2>
-            <div class="mt-1 font-mono text-[9px] tabular-nums text-[#687169]">X {sel.x.toString().padStart(2, '0')} / Y {sel.y.toString().padStart(2, '0')}</div>
+            <div class="mt-1 text-[11px] tabular-nums text-[#85897c]">Tile {sel.x}, {sel.y}</div>
           </div>
           <button
             aria-label="Close"
@@ -1048,7 +1048,7 @@
         </div>
 
         {#if err}
-          <div class="mx-4 mt-3 border-l-2 border-red-400 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-400">{err}</div>
+          <div class="inspector-error mx-5 mt-3 border-l-2 border-red-400 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-400">{err}</div>
         {/if}
 
         {#if sel.city}
@@ -1056,16 +1056,16 @@
             <div class="mb-3 flex items-center justify-between gap-3">
               <span class="inspector-label">Settlement</span>
               {#if sel.city.owner?.value === $userId}
-                <span class="flex items-center gap-1.5 text-[10px] font-medium text-blue-300"><span class="h-1.5 w-1.5 bg-blue-400"></span>Yours</span>
+                <span class="flex items-center gap-1.5 text-xs font-medium text-blue-300"><span class="h-1.5 w-1.5 bg-blue-400"></span>Yours</span>
               {:else if sel.city.owner}
-                <span class="flex items-center gap-1.5 text-[10px] font-medium text-red-300"><span class="h-1.5 w-1.5 bg-red-400"></span>Foreign</span>
+                <span class="flex items-center gap-1.5 text-xs font-medium text-red-300"><span class="h-1.5 w-1.5 bg-red-400"></span>Foreign</span>
               {:else}
-                <span class="flex items-center gap-1.5 text-[10px] font-medium text-[#8c958e]"><span class="h-1.5 w-1.5 bg-[#788179]"></span>Neutral</span>
+                <span class="flex items-center gap-1.5 text-xs font-medium text-[#8c958e]"><span class="h-1.5 w-1.5 bg-[#788179]"></span>Neutral</span>
               {/if}
             </div>
 
             {#if sel.building || sel.armies?.length}
-              <div class="mb-3 truncate text-[13px] font-medium text-[#d6dbd7]">{sel.city.name}</div>
+              <div class="mb-3 truncate text-sm font-medium text-[#d6dbd7]">{sel.city.name}</div>
             {/if}
 
             <div class="grid grid-cols-2 gap-x-5 gap-y-3">
@@ -1084,7 +1084,7 @@
               {#if sel.city.starving}
                 <div>
                   <div class="inspector-stat-label">Status</div>
-                  <div class="mt-1 flex items-center gap-1.5 text-[11px] font-medium text-red-400"><span class="h-1.5 w-1.5 animate-pulse bg-red-400"></span>Starving</div>
+                  <div class="mt-1 flex items-center gap-1.5 text-xs font-medium text-red-400"><span class="h-1.5 w-1.5 animate-pulse bg-red-400"></span>Starving</div>
                 </div>
               {/if}
             </div>
@@ -1114,16 +1114,16 @@
           <section class="inspector-section">
             <div class="mb-3 flex items-center justify-between">
               <span class="inspector-label">Forces on tile</span>
-              <span class="text-[10px] font-medium tabular-nums text-[#9aa39c]">{sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops</span>
+              <span class="text-xs font-medium tabular-nums text-[#9aa39c]">{sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops</span>
             </div>
             <div class="space-y-3">
               {#each sel.armies as army, index}
                 <div class="border-l-2 pl-3 {army.owner?.value === $userId ? 'border-blue-400/70' : 'border-red-400/70'} {index > 0 ? 'pt-0.5' : ''}">
-                  <div class="flex items-center justify-between gap-2 text-[10px]">
+                  <div class="flex items-center justify-between gap-2 text-xs">
                     <span class={army.owner?.value === $userId ? 'font-semibold text-blue-300' : 'font-semibold text-red-300'}>{army.owner?.value === $userId ? 'Your army' : 'Foreign army'}</span>
                     <span class="text-[#778179]">{army.destination ? `To ${army.destination.x}, ${army.destination.y}` : 'Holding'}</span>
                   </div>
-                  <p class="mt-1.5 text-[11px] leading-relaxed text-[#b3bab5]">
+                  <p class="mt-1.5 text-xs leading-relaxed text-[#b3bab5]">
                     {army.troops
                       .filter((stack) => stack.count > 0)
                       .map((stack) => `${stack.count} ${troopName(stack.type)}`)
@@ -1144,7 +1144,7 @@
             <div class="flex items-center justify-between">
               <span class="inspector-label">Structure</span>
               {#if !isBuilding}
-                <span class="text-[10px] font-semibold tabular-nums text-amber-200">Level {sel.building.level}</span>
+                <span class="text-xs font-semibold tabular-nums text-amber-200">Level {sel.building.level}</span>
               {/if}
             </div>
             {#if sel.building.constructionStart && sel.building.constructionEnd}
@@ -1242,12 +1242,12 @@
             <section class="inspector-section">
               <div class="mb-3 flex items-center justify-between">
                 <span class="inspector-label">Choose structure</span>
-                <button class="text-[10px] font-medium text-[#818a83] transition-colors hover:text-white" on:click={() => (showBuild = false)}>Cancel</button>
+                <button class="text-xs font-medium text-[#9ba097] transition-colors hover:text-white" on:click={() => (showBuild = false)}>Cancel</button>
               </div>
               <div class="grid grid-cols-2 border-l border-t border-white/[0.07]">
                 {#each placeTypes as bt}
                   <button
-                    class="border-b border-r border-white/[0.07] px-2 py-2.5 text-[11px] font-medium transition-colors
+                    class="border-b border-r border-white/[0.07] px-2 py-2.5 text-xs font-medium transition-colors
 										{buildType === bt ? 'bg-emerald-300/10 text-emerald-200' : 'text-[#8f9891] hover:bg-white/[0.04] hover:text-white'}"
                     on:click={() => (buildType = bt)}>{bName(bt)}</button
                   >
@@ -1292,7 +1292,7 @@
             </div>
           {/if}
         {:else if !sel.city && !sel.armies?.length}
-          <div class="px-4 py-8 text-center text-xs text-[#6f7971]">
+          <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
             {myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius ? 'Beyond visibility range' : 'No structures on this tile'}
           </div>
         {/if}
@@ -1308,13 +1308,15 @@
   {/if}
 
   <!-- Minimap -->
-  <div class="pointer-events-auto absolute bottom-4 left-4">
+  <div class="pointer-events-auto absolute bottom-4 left-4 {sel ? 'hidden sm:block' : ''}">
     <MiniMap onPan={(col, row) => centerCam(col, row)} viewCols={viewTilesW} viewRows={viewTilesH} />
   </div>
 
   <!-- Keyboard shortcuts toggle -->
   <button
-    class="hud-surface pointer-events-auto absolute bottom-4 left-[186px] flex h-8 w-8 items-center justify-center text-xs font-medium text-white/70 transition-colors hover:text-white"
+    class="hud-surface pointer-events-auto absolute bottom-4 left-[186px] h-8 w-8 items-center justify-center text-xs font-medium text-white/70 transition-colors hover:text-white {sel
+      ? 'hidden sm:flex'
+      : 'flex'}"
     title="Keyboard shortcuts (?)"
     on:click={() => (showHelp = !showHelp)}>?</button
   >
