@@ -14,6 +14,7 @@
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import type { ArmyOrder } from '$lib/gen/cityio/entity/v1/army_order_pb';
+  import type { BattleSide } from '$lib/gen/cityio/entity/v1/battle_pb';
   import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
   import { TerrainType, type Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
   import { TileVisibilityState } from '$lib/gen/cityio/service/v1/state_pb';
@@ -76,6 +77,7 @@
   let notice = '';
   let showBuild = false;
   let showCityManagement = false;
+  let showBattlePanel = false;
   let cityManagementView: 'city' | 'building' = 'city';
   let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
   let recruitCount = 1;
@@ -237,6 +239,11 @@
   const queuePopulationCost = (orders: TrainingOrder[]) => orders.reduce((total, order) => total + troopPopulationCost(order.type, order.count), 0);
   const armyPersonnel = (army: Army) => army.troops.reduce((total, stack) => total + troopPopulationCost(stack.type, stack.count ?? 0), 0);
   const armyFoodUpkeep = (army: Army) => army.troops.reduce((total, stack) => total + (TROOP_STATS[stack.type as keyof typeof TROOP_STATS]?.foodPerHour ?? 0) * (stack.count ?? 0), 0);
+  const battleSideArmies = (side?: BattleSide): Army[] =>
+    (side?.armyIds ?? []).flatMap((armyId) => {
+      const army = $armies.find((candidate) => candidate.armyId?.value === armyId.value);
+      return army ? [army] : [];
+    });
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
   $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
@@ -276,6 +283,7 @@
   };
   $: selectedOrder = orderForArmy(selectedArmy);
   $: selectedBattle = selectedArmy?.battleId?.value ? $battles.find((battle) => battle.battleId?.value === selectedArmy?.battleId?.value) : undefined;
+  $: if (!selectedBattle) showBattlePanel = false;
   $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => (a.armyId?.value ?? '').localeCompare(b.armyId?.value ?? ''));
   $: ownedArmyTroops = ownedArmies.reduce((total, army) => total + armySize(army), 0);
   $: ownedOrderCount = ownedArmies.filter((army) => orderForArmy(army)).length;
@@ -941,6 +949,7 @@
     notice = '';
     showBuild = false;
     showCityManagement = false;
+    showBattlePanel = false;
     if (center) centerCam(x, y);
     drawSel(x, y);
     const order = orderForArmy(army);
@@ -1031,6 +1040,7 @@
       else await armyClient.moveArmy({ armyId: army.armyId, destination: army.coords });
       trackedArmyId = army.armyId.value;
       notice = army.battleId ? 'Army ordered to retreat.' : 'Army ordered to hold its current position.';
+      if (army.battleId) showBattlePanel = false;
       cancelMoveMode();
     } catch (e: unknown) {
       err = errorText(e, 'Halt order failed');
@@ -1550,6 +1560,7 @@
     trackedArmyId = null;
     selectedArmyId = null;
     showCityManagement = false;
+    showBattlePanel = false;
     sel = null;
     if (selGfx) {
       cont.removeChild(selGfx);
@@ -1775,6 +1786,7 @@
       case 'Escape':
         if (moveArmyId) cancelMoveMode();
         else if (showHelp) showHelp = false;
+        else if (showBattlePanel) showBattlePanel = false;
         else if (showCityManagement) showCityManagement = false;
         else deselect();
         break;
@@ -1897,6 +1909,81 @@
     </svg>
     <span class="structure-level" title={`Level ${level}`}>{level || '…'}</span>
   </span>
+{/snippet}
+
+{#snippet battleSidePanel(label: string, side: BattleSide | undefined, attackers: boolean)}
+  {@const sideArmies = battleSideArmies(side)}
+  {@const exactArmies = sideArmies.filter((army) => army.compositionVisibility === ArmyCompositionVisibility.EXACT)}
+  {@const knownUnits = exactArmies.reduce((total, army) => total + armySize(army), 0)}
+  {@const knownPersonnel = exactArmies.reduce((total, army) => total + armyPersonnel(army), 0)}
+  {@const concealedStrength = (side?.armyIds.length ?? 0) - exactArmies.length}
+  {@const yourSide = side?.userIds.some((id) => id.value === $userId)}
+  <section class="battle-side {attackers ? 'battle-side-attackers' : 'battle-side-defenders'}">
+    <div class="flex items-start justify-between gap-3 border-b border-white/[0.08] px-3 py-2.5">
+      <div>
+        <div class="text-[10px] font-bold uppercase tracking-[0.12em] {attackers ? 'text-red-200' : 'text-blue-200'}">{label}</div>
+        <div class="mt-0.5 text-[9px] text-[#87918b]">
+          {side?.armyIds.length ?? 0}
+          {(side?.armyIds.length ?? 0) === 1 ? 'formation' : 'formations'} · {side?.userIds.length ?? 0}
+          {(side?.userIds.length ?? 0) === 1 ? 'commander' : 'commanders'}
+        </div>
+      </div>
+      {#if yourSide}<span class="border border-amber-200/20 bg-amber-200/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-100">Your side</span>{/if}
+    </div>
+
+    <div class="grid grid-cols-2 gap-px border-b border-white/[0.08] bg-white/[0.06]">
+      <div class="bg-[#1d292b] px-3 py-2">
+        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">{concealedStrength ? 'Known units' : 'Units'}</div>
+        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{exactArmies.length ? knownUnits.toLocaleString() : 'Unknown'}</strong>
+      </div>
+      <div class="bg-[#1d292b] px-3 py-2">
+        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">{concealedStrength ? 'Known personnel' : 'Personnel'}</div>
+        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{exactArmies.length ? knownPersonnel.toLocaleString() : 'Unknown'}</strong>
+      </div>
+    </div>
+
+    {#if side?.militiaCount}
+      <div class="border-b border-white/[0.08] bg-amber-200/[0.04] px-3 py-2 text-[10px]">
+        <span class="text-[#8e9891]">Settlement militia</span>
+        <strong class="float-right tabular-nums text-amber-100">{side.militiaCount.toLocaleString()}</strong>
+      </div>
+    {/if}
+
+    <div class="space-y-1.5 p-2.5">
+      {#each side?.armyIds ?? [] as armyId}
+        {@const army = sideArmies.find((candidate) => candidate.armyId?.value === armyId.value)}
+        {#if army}
+          <div class="border border-white/[0.08] bg-black/[0.1] px-2.5 py-2">
+            <div class="flex items-start justify-between gap-3">
+              <div class="min-w-0">
+                <strong class="block truncate text-[11px] text-[#e8ece5]">{armyTitle(army)}</strong>
+                <span class="mt-0.5 block text-[8px] uppercase tracking-[0.08em] {army.owner?.value === $userId ? 'text-blue-200' : 'text-[#79857f]'}">
+                  {army.owner?.value === $userId ? 'Your army' : 'Foreign army'}
+                </span>
+              </div>
+              <div class="shrink-0 text-right">
+                <strong class="block text-sm tabular-nums text-[#f2eee0]">{army.compositionVisibility === ArmyCompositionVisibility.EXACT ? armySize(army).toLocaleString() : '?'}</strong>
+                <span class="text-[8px] uppercase tracking-wide text-[#68736d]">units</span>
+              </div>
+            </div>
+            {#if army.compositionVisibility !== ArmyCompositionVisibility.HIDDEN}
+              <div class="mt-2 flex flex-wrap gap-1 border-t border-white/[0.06] pt-1.5">
+                {#each army.troops.filter((stack) => (stack.count ?? 1) > 0) as stack}
+                  <span class="border border-white/[0.08] bg-white/[0.035] px-1.5 py-0.5 text-[8px] text-[#9fa9a3]">
+                    {army.compositionVisibility === ArmyCompositionVisibility.EXACT ? `${stack.count} ` : ''}{troopName(stack.type, stack.count)}
+                  </span>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {:else}
+          <div class="border border-dashed border-white/[0.1] px-2.5 py-3 text-center text-[9px] text-[#69746e]">Formation details concealed</div>
+        {/if}
+      {:else}
+        <div class="px-2.5 py-5 text-center text-[9px] text-[#69746e]">No field armies disclosed</div>
+      {/each}
+    </div>
+  </section>
 {/snippet}
 
 <div class="game-ui relative h-screen w-screen overflow-hidden bg-[#0e110f]">
@@ -2318,13 +2405,19 @@
                 </div>
               </div>
               {#if selectedBattle}
-                <div class="mt-2.5 flex items-center justify-between border-t border-red-300/15 pt-2.5 text-[11px]">
+                <div class="mt-2.5 flex items-center gap-3 border-t border-red-300/15 pt-2.5 text-[11px]">
                   <span class="font-semibold uppercase tracking-[0.12em] text-red-300">Battle in progress</span>
-                  <span class="text-[#aab2ac]">
+                  <span class="min-w-0 flex-1 truncate text-right text-[#aab2ac]">
                     {selectedBattle.attackers?.armyIds.length ?? 0} attacking · {selectedBattle.defenders?.armyIds.length ?? 0} defending{selectedBattle.defenders?.militiaCount
                       ? ` · ${selectedBattle.defenders.militiaCount} militia`
                       : ''}
                   </span>
+                  <button
+                    class="border border-red-300/25 bg-red-300/[0.08] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-red-100 hover:bg-red-300/[0.14]"
+                    on:click={() => (showBattlePanel = true)}
+                  >
+                    Open battle
+                  </button>
                 </div>
               {/if}
               <div class="mt-2.5 border-t border-[#465a5f] pt-2.5">
@@ -2963,6 +3056,63 @@
       </div>
     {/if}
   </div>
+
+  {#if showBattlePanel && selectedBattle && selectedArmy}
+    {@const battleStartedMs = timestampMs(selectedBattle.startedAt)}
+    {@const nextBattleTickMs = timestampMs(selectedBattle.nextTickAt)}
+    <div class="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3 sm:p-8" transition:fade={{ duration: 140 }}>
+      <div class="battle-dialog" role="dialog" aria-modal="true" aria-label="Battle details">
+        <header class="battle-dialog-header">
+          <span class="battle-dialog-emblem" aria-hidden="true">
+            <svg viewBox="0 0 32 32" fill="none" stroke="currentColor" stroke-linecap="square" stroke-linejoin="miter">
+              <path d="m7 24 4 1 14-15-3-3L7 22v2Zm18 1-4 1L7 10l3-3 15 15v3Z" fill="currentColor" opacity=".2" />
+              <path d="m7 24 4 1 14-15-3-3L7 22v2Zm18 1-4 1L7 10l3-3 15 15v3ZM8 19l5 5M24 19l-5 5" stroke-width="1.7" />
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1">
+            <div class="text-[9px] font-bold uppercase tracking-[0.16em] text-red-300">Active engagement</div>
+            <h2 class="mt-0.5 truncate text-lg font-bold text-[#f0ead8]">
+              Battle at {selectedBattle.tileId?.x ?? selectedArmy.coords?.x ?? '—'}, {selectedBattle.tileId?.y ?? selectedArmy.coords?.y ?? '—'}
+            </h2>
+          </div>
+          <button class="battle-dialog-close" aria-label="Close battle details" on:click={() => (showBattlePanel = false)}>×</button>
+        </header>
+
+        <div class="battle-dialog-timing">
+          <div>
+            <span>Status</span>
+            <strong class="text-red-200">In progress</strong>
+          </div>
+          <div>
+            <span>Engaged</span>
+            <strong>{battleStartedMs ? fmtCountdown(now - battleStartedMs) : 'Unknown'}</strong>
+          </div>
+          <div>
+            <span>Next combat tick</span>
+            <strong class="text-amber-100">{nextBattleTickMs ? fmtCountdown(nextBattleTickMs - now) : 'Pending'}</strong>
+          </div>
+        </div>
+
+        <div class="battle-dialog-body">
+          {@render battleSidePanel('Attackers', selectedBattle.attackers, true)}
+          <div class="battle-versus" aria-hidden="true">VS</div>
+          {@render battleSidePanel('Defenders', selectedBattle.defenders, false)}
+        </div>
+
+        <footer class="battle-dialog-footer">
+          <p>Strength reflects currently disclosed formations. Battle state refreshes on server combat ticks.</p>
+          <div class="flex shrink-0 gap-2">
+            <button class="game-action game-action-secondary" on:click={() => (showBattlePanel = false)}>Close</button>
+            {#if selectedArmy.owner?.value === $userId}
+              <button class="game-action game-action-danger" disabled={busy} on:click={() => haltArmy(selectedArmy)}>
+                {busy ? 'Ordering retreat…' : 'Retreat selected army'}
+              </button>
+            {/if}
+          </div>
+        </footer>
+      </div>
+    </div>
+  {/if}
 
   <!-- Bottom hint -->
   {#if !sel}
