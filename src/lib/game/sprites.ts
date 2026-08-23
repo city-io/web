@@ -1,6 +1,6 @@
 import { Sprite, Texture } from 'pixi.js';
 import { HW, HH, TH } from './iso';
-import { tileHash, varyColor } from './colors';
+import { tileHash } from './colors';
 
 export type TerrainKind = 'grassland' | 'plains' | 'forest' | 'hills' | 'mountains' | 'desert' | 'marsh' | 'water' | 'fog';
 export type TerrainNeighbors = readonly [TerrainKind | null, TerrainKind | null, TerrainKind | null, TerrainKind | null];
@@ -87,7 +87,9 @@ function clipDiamond(ctx: CanvasRenderingContext2D, cx: number, cy: number, scal
 }
 
 function drawFlatGround(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: number) {
-  diamondPath(ctx, cx, cy);
+  // Slightly overlap neighboring terrain bases so scaled sprites cannot expose
+  // transparent antialiasing pixels as a visible diamond grid.
+  diamondPath(ctx, cx, cy, 1.04);
   ctx.fillStyle = css(color);
   ctx.fill();
 }
@@ -272,10 +274,16 @@ function pitchedRoof(ctx: CanvasRenderingContext2D, cx: number, topY: number, ha
   ctx.fill();
 }
 
+function drawStructureShadow(ctx: CanvasRenderingContext2D, cx: number, cy: number, halfWidth: number) {
+  ctx.fillStyle = 'rgba(18,26,17,0.2)';
+  ctx.fillRect(cx - halfWidth + 4, cy, halfWidth * 2 - 8, 1);
+  ctx.fillStyle = 'rgba(18,26,17,0.13)';
+  for (let x = -halfWidth + 2; x < halfWidth - 1; x += 4) ctx.fillRect(cx + x, cy + 1, 2, 1);
+}
+
 function drawHouse(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.24)';
-  ctx.fillRect(cx - 11, cy + 2, 23, 4);
+  drawStructureShadow(ctx, cx, cy, 11);
   ctx.fillStyle = '#c2a074';
   ctx.fillRect(cx - 9, baseY - 11, 18, 13);
   ctx.fillStyle = '#9b7656';
@@ -289,8 +297,7 @@ function drawHouse(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
 
 function drawBarracks(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.24)';
-  ctx.fillRect(cx - 14, cy + 2, 28, 4);
+  drawStructureShadow(ctx, cx, cy, 14);
   ctx.fillStyle = '#7a5540';
   ctx.fillRect(cx - 12, baseY - 13, 24, 15);
   ctx.fillStyle = '#614333';
@@ -315,8 +322,7 @@ function drawBarracks(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
 
 function drawTownCenter(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.fillRect(cx - 16, cy + 2, 32, 5);
+  drawStructureShadow(ctx, cx, cy, 16);
   ctx.fillStyle = '#b8a883';
   ctx.fillRect(cx - 13, baseY - 12, 26, 14);
   ctx.fillStyle = '#8a7a5a';
@@ -334,8 +340,7 @@ function drawTownCenter(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
 
 function drawCityCenter(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
-  ctx.fillRect(cx - 19, cy + 2, 38, 5);
+  drawStructureShadow(ctx, cx, cy, 19);
   ctx.fillStyle = '#a89e88';
   ctx.fillRect(cx - 17, baseY - 12, 34, 14);
   ctx.fillStyle = '#8e8675';
@@ -382,7 +387,7 @@ function renderTerrain(kind: TerrainKind, variant: number): HTMLCanvasElement {
     return canvas;
   }
 
-  drawFlatGround(ctx, cx, cy, varyColor(TERRAIN_BASE[kind], variant, variant * 3, 5));
+  drawFlatGround(ctx, cx, cy, TERRAIN_BASE[kind]);
   switch (kind) {
     case 'grassland':
       drawGrass(ctx, cx, cy, seed);
@@ -511,16 +516,35 @@ function drawTerrainEdge(ctx: CanvasRenderingContext2D, edge: number, kind: Terr
   const inwardX = -Math.sign(midpointX);
   const inwardY = -Math.sign(midpointY);
   const isCoast = kind === 'water' || neighbor === 'water';
-  const depth = isCoast ? 5 : 3;
+
+  if (!isCoast) {
+    for (let step = 2; step < 31; step++) {
+      const t = step / 32;
+      const edgeX = W / 2 + x1 + (x2 - x1) * t;
+      const edgeY = GROUND_CENTER_Y + y1 + (y2 - y1) * t;
+      const noise = (step * 7 + variant * 11 + edge * 5) % 17;
+
+      if (noise % 3 !== 0) {
+        ctx.fillStyle = css(mixColor(TERRAIN_BASE[kind], TERRAIN_BASE[neighbor], 0.5), 0.52);
+        ctx.fillRect(Math.round(edgeX), Math.round(edgeY), 1, 1);
+      }
+      if (noise < 7) {
+        const offset = 1 + (noise % 3);
+        ctx.fillStyle = css(mixColor(TERRAIN_BASE[kind], TERRAIN_BASE[neighbor], 0.36), 0.42);
+        ctx.fillRect(Math.round(edgeX + inwardX * offset), Math.round(edgeY + inwardY * Math.ceil(offset / 2)), 1, 1);
+      }
+    }
+    return;
+  }
 
   for (let step = 2; step < 31; step++) {
     const t = step / 32;
     const edgeX = W / 2 + x1 + (x2 - x1) * t;
     const edgeY = GROUND_CENTER_Y + y1 + (y2 - y1) * t;
-    for (let offset = 0; offset < depth; offset++) {
+    for (let offset = 0; offset < 5; offset++) {
       if (offset > 1 && (step + offset + variant + edge) % 3 === 0) continue;
 
-      let color: number;
+      let color = TERRAIN_BASE[kind];
       let alpha = 0.78;
       if (kind === 'water') {
         color = offset === 0 && step % 4 < 2 ? 0xa8d3d2 : mixColor(TERRAIN_BASE.water, 0x6da3bc, 0.55);
@@ -528,9 +552,6 @@ function drawTerrainEdge(ctx: CanvasRenderingContext2D, edge: number, kind: Terr
       } else if (neighbor === 'water') {
         color = offset < 2 ? 0xc9ad68 : mixColor(TERRAIN_BASE[kind], 0xc9ad68, 0.55);
         alpha = offset < 2 ? 0.92 : 0.68;
-      } else {
-        color = mixColor(TERRAIN_BASE[kind], TERRAIN_BASE[neighbor], offset < 2 ? 0.52 : 0.34);
-        alpha = offset < 2 ? 0.82 : 0.58;
       }
 
       ctx.fillStyle = css(color, alpha);
@@ -549,10 +570,16 @@ function transitionTexture(kind: TerrainKind, neighbors: TerrainNeighbors, varia
   canvas.width = W;
   canvas.height = GROUND_HEIGHT;
   const ctx = canvas.getContext('2d')!;
+  let drewEdge = false;
   for (let edge = 0; edge < neighbors.length; edge++) {
     const neighbor = neighbors[edge];
-    if (neighbor && neighbor !== 'fog' && neighbor !== kind) drawTerrainEdge(ctx, edge, kind, neighbor, variant);
+    const isCoast = kind === 'water' || neighbor === 'water';
+    if (neighbor && neighbor !== 'fog' && neighbor !== kind && (isCoast || edge < 2)) {
+      drawTerrainEdge(ctx, edge, kind, neighbor, variant);
+      drewEdge = true;
+    }
   }
+  if (!drewEdge) return null;
   const texture = Texture.from(canvas);
   texture.source.scaleMode = 'nearest';
   transitionCache.set(key, texture);

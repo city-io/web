@@ -176,11 +176,13 @@ export function createArmyMarker(army: Army, userId?: string, selected = false):
   const count = new Text({
     text: army.compositionVisibility === ArmyCompositionVisibility.EXACT ? armySize(army).toLocaleString() : '?',
     roundPixels: true,
+    resolution: 4,
     style: {
       fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
       fontSize: 9,
       fontWeight: 'bold',
-      fill: '#f3f1df'
+      fill: '#ffffff',
+      stroke: { color: '#0b1110', width: 1.25 }
     }
   });
   const badgeWidth = Math.max(16, Math.ceil(count.width) + 7);
