@@ -1646,12 +1646,12 @@
           type="button"
           class="hud-tool {managementOpen && managementTab === tab ? 'hud-tool-active' : ''}"
           on:click={() => toggleManagementTab(tab as typeof managementTab)}
-          aria-label={`${tab === 'armies' ? 'Armies' : tab === 'cities' ? 'Cities' : 'Barracks training'}: ${count}`}
+          aria-label={`${tab === 'armies' ? 'Armies' : tab === 'cities' ? 'Cities' : 'Training'}: ${count}`}
           aria-expanded={managementOpen && managementTab === tab}
         >
           {@render managementGlyph(tab as typeof managementTab)}
           <span class="hud-count">{count}</span>
-          <span class="hud-tooltip">{tab === 'armies' ? 'Field armies' : tab === 'cities' ? 'Cities' : 'Troops training'} · {count}</span>
+          <span class="hud-tooltip">{tab === 'armies' ? 'Armies' : tab === 'cities' ? 'Cities' : 'Training'} · {count}</span>
         </button>
       {/each}
     </div>
@@ -1665,7 +1665,7 @@
       <div class="border-b border-white/[0.08] px-3 pb-2 pt-3">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <div class="text-sm font-bold text-[#e9e4cc]">{managementTab === 'armies' ? 'Field Armies' : managementTab === 'cities' ? 'Cities of the Realm' : 'Barracks'}</div>
+            <div class="text-sm font-bold text-[#e9e4cc]">{managementTab === 'armies' ? 'Armies' : managementTab === 'cities' ? 'Cities' : 'Training'}</div>
             <div class="mt-0.5 text-[10px] text-[#858578]">
               {managementTab === 'armies'
                 ? `${ownedArmyTroops.toLocaleString()} troops · ${ownedMarchCount} marching`
