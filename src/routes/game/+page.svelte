@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { armies, armyMarches, buildings, cities, mapCenter, tiles, tileVisibility, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { armies, armyOrders, battles, buildings, cities, mapCenter, tiles, tileVisibility, username, gold, food, userId, gameConfig } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
@@ -13,7 +13,7 @@
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
-  import { ArmyMarchDisclosure, type ArmyMarch } from '$lib/gen/cityio/entity/v1/army_march_pb';
+  import type { ArmyOrder } from '$lib/gen/cityio/entity/v1/army_order_pb';
   import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
   import { TerrainType, type Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
   import { TileVisibilityState } from '$lib/gen/cityio/service/v1/state_pb';
@@ -210,12 +210,39 @@
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
   $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
-  $: marchById = new Map($armyMarches.map((march) => [march.armyMarchId?.value, march]));
-  const marchForArmy = (army?: Army): ArmyMarch | undefined => (army?.marchId?.value ? marchById.get(army.marchId.value) : undefined);
-  $: selectedMarch = marchForArmy(selectedArmy);
+  $: orderById = new Map($armyOrders.map((order) => [order.armyOrderId?.value, order]));
+  const orderForArmy = (army?: Army): ArmyOrder | undefined => (army?.orderId?.value ? orderById.get(army.orderId.value) : undefined);
+  const orderDestination = (order?: ArmyOrder) => {
+    if (!order) return undefined;
+    switch (order.objective.case) {
+      case 'move':
+        return order.objective.value.destination;
+      case 'attackArmy':
+        return order.objective.value.lastKnownCoords;
+      case 'conquerSettlement':
+        return order.objective.value.destination;
+      case 'retreat':
+        return order.objective.value.destination;
+    }
+  };
+  const orderLabel = (order?: ArmyOrder) => {
+    if (!order) return 'Hold position';
+    switch (order.objective.case) {
+      case 'attackArmy':
+        return 'Attacking army';
+      case 'conquerSettlement':
+        return order.objective.value.captureStartedAt ? 'Capturing settlement' : 'Conquering settlement';
+      case 'retreat':
+        return 'Retreating';
+      default:
+        return 'Moving';
+    }
+  };
+  $: selectedOrder = orderForArmy(selectedArmy);
+  $: selectedBattle = selectedArmy?.battleId?.value ? $battles.find((battle) => battle.battleId?.value === selectedArmy?.battleId?.value) : undefined;
   $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => (a.armyId?.value ?? '').localeCompare(b.armyId?.value ?? ''));
   $: ownedArmyTroops = ownedArmies.reduce((total, army) => total + armySize(army), 0);
-  $: ownedMarchCount = ownedArmies.filter((army) => marchForArmy(army)).length;
+  $: ownedOrderCount = ownedArmies.filter((army) => orderForArmy(army)).length;
   $: ownedCityIds = new Set($cities.filter((city) => city.owner?.value === $userId).map((city) => city.cityId?.value));
   $: ownedBarracks = $buildings.filter((building) => building.type === BuildingType.BARRACKS && ownedCityIds.has(building.cityId?.value));
   $: queuedTrainingCount = [...trainingQueues.values()].reduce((total, queue) => total + queue.length, 0);
@@ -309,7 +336,7 @@
       rebuildTiles();
     });
   };
-  $: if ($tiles || $tileVisibility || $cities || $buildings || $armies || $armyMarches) {
+  $: if ($tiles || $tileVisibility || $cities || $buildings || $armies || $armyOrders || $battles) {
     buildLookup();
     // Immediately hide construction overlays for finished/removed constructions
     for (const [k, entry] of constructionGfx) {
@@ -327,14 +354,15 @@
       const y = tracked.coords.y;
       sel = { x, y, ...tileData.get(tileKey(x, y)) };
       if (moveOrderActive && moveArmyId === tracked.armyId?.value && moveTarget) {
-        const march = marchForArmy(tracked);
+        const order = orderForArmy(tracked);
         if (x === moveTarget.x && y === moveTarget.y) {
           cancelMoveMode();
-        } else if (march?.destination) {
+        } else if (orderDestination(order)) {
+          const destination = orderDestination(order)!;
           moveDestinationObserved = true;
-          moveTarget = { x: march.destination.x, y: march.destination.y };
+          moveTarget = { x: destination.x, y: destination.y };
           moveHover = moveTarget;
-          void drawMovePreview(moveTarget, march);
+          void drawMovePreview(moveTarget, order);
         } else if (moveDestinationObserved) {
           cancelMoveMode();
         }
@@ -531,7 +559,7 @@
     }
     loadVisible();
     if (sel) drawSel(sel.x, sel.y);
-    if (moveArmyId) drawMovePreview(moveTarget ?? moveHover, moveOrderActive ? marchForArmy(movingArmy) : undefined);
+    if (moveArmyId) drawMovePreview(moveTarget ?? moveHover, moveOrderActive ? orderForArmy(movingArmy) : undefined);
   };
 
   const errorText = (e: unknown, fallback: string): string => {
@@ -674,7 +702,7 @@
     moveConfirmationGfx = indicator;
   };
 
-  const drawMovePreview = async (destination: { x: number; y: number } | null, streamedMarch?: ArmyMarch): Promise<MovePreviewResult> => {
+  const drawMovePreview = async (destination: { x: number; y: number } | null, streamedOrder?: ArmyOrder): Promise<MovePreviewResult> => {
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
     moveRouteError = '';
     if (!cont || !army?.armyId || !army.coords || !destination) return 'failed';
@@ -690,9 +718,9 @@
 
     const request = ++movePreviewRequest;
     moveRouteLoading = !refreshing;
-    let steps = streamedMarch?.remainingRoute;
-    let estimatedDuration = streamedMarch?.estimatedRemainingDuration;
-    if (!streamedMarch) {
+    let steps = streamedOrder?.remainingRoute;
+    let estimatedDuration = streamedOrder?.estimatedRemainingDuration;
+    if (!streamedOrder) {
       try {
         const preview = await armyClient.previewArmyRoute({ armyId: army.armyId, destination });
         steps = preview.steps;
@@ -818,14 +846,15 @@
     showBuild = false;
     if (center) centerCam(x, y);
     drawSel(x, y);
-    const march = marchForArmy(army);
-    if (march?.destination) {
+    const order = orderForArmy(army);
+    const destination = orderDestination(order);
+    if (destination) {
       moveArmyId = id;
-      moveTarget = { x: march.destination.x, y: march.destination.y };
+      moveTarget = { x: destination.x, y: destination.y };
       moveHover = moveTarget;
       moveOrderActive = true;
       moveDestinationObserved = true;
-      void drawMovePreview(moveTarget, march);
+      void drawMovePreview(moveTarget, order);
     }
     scheduleRender();
   };
@@ -859,16 +888,30 @@
     notice = '';
     try {
       await new Promise((resolve) => setTimeout(resolve, MOVE_ORDER_SUBMIT_DELAY_MS));
-      await armyClient.moveArmy({ armyId: army.armyId, destination });
+      const destinationState = tileData.get(tileKey(destination.x, destination.y));
+      const hostile = destinationState?.armies?.find((candidate) => candidate.owner?.value && candidate.owner.value !== $userId);
+      const settlement = destinationState?.city;
+      const settlementCenter = settlement?.start && destination.x === settlement.start.x + Math.floor(settlement.size / 2) && destination.y === settlement.start.y + Math.floor(settlement.size / 2);
+      if (hostile?.armyId) {
+        await armyClient.attackArmy({ armyId: army.armyId, targetArmyId: hostile.armyId });
+      } else if (settlement?.cityId && settlement.owner?.value !== $userId && settlementCenter) {
+        await armyClient.conquerSettlement({ armyId: army.armyId, cityId: settlement.cityId });
+      } else {
+        await armyClient.moveArmy({ armyId: army.armyId, destination });
+      }
       if (destination.x === army.coords.x && destination.y === army.coords.y) {
         notice = 'Army ordered to hold its current position.';
         cancelMoveMode();
       } else {
-        notice = moveRoute
-          ? moveRouteComplete
-            ? `Marching to tile ${destination.x}, ${destination.y}.`
-            : `Marching as close as known land permits to ${destination.x}, ${destination.y}.`
-          : `Movement order issued for tile ${destination.x}, ${destination.y}.`;
+        notice = hostile
+          ? `Attacking ${armyTitle(hostile)}.`
+          : settlement && settlementCenter
+            ? `Moving to conquer ${settlement.name}.`
+            : moveRoute
+              ? moveRouteComplete
+                ? `Marching to tile ${destination.x}, ${destination.y}.`
+                : `Marching as close as known land permits to ${destination.x}, ${destination.y}.`
+              : `Movement order issued for tile ${destination.x}, ${destination.y}.`;
         moveTarget = { ...destination };
         moveHover = moveTarget;
         moveOrderActive = true;
@@ -887,9 +930,10 @@
     err = '';
     notice = '';
     try {
-      await armyClient.moveArmy({ armyId: army.armyId, destination: army.coords });
+      if (army.battleId) await armyClient.retreatArmy({ armyId: army.armyId });
+      else await armyClient.moveArmy({ armyId: army.armyId, destination: army.coords });
       trackedArmyId = army.armyId.value;
-      notice = 'Army ordered to hold its current position.';
+      notice = army.battleId ? 'Army ordered to retreat.' : 'Army ordered to hold its current position.';
       cancelMoveMode();
     } catch (e: unknown) {
       err = errorText(e, 'Halt order failed');
@@ -1596,12 +1640,12 @@
         {#if managementTab === 'armies'}
           <div class="flex items-center justify-between px-1 pb-2 text-[10px] text-[#778078]">
             <span>{ownedArmies.length ? `${ownedArmyTroops.toLocaleString()} troops under command` : 'No field armies'}</span>
-            <span>{ownedMarchCount} marching</span>
+            <span>{ownedOrderCount} active</span>
           </div>
           {#each ownedArmies as army}
-            {@const march = marchForArmy(army)}
-            {@const destination = march?.destination}
-            {@const endpoint = march?.remainingRoute.at(-1)?.coords}
+            {@const order = orderForArmy(army)}
+            {@const destination = orderDestination(order)}
+            {@const endpoint = order?.remainingRoute.at(-1)?.coords}
             {@const partial = destination && endpoint && (destination.x !== endpoint.x || destination.y !== endpoint.y)}
             <button
               class="mb-1.5 w-full border px-3 py-2.5 text-left transition-colors {army.armyId?.value === selectedArmyId
@@ -1615,15 +1659,15 @@
               </div>
               <div class="mt-1 flex items-center justify-between gap-3 text-[10px] text-[#79827b]">
                 <span>Tile {army.coords?.x ?? '—'}, {army.coords?.y ?? '—'}</span>
-                <span class={destination ? 'text-amber-200/80' : ''}>{destination ? `To ${destination.x}, ${destination.y}` : army.marchId ? 'March details restricted' : 'Holding'}</span>
+                <span class={order ? 'text-amber-200/80' : ''}>{order ? orderLabel(order) : army.orderId ? 'Order details restricted' : 'Holding'}</span>
               </div>
-              {#if march?.disclosure === ArmyMarchDisclosure.FULL_ROUTE}
+              {#if order}
                 <div class="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2 text-[10px]">
-                  <span class={partial ? 'text-orange-300/80' : 'text-blue-200/80'}>{partial ? 'Best known approach' : `${march.remainingRoute.length} tiles remaining`}</span>
-                  {#if march.estimatedRemainingDuration}<span class="tabular-nums text-[#9ba49d]">~{fmtCountdown(durationSeconds(march.estimatedRemainingDuration) * 1000)}</span>{/if}
+                  <span class={partial ? 'text-orange-300/80' : 'text-blue-200/80'}
+                    >{army.battleId ? 'Battle engaged' : partial ? 'Best known approach' : `${order.remainingRoute.length} tiles remaining`}</span
+                  >
+                  {#if order.estimatedRemainingDuration}<span class="tabular-nums text-[#9ba49d]">~{fmtCountdown(durationSeconds(order.estimatedRemainingDuration) * 1000)}</span>{/if}
                 </div>
-              {:else if march}
-                <div class="mt-2 border-t border-white/[0.06] pt-2 text-[10px] text-[#858e87]">Movement intelligence is limited</div>
               {/if}
             </button>
           {:else}
@@ -1803,11 +1847,17 @@
                 </div>
                 <div>
                   <div class="inspector-stat-label">Orders</div>
-                  <div class="mt-1 text-xs font-medium {selectedMarch?.destination ? 'text-amber-200' : 'text-[#aab2ac]'}">
-                    {selectedMarch?.destination ? `March to ${selectedMarch.destination.x}, ${selectedMarch.destination.y}` : selectedArmy.marchId ? 'Movement details restricted' : 'Hold position'}
+                  <div class="mt-1 text-xs font-medium {selectedOrder || selectedBattle ? 'text-amber-200' : 'text-[#aab2ac]'}">
+                    {selectedBattle ? 'Engaged in battle' : selectedOrder ? orderLabel(selectedOrder) : selectedArmy.orderId ? 'Order details restricted' : 'Hold position'}
                   </div>
                 </div>
               </div>
+              {#if selectedBattle}
+                <div class="mt-3 flex items-center justify-between border-t border-red-300/15 pt-3 text-[11px]">
+                  <span class="font-semibold uppercase tracking-[0.12em] text-red-300">Battle in progress</span>
+                  <span class="text-[#aab2ac]">{selectedBattle.attackers?.armyIds.length ?? 0} attacking · {selectedBattle.defenders?.armyIds.length ?? 0} defending</span>
+                </div>
+              {/if}
               <div class="mt-3 border-t border-white/[0.07] pt-3">
                 <div class="inspector-label mb-2">Composition</div>
                 {#if selectedArmy.compositionVisibility === ArmyCompositionVisibility.HIDDEN}
@@ -1826,10 +1876,10 @@
             {#if selectedArmyOwned}
               <div class="inspector-actions">
                 <button class="game-action game-action-primary" disabled={busy || (moveArmyId === selectedArmyId && !moveOrderActive)} on:click={() => prepareMove(selectedArmy)}>
-                  {selectedMarch ? 'Redirect army' : 'Move army'}
+                  {selectedOrder ? 'Redirect army' : 'Move army'}
                 </button>
-                {#if selectedMarch}
-                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => haltArmy(selectedArmy)}>Halt</button>
+                {#if selectedOrder || selectedBattle}
+                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => haltArmy(selectedArmy)}>{selectedBattle ? 'Retreat' : 'Halt'}</button>
                 {/if}
                 {#if selectedStack.length > 1}
                   <button class="game-action game-action-secondary" disabled={busy} on:click={() => mergeOwnedArmies(selectedStack, selectedArmyId ?? undefined)}>Merge stack</button>
@@ -1907,7 +1957,7 @@
                 {#each sel.armies as army}
                   {@const owned = army.owner?.value === $userId}
                   {@const size = armySize(army)}
-                  {@const march = marchForArmy(army)}
+                  {@const order = orderForArmy(army)}
                   <button
                     class="w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
                     on:click={() => focusArmy(army, false)}
@@ -1928,9 +1978,7 @@
                             .join(', ') || 'No troops'}
                     </p>
                     <div class="mt-2 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-2 text-[10px]">
-                      <span class={march?.destination ? 'text-amber-200/80' : 'text-[#79827b]'}
-                        >{march?.destination ? `Marching to ${march.destination.x}, ${march.destination.y}` : army.marchId ? 'Marching' : 'Holding position'}</span
-                      >
+                      <span class={order ? 'text-amber-200/80' : 'text-[#79827b]'}>{army.battleId ? 'In battle' : order ? orderLabel(order) : army.orderId ? 'Active order' : 'Holding position'}</span>
                       <span class="font-semibold text-[#aeb7b0]">View army →</span>
                     </div>
                   </button>

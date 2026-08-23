@@ -161,7 +161,13 @@ export function createArmyMarker(army: Army, userId?: string, selected = false):
       drawFootTroop(art, x, y, color, light, archer);
   }
 
-  if (army.marchId) {
+  if (army.battleId) {
+    art.moveTo(22, -5);
+    art.lineTo(32, 5);
+    art.moveTo(32, -5);
+    art.lineTo(22, 5);
+    art.stroke({ color: 0xf87171, width: 2.2, alpha: 1 });
+  } else if (army.orderId) {
     art.poly([23, -3, 28, 1, 23, 5]);
     art.poly([28, -3, 33, 1, 28, 5]);
     art.stroke({ color: 0xeee7b5, width: 1.5, alpha: 0.95 });

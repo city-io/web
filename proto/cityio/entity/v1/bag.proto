@@ -3,7 +3,8 @@ syntax = "proto3";
 package cityio.entity.v1;
 
 import "cityio/entity/v1/army.proto";
-import "cityio/entity/v1/army_march.proto";
+import "cityio/entity/v1/army_order.proto";
+import "cityio/entity/v1/battle.proto";
 import "cityio/entity/v1/building.proto";
 import "cityio/entity/v1/city.proto";
 import "cityio/entity/v1/tile.proto";
@@ -16,5 +17,6 @@ message EntityBag {
   repeated Building buildings = 3;
   repeated Army armies = 4;
   repeated Tile tiles = 5;
-  repeated ArmyMarch army_marches = 6;
+  repeated ArmyOrder army_orders = 6;
+  repeated Battle battles = 7;
 }

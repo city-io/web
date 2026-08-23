@@ -18,8 +18,8 @@ enum ArmyCompositionVisibility {
   ARMY_COMPOSITION_VISIBILITY_EXACT = 3;
 }
 
-// Army is the physical state of a mobile group of troops. March orders are
-// separate entities because their disclosure can differ from army visibility.
+// Army is the physical state of a mobile group of troops. Active orders and
+// battles are separate entities because their disclosure can differ.
 message Army {
   ArmyId army_id = 1;
   UserId owner = 2;
@@ -27,5 +27,6 @@ message Army {
   repeated TroopStack troops = 4;
   reserved 5;
   ArmyCompositionVisibility composition_visibility = 6;
-  optional ArmyMarchId march_id = 7;
+  optional ArmyOrderId order_id = 7;
+  optional BattleId battle_id = 8;
 }
