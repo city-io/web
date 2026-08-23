@@ -114,6 +114,27 @@
     }
   };
 
+  const terrainInfo = (value: TerrainType): { name: string; note: string } => {
+    switch (value) {
+      case TerrainType.PLAINS:
+        return { name: 'Plains', note: 'Broad, dry country with sparse grass and scrub.' };
+      case TerrainType.FOREST:
+        return { name: 'Forest', note: 'Dense woodland with little open ground.' };
+      case TerrainType.HILLS:
+        return { name: 'Hills', note: 'Rolling, uneven country broken by low ridges.' };
+      case TerrainType.MOUNTAINS:
+        return { name: 'Mountains', note: 'Steep high country dominated by exposed rock.' };
+      case TerrainType.DESERT:
+        return { name: 'Desert', note: 'Arid country shaped by wind and scarce water.' };
+      case TerrainType.MARSH:
+        return { name: 'Marsh', note: 'Waterlogged lowland with reeds and shallow pools.' };
+      case TerrainType.WATER:
+        return { name: 'Water', note: 'Open water beyond the shoreline.' };
+      default:
+        return { name: 'Grassland', note: 'Open, fertile country with low vegetation.' };
+    }
+  };
+
   const structureKind = (type: BuildingType): StructureKind => {
     if (type === BuildingType.FARM) return 'farm';
     if (type === BuildingType.MINE) return 'mine';
@@ -1101,6 +1122,8 @@
   <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
   <div class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4">
     {#if sel}
+      {@const selectedInFog = myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius}
+      {@const selectedTerrain = selectedInFog ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
       <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
         <div class="inspector-header flex items-center justify-between gap-4">
           <div class="min-w-0">
@@ -1112,13 +1135,14 @@
               {:else if sel.city}
                 {sel.city.name}
               {:else}
-                Open ground
+                {selectedTerrain.name}
               {/if}
             </h2>
-            <div class="mt-0.5 text-[11px] text-[#b0b2a5]">
+            <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
               {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
-              {/if}Tile {sel.x}, {sel.y}
+              {/if}<span class="font-medium text-[#d4d5c8]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
             </div>
+            <p class="mt-1 truncate text-[11px] text-[#8f9387]">{selectedTerrain.note}</p>
           </div>
           <button
             aria-label="Close"
@@ -1374,7 +1398,7 @@
             {/if}
           {:else if !sel.city && !sel.armies?.length}
             <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
-              {myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius ? 'Beyond visibility range' : 'No structures on this tile'}
+              {selectedInFog ? 'Beyond visibility range' : 'No structures on this tile'}
             </div>
           {/if}
         </div>
