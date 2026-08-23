@@ -29,6 +29,7 @@
   const CLICK_DIST = 5;
   // Set this above zero if movement orders should have a deliberate client-side submit delay.
   const MOVE_ORDER_SUBMIT_DELAY_MS = 0;
+  type MovePreviewResult = 'loaded' | 'failed' | 'superseded';
 
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
@@ -90,7 +91,7 @@
   let moveGfx: Graphics | null = null;
   let moveConfirmationGfx: Graphics | null = null;
   let moveConfirmationPending = false;
-  let moveConfirmationPreview: Promise<boolean> | null = null;
+  let moveConfirmationPreview: Promise<MovePreviewResult> | null = null;
   let movePreviewRequest = 0;
   let trainingOrders: TrainingOrder[] = [];
   let trainingOrdersBarracksId: string | null = null;
@@ -670,14 +671,14 @@
     moveConfirmationGfx = indicator;
   };
 
-  const drawMovePreview = async (destination: { x: number; y: number } | null, streamedMarch?: ArmyMarch): Promise<boolean> => {
+  const drawMovePreview = async (destination: { x: number; y: number } | null, streamedMarch?: ArmyMarch): Promise<MovePreviewResult> => {
     clearMovePreview();
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
     moveRoute = null;
     moveRouteComplete = true;
     moveRouteDurationMs = 0;
     moveRouteError = '';
-    if (!cont || !army?.armyId || !army.coords || !destination) return false;
+    if (!cont || !army?.armyId || !army.coords || !destination) return 'failed';
 
     const request = ++movePreviewRequest;
     moveRouteLoading = true;
@@ -693,10 +694,10 @@
           moveRouteLoading = false;
           moveRouteError = errorText(e, 'The route preview could not be loaded');
         }
-        return false;
+        return 'failed';
       }
     }
-    if (request !== movePreviewRequest || moveArmyId !== army.armyId.value) return false;
+    if (request !== movePreviewRequest || moveArmyId !== army.armyId.value) return 'superseded';
     moveRouteLoading = false;
     moveRouteError = '';
     moveRoute = (steps ?? []).flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y }] : []));
@@ -765,7 +766,7 @@
     route.zIndex = 9e6;
     cont.addChild(route);
     moveGfx = route;
-    return true;
+    return 'loaded';
   };
 
   const clearMoveTarget = () => {
@@ -1354,10 +1355,10 @@
     drawMoveConfirmation(tile);
     const preview = drawMovePreview(tile);
     moveConfirmationPreview = preview;
-    const previewLoaded = await preview;
+    const previewResult = await preview;
     if (moveConfirmationPreview === preview) moveConfirmationPreview = null;
     if (!moveConfirmationPending || moveTarget?.x !== tile.x || moveTarget.y !== tile.y) return;
-    if (!previewLoaded) notice = `${moveRouteError || 'Route preview unavailable'}. Right-click the tile again to let the server validate it.`;
+    if (previewResult === 'failed') notice = `${moveRouteError || 'Route preview unavailable'}. Right-click the tile again to let the server validate it.`;
   };
 
   const logout = () => {
