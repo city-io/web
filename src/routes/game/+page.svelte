@@ -2298,7 +2298,7 @@
                   on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}
                 >
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M10 17V4M5 9l5-5 5 5M4 17h12" /></svg>
-                  {busy ? 'Working…' : nextStats ? `Raise to level ${sel.building.level + 1}` : 'At highest level'}
+                  {busy ? 'Working…' : 'Upgrade'}
                 </button>
                 <button
                   class="game-action game-action-danger"
@@ -2308,7 +2308,7 @@
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"
                     ><path d="M5 6h10M8 3h4l1 3H7l1-3ZM7 8v7M10 8v7M13 8v7M6 17h8l1-11H5l1 11Z" /></svg
                   >
-                  {busy ? 'Working…' : 'Raze building'}
+                  {busy ? 'Working…' : 'Demolish'}
                 </button>
               </div>
             {/if}
