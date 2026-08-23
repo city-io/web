@@ -2101,9 +2101,12 @@
         <path d="m6 18 15-10 15 10M9 17v17h24V17M15 34V23h12v11" />
         <path d="M15 25h12M19 23v11M23 23v11" opacity=".7" />
       {:else if type === BuildingType.MINE}
-        <path d="M8 34 14 16h14l6 18H8Z" fill="currentColor" opacity=".12" />
-        <path d="M8 34 14 16h14l6 18M12 27h18M21 16v18M10 34h24" />
-        <path d="m14 13 14-5M25 7l5 3" />
+        <path d="M7 18h28l-4 11H11L7 18Z" fill="currentColor" opacity=".14" />
+        <path d="M7 18h28l-4 11H11L7 18ZM10 29h22M7 34h29" />
+        <path d="M11 18c.5-3 2.4-5 5-5 1.2 0 2.3.4 3.2 1.1C20 10.5 22.4 8 26 8c4.2 0 7 3.4 7 7.5V18" />
+        <circle cx="14" cy="33" r="2.5" fill="currentColor" opacity=".22" />
+        <circle cx="29" cy="33" r="2.5" fill="currentColor" opacity=".22" />
+        <circle cx="14" cy="33" r="2.5" /><circle cx="29" cy="33" r="2.5" />
       {:else if type === BuildingType.BARRACKS}
         <path d="M7 34V15h28v19H7Z" fill="currentColor" opacity=".12" />
         <path d="M7 34V15h28v19M5 15h32M11 15V9h6v6M25 15V9h6v6M17 34V24h8v10M11 21h4M27 21h4" />
