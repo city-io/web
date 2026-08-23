@@ -7,7 +7,7 @@
   import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
   import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
-  import { TROOP_STATS, TROOP_TYPES, armyPathCost, armySize, createArmyMarker, findArmyPath, troopName, type ArmyPathStep } from '$lib/game/troops';
+  import { TROOP_STATS, TROOP_TYPES, armyPathCost, armySize, armyTitle, createArmyMarker, findArmyPath, troopName, type ArmyPathStep } from '$lib/game/troops';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
@@ -72,6 +72,7 @@
   let showBuild = false;
   let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
   let recruitCount = 1;
+  let selectedArmyId: string | null = null;
   let moveArmyId: string | null = null;
   let trackedArmyId: string | null = null;
   let moveTarget: { x: number; y: number } | null = null;
@@ -90,6 +91,8 @@
   let ratesEl: HTMLDivElement;
   let citiesOpen = false;
   let citiesEl: HTMLDivElement;
+  let armiesOpen = false;
+  let armiesEl: HTMLDivElement;
 
   // Keyboard navigation
   let showHelp = false;
@@ -183,6 +186,9 @@
   const trainablePopulation = (city?: City) => (city ? Math.max(0, Math.floor(city.population * 0.35 - city.militaryPopulation)) : 0);
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
+  $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
+  $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => (a.armyId?.value ?? '').localeCompare(b.armyId?.value ?? ''));
+  $: ownedArmyTroops = ownedArmies.reduce((total, army) => total + armySize(army), 0);
   $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
   $: if (selectedBarracksId && trainingOrdersAvailable && (trainingOrdersBarracksId !== selectedBarracksId || now - lastTrainingPoll >= 3000)) {
     loadTrainingOrders(selectedBarracksId);
@@ -294,6 +300,7 @@
       sel = { x, y, ...tileData.get(tileKey(x, y)) };
     } else if (trackedArmyId) {
       trackedArmyId = null;
+      selectedArmyId = null;
       moveArmyId = null;
       moveTarget = null;
       moveHover = null;
@@ -394,6 +401,7 @@
     // Focus the center tile so its detail panel opens, same as a map click.
     sel = { x: col, y: row, ...tileData.get(tileKey(col, row)) };
     trackedArmyId = null;
+    selectedArmyId = null;
     cancelMoveMode();
     err = '';
     notice = '';
@@ -557,8 +565,10 @@
     }
   };
 
-  const mergeOwnedArmies = async (stack: Army[]) => {
-    const owned = stack.filter((army) => army.owner?.value === $userId && army.armyId?.value).sort((a, b) => armySize(b) - armySize(a));
+  const mergeOwnedArmies = async (stack: Army[], targetId?: string) => {
+    const owned = stack
+      .filter((army) => army.owner?.value === $userId && army.armyId?.value)
+      .sort((a, b) => Number(b.armyId?.value === targetId) - Number(a.armyId?.value === targetId) || armySize(b) - armySize(a));
     if (owned.length < 2) return;
     const target = owned[0];
     busy = true;
@@ -617,8 +627,7 @@
     moveGfx = route;
   };
 
-  const cancelMoveMode = () => {
-    moveArmyId = null;
+  const clearMoveTarget = () => {
     moveTarget = null;
     moveHover = null;
     moveRoute = null;
@@ -626,16 +635,35 @@
     clearMovePreview();
   };
 
-  const beginMove = (army: Army) => {
+  const cancelMoveMode = () => {
+    moveArmyId = null;
+    clearMoveTarget();
+  };
+
+  const focusArmy = (army: Army, center = true) => {
     const id = army.armyId?.value;
-    if (!id || !army.coords || army.owner?.value !== $userId) return;
+    if (!id || !army.coords) return;
+    cancelMoveMode();
+    selectedArmyId = id;
     trackedArmyId = id;
-    moveArmyId = id;
-    moveTarget = null;
-    moveHover = army.destination ? { x: army.destination.x, y: army.destination.y } : null;
+    const x = army.coords.x;
+    const y = army.coords.y;
+    sel = { x, y, ...tileData.get(tileKey(x, y)) };
     err = '';
     notice = '';
-    drawMovePreview(moveHover);
+    showBuild = false;
+    if (center) centerCam(x, y);
+    drawSel(x, y);
+    scheduleRender();
+  };
+
+  const prepareMove = (army: Army) => {
+    const id = army.armyId?.value;
+    if (!id || !army.coords || army.owner?.value !== $userId) return;
+    clearMoveTarget();
+    moveArmyId = id;
+    err = '';
+    notice = '';
   };
 
   const updateMoveHover = (screenX: number, screenY: number) => {
@@ -647,16 +675,15 @@
     if (!moveTarget) drawMovePreview(tile);
   };
 
-  const confirmMove = async () => {
-    const army = movingArmy;
-    const destination = moveTarget;
-    if (!army?.armyId || !army.coords || !destination || !moveRoute || moveRoute.length === 0) return;
+  const issueMove = async (destination: { x: number; y: number }) => {
+    const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
+    if (!army?.armyId || !army.coords || !moveRoute || busy) return;
     busy = true;
     err = '';
     notice = '';
     try {
       await armyClient.moveArmy({ armyId: army.armyId, destination });
-      notice = `Marching to tile ${destination.x}, ${destination.y}.`;
+      notice = moveRoute.length === 0 ? 'Army ordered to hold its current position.' : `Marching to tile ${destination.x}, ${destination.y}.`;
       cancelMoveMode();
     } catch (e: unknown) {
       err = errorText(e, 'Movement order failed');
@@ -874,7 +901,18 @@
     if (!inFog && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
 
     const visibleArmies = inFog ? td?.armies?.filter((army) => army.owner?.value === $userId) : td?.armies;
-    if (visibleArmies?.length) tc.addChild(createArmyMarker(visibleArmies, $userId));
+    if (visibleArmies?.length) {
+      const army = visibleArmies.find((candidate) => candidate.armyId?.value === selectedArmyId) ?? [...visibleArmies].sort((a, b) => armySize(b) - armySize(a))[0];
+      const marker = createArmyMarker(army, $userId, army.armyId?.value === selectedArmyId);
+      marker.eventMode = 'static';
+      marker.cursor = 'pointer';
+      marker.on('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+        focusArmy(army, false);
+      });
+      tc.addChild(marker);
+    }
 
     // Construction-in-progress overlay
     if (!inFog && td?.building?.constructionStart && td?.building?.constructionEnd) {
@@ -994,6 +1032,7 @@
   const deselect = () => {
     cancelMoveMode();
     trackedArmyId = null;
+    selectedArmyId = null;
     sel = null;
     if (selGfx) {
       cont.removeChild(selGfx);
@@ -1052,20 +1091,16 @@
         velX = velY = 0;
         const mc = screenToTile((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
         if (mc.x >= 0 && mc.y >= 0 && mc.x < worldWidth && mc.y < worldHeight) {
-          if (moveArmyId) {
-            moveTarget = mc;
-            moveHover = mc;
-            drawMovePreview(mc);
-          } else {
-            trackedArmyId = null;
-            const t = tileData.get(tileKey(mc.x, mc.y));
-            sel = { x: mc.x, y: mc.y, ...t };
-            err = '';
-            notice = '';
-            showBuild = false;
-            recruitCount = 1;
-            drawSel(mc.x, mc.y);
-          }
+          cancelMoveMode();
+          trackedArmyId = null;
+          selectedArmyId = null;
+          const t = tileData.get(tileKey(mc.x, mc.y));
+          sel = { x: mc.x, y: mc.y, ...t };
+          err = '';
+          notice = '';
+          showBuild = false;
+          recruitCount = 1;
+          drawSel(mc.x, mc.y);
         }
       } else if (!easeMotion || performance.now() - lastMoveT > 80) {
         // No flick (or motion easing off): stop where released.
@@ -1104,9 +1139,24 @@
   };
 
   const onContextMenu = (e: MouseEvent) => {
-    if (!moveArmyId) return;
     e.preventDefault();
-    cancelMoveMode();
+    const army = selectedArmyId ? $armies.find((candidate) => candidate.armyId?.value === selectedArmyId) : undefined;
+    if (!army?.armyId?.value || !army.coords || army.owner?.value !== $userId) return;
+    if (busy || !cont) return;
+    const rect = app.canvas.getBoundingClientRect();
+    const tile = screenToTile((e.clientX - rect.left - cont.x) / cont.scale.x, (e.clientY - rect.top - cont.y) / cont.scale.y);
+    if (tile.x < 0 || tile.y < 0 || tile.x >= worldWidth || tile.y >= worldHeight) return;
+    moveArmyId = army.armyId.value;
+    moveTarget = tile;
+    moveHover = tile;
+    err = '';
+    notice = '';
+    drawMovePreview(tile);
+    if (!moveRoute) {
+      err = 'That destination cannot be reached by a land army.';
+      return;
+    }
+    void issueMove(tile);
   };
 
   const logout = () => {
@@ -1168,8 +1218,8 @@
       }
       case 'm':
       case 'M': {
-        const army = sel?.armies?.find((candidate) => candidate.owner?.value === $userId);
-        if (army) beginMove(army);
+        const army = selectedArmy?.owner?.value === $userId ? selectedArmy : sel?.armies?.find((candidate) => candidate.owner?.value === $userId);
+        if (army) prepareMove(army);
         break;
       }
       case ']':
@@ -1205,6 +1255,7 @@
   on:click={(e) => {
     if (ratesOpen && ratesEl && !ratesEl.contains(e.target as Node)) ratesOpen = false;
     if (citiesOpen && citiesEl && !citiesEl.contains(e.target as Node)) citiesOpen = false;
+    if (armiesOpen && armiesEl && !armiesEl.contains(e.target as Node)) armiesOpen = false;
   }}
 />
 
@@ -1285,6 +1336,56 @@
     </div>
 
     <div class="pointer-events-auto ml-auto flex items-center gap-2">
+      <div class="relative" bind:this={armiesEl}>
+        <button
+          type="button"
+          class="hud-surface flex h-12 items-center gap-2.5 px-3 text-xs font-medium text-[#c7cec8] transition-colors hover:text-white"
+          on:click={() => (armiesOpen = !armiesOpen)}
+          aria-expanded={armiesOpen}
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4 text-blue-300">
+            <path d="M5 17V3m1 1h9l-2.5 3L15 10H6" stroke-linejoin="round" />
+          </svg>
+          <span class="text-sm font-semibold tabular-nums text-white">{ownedArmies.length}</span>
+          <span class="hidden text-[#7d877f] sm:inline">{ownedArmies.length === 1 ? 'army' : 'armies'}</span>
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-[#747d76] transition-transform duration-150 {armiesOpen ? 'rotate-180' : ''}">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        </button>
+        {#if armiesOpen}
+          <div class="game-popover absolute right-0 top-[calc(100%+0.5rem)] w-72 overflow-hidden p-1.5">
+            <div class="flex items-center justify-between px-2 pb-1.5 pt-1">
+              <span class="panel-title">Your armies</span>
+              <span class="text-[10px] tabular-nums text-[#7d867f]">{ownedArmyTroops.toLocaleString()} troops</span>
+            </div>
+            <div class="max-h-[min(60vh,24rem)] overflow-y-auto">
+              {#each ownedArmies as army}
+                <div class="border-t border-white/[0.06] {army.armyId?.value === selectedArmyId ? 'bg-blue-300/[0.07]' : ''}">
+                  <button
+                    class="w-full min-w-0 px-2 py-2 text-left transition-colors hover:bg-white/[0.05]"
+                    on:click={() => {
+                      focusArmy(army);
+                      armiesOpen = false;
+                    }}
+                  >
+                    <span class="flex items-center justify-between gap-3">
+                      <span class="truncate text-xs font-semibold text-[#d9ddd8]">{armyTitle(army)}</span>
+                      <span class="text-xs font-semibold tabular-nums text-blue-200">{armySize(army)}</span>
+                    </span>
+                    <span class="mt-1 flex items-center justify-between gap-3 text-[10px] text-[#7c857e]">
+                      <span>Tile {army.coords?.x ?? '—'}, {army.coords?.y ?? '—'}</span>
+                      <span class={army.destination ? 'text-amber-200/80' : ''}>{army.destination ? `To ${army.destination.x}, ${army.destination.y}` : 'Holding'}</span>
+                    </span>
+                  </button>
+                </div>
+              {:else}
+                <div class="border-t border-white/[0.06] px-3 py-4 text-[11px] leading-relaxed text-[#7d867f]">No active armies. Train troops from one of your barracks.</div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+
       {#if myCities.length > 0}
         <div class="relative" bind:this={citiesEl}>
           <button
@@ -1348,7 +1449,9 @@
         <div class="inspector-header flex items-center justify-between gap-4">
           <div class="min-w-0">
             <h2 class="truncate text-base font-semibold text-[#f0f2e8]">
-              {#if sel.building}
+              {#if selectedArmy}
+                {armyTitle(selectedArmy)}
+              {:else if sel.building}
                 {bName(sel.building.type)}
               {:else if sel.armies?.length}
                 {sel.armies.length === 1 ? 'Army' : `${sel.armies.length} armies`}
@@ -1358,11 +1461,20 @@
                 {selectedTerrain.name}
               {/if}
             </h2>
-            <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
-              {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
-              {/if}<span class="font-medium text-[#d4d5c8]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
-            </div>
-            <p class="mt-1 truncate text-[11px] text-[#8f9387]">{selectedTerrain.note}</p>
+            {#if selectedArmy}
+              <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
+                <span class={selectedArmy.owner?.value === $userId ? 'font-medium text-blue-200' : 'font-medium text-red-200'}
+                  >{selectedArmy.owner?.value === $userId ? 'Your army' : 'Foreign army'}</span
+                >
+                · Tile {sel.x}, {sel.y}
+              </div>
+            {:else}
+              <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
+                {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
+                {/if}<span class="font-medium text-[#d4d5c8]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
+              </div>
+              <p class="mt-1 truncate text-[11px] text-[#8f9387]">{selectedTerrain.note}</p>
+            {/if}
           </div>
           <button
             aria-label="Close"
@@ -1382,27 +1494,73 @@
           <div class="border-b border-emerald-300/20 bg-emerald-300/[0.07] px-4 py-2 text-xs text-emerald-200">{notice}</div>
         {/if}
         {#if moveArmyId && movingArmy}
-          {@const steps = moveTarget && moveRoute ? moveRoute.length : 0}
+          {@const previewTarget = moveTarget ?? moveHover}
+          {@const steps = moveRoute?.length ?? 0}
           <div class="flex flex-wrap items-center gap-3 border-b border-blue-300/20 bg-blue-300/[0.07] px-4 py-2.5">
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-semibold {moveTarget && !moveRoute ? 'text-red-200' : 'text-blue-200'}">
-                {moveTarget ? (moveRoute ? `Destination ${moveTarget.x}, ${moveTarget.y}` : 'That tile is unreachable') : 'Choose a destination on the map'}
+              <div class="text-xs font-semibold {previewTarget && !moveRoute ? 'text-red-200' : 'text-blue-200'}">
+                {busy ? 'Issuing movement order…' : previewTarget ? (moveRoute ? `Route to ${previewTarget.x}, ${previewTarget.y}` : 'That tile is unreachable') : 'Move army'}
               </div>
               <div class="mt-0.5 text-[11px] text-[#9ba9b1]">
-                {moveTarget
+                {previewTarget
                   ? moveRoute
                     ? `${steps} ${steps === 1 ? 'tile' : 'tiles'} · about ${fmtCountdown(moveRouteCost * 1000)} across this terrain`
                     : 'Land armies cannot cross water or cut through a blocked corner.'
-                  : 'Hover to preview the route, then click a tile. Drag still pans the map.'}
+                  : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
               </div>
             </div>
-            <button class="game-action game-action-primary !w-auto" disabled={busy || !moveTarget || !moveRoute || steps === 0} on:click={confirmMove}>{busy ? 'Ordering...' : 'Confirm move'}</button>
-            <button class="game-action game-action-secondary !w-auto" disabled={busy} on:click={cancelMoveMode}>Cancel</button>
+            <span class="text-[10px] text-[#7e8981]">Esc cancels</span>
           </div>
         {/if}
 
         <div class="inspector-body">
-          {#if sel.city}
+          {#if selectedArmy}
+            {@const selectedArmyOwned = selectedArmy.owner?.value === $userId}
+            {@const selectedArmySize = armySize(selectedArmy)}
+            {@const selectedStack = sel.armies?.filter((army) => army.owner?.value === $userId) ?? []}
+            <section class="inspector-section">
+              <div class="grid grid-cols-3 gap-5">
+                <div>
+                  <div class="inspector-stat-label">Strength</div>
+                  <div class="inspector-stat-value">{selectedArmySize.toLocaleString()} <span class="text-[#68716a]">troops</span></div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Position</div>
+                  <div class="inspector-stat-value">{selectedArmy.coords?.x ?? '—'}, {selectedArmy.coords?.y ?? '—'}</div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Orders</div>
+                  <div class="mt-1 text-xs font-medium {selectedArmy.destination ? 'text-amber-200' : 'text-[#aab2ac]'}">
+                    {selectedArmy.destination ? `March to ${selectedArmy.destination.x}, ${selectedArmy.destination.y}` : 'Hold position'}
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3 border-t border-white/[0.07] pt-3">
+                <div class="inspector-label mb-2">Composition</div>
+                <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]">
+                  {#each selectedArmy.troops.filter((stack) => stack.count > 0) as stack}
+                    <span class="text-[#969f98]"><strong class="mr-1 font-semibold tabular-nums text-[#e0e2d8]">{stack.count}</strong>{troopName(stack.type, stack.count)}</span>
+                  {/each}
+                </div>
+              </div>
+            </section>
+            {#if selectedArmyOwned}
+              <div class="inspector-actions">
+                <button class="game-action game-action-primary" disabled={busy || moveArmyId === selectedArmyId} on:click={() => prepareMove(selectedArmy)}>
+                  {selectedArmy.destination ? 'Redirect army' : 'Move army'}
+                </button>
+                {#if selectedArmy.destination}
+                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => haltArmy(selectedArmy)}>Halt</button>
+                {/if}
+                {#if selectedStack.length > 1}
+                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => mergeOwnedArmies(selectedStack, selectedArmyId ?? undefined)}>Merge stack</button>
+                {/if}
+                <div class="mt-1 border-t border-white/[0.06] pt-2 text-[10px] leading-relaxed text-[#747d76]">Right-click the map to move immediately.</div>
+              </div>
+            {/if}
+          {/if}
+
+          {#if !selectedArmy && sel.city}
             <section class="inspector-section">
               <div class="mb-3 flex items-center justify-between gap-3">
                 <span class="inspector-label">City resources</span>
@@ -1457,23 +1615,24 @@
             </section>
           {/if}
 
-          {#if sel.armies?.length}
-            {@const ownedTileArmies = sel.armies.filter((army) => army.owner?.value === $userId)}
+          {#if !selectedArmy && sel.armies?.length}
             <section class="inspector-section">
               <div class="mb-3 flex items-center justify-between">
-                <span class="inspector-label">Armies present</span>
+                <span class="inspector-label">Armies on this tile</span>
                 <span class="text-xs font-medium tabular-nums text-[#9aa39c]">{sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops</span>
               </div>
               <div class="space-y-2">
                 {#each sel.armies as army}
                   {@const owned = army.owner?.value === $userId}
                   {@const size = armySize(army)}
-                  <div class="border border-white/[0.07] bg-black/[0.08] px-3 py-2.5">
+                  <button
+                    class="w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
+                    on:click={() => focusArmy(army, false)}
+                  >
                     <div class="flex items-center justify-between gap-3">
                       <div class="flex min-w-0 items-center gap-2">
                         <span class="h-2 w-2 shrink-0 {owned ? 'bg-blue-400' : 'bg-red-400'}"></span>
-                        <span class="truncate text-xs font-semibold {owned ? 'text-blue-200' : 'text-red-200'}">{owned ? 'Your army' : 'Foreign army'}</span>
-                        {#if army.armyId?.value === trackedArmyId}<span class="text-[9px] uppercase tracking-[0.12em] text-blue-300/70">following</span>{/if}
+                        <span class="truncate text-xs font-semibold {owned ? 'text-blue-200' : 'text-red-200'}">{armyTitle(army)}</span>
                       </div>
                       <span class="text-xs font-semibold tabular-nums text-[#e2e3d8]">{size}</span>
                     </div>
@@ -1486,34 +1645,16 @@
                     <div class="mt-2 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-2 text-[10px]">
                       <span class={army.destination ? 'text-amber-200/80' : 'text-[#79827b]'}>{army.destination ? `Marching to ${army.destination.x}, ${army.destination.y}` : 'Holding position'}</span
                       >
-                      {#if owned}
-                        <span class="flex items-center gap-2">
-                          {#if army.destination}
-                            <button class="font-semibold text-[#aeb7b0] transition-colors hover:text-white" disabled={busy} on:click={() => haltArmy(army)}>Halt</button>
-                          {/if}
-                          <button class="font-semibold text-blue-300 transition-colors hover:text-blue-100" disabled={busy} on:click={() => beginMove(army)}
-                            >{army.destination ? 'Redirect' : 'Move'}</button
-                          >
-                        </span>
-                      {/if}
+                      <span class="font-semibold text-[#aeb7b0]">Manage army →</span>
                     </div>
-                  </div>
+                  </button>
                 {/each}
               </div>
-              {#if ownedTileArmies.length > 1}
-                <button
-                  class="mt-3 w-full border border-white/[0.1] bg-white/[0.03] px-3 py-2 text-[11px] font-semibold text-[#c5cbc6] transition-colors hover:bg-white/[0.07] hover:text-white disabled:opacity-30"
-                  disabled={busy}
-                  on:click={() => mergeOwnedArmies(ownedTileArmies)}
-                >
-                  Merge {ownedTileArmies.length} owned armies
-                </button>
-              {/if}
             </section>
           {/if}
 
           <!-- Building information -->
-          {#if sel.building}
+          {#if !selectedArmy && sel.building}
             {@const isBuilding = sel.building.level === 0}
             {@const stats = isBuilding ? null : getLevelStats(sel.building.type, sel.building.level)}
             {@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
@@ -1732,7 +1873,7 @@
                 >
               </div>
             {/if}
-          {:else if sel.city?.owner?.value === $userId}
+          {:else if !selectedArmy && sel.city?.owner?.value === $userId}
             {#if showBuild}
               {@const buildStats = getLevelStats(buildType, 1)}
               <section class="inspector-section">
@@ -1787,7 +1928,7 @@
                 <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>Build structure</button>
               </div>
             {/if}
-          {:else if !sel.city && !sel.armies?.length}
+          {:else if !selectedArmy && !sel.city && !sel.armies?.length}
             <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
               {selectedInFog ? 'Beyond visibility range' : 'No structures on this tile'}
             </div>
@@ -1830,7 +1971,7 @@
       <div class="panel w-72 p-5" on:click|stopPropagation on:keydown|stopPropagation role="presentation">
         <div class="panel-title mb-3 text-[11px]">Keyboard Shortcuts</div>
         <div class="space-y-1.5 text-xs text-stone-200">
-          {#each [['Pan', 'Click + drag / WASD'], ['Pan faster', 'Shift + move'], ['Zoom', 'Wheel / + / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Move selected army', 'M'], ['Cancel move / deselect', 'Esc / right click'], ['Toggle this help', '?']] as [label, keys]}
+          {#each [['Pan', 'Click + drag / WASD'], ['Pan faster', 'Shift + move'], ['Zoom', 'Wheel / + / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Select army', 'Click formation / card'], ['Preview movement', 'Move button / M'], ['Issue movement', 'Right-click map'], ['Cancel move / deselect', 'Esc'], ['Toggle this help', '?']] as [label, keys]}
             <div class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{label}</span>
               <kbd class="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-gray-300">{keys}</kbd>
