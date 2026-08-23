@@ -86,6 +86,7 @@
   let moveRouteLoading = false;
   let moveRouteError = '';
   let moveRouteDurationMs = 0;
+  let movePreviewDestination: { x: number; y: number } | null = null;
   let moveOrderActive = false;
   let moveDestinationObserved = false;
   let moveGfx: Graphics | null = null;
@@ -672,16 +673,21 @@
   };
 
   const drawMovePreview = async (destination: { x: number; y: number } | null, streamedMarch?: ArmyMarch): Promise<MovePreviewResult> => {
-    clearMovePreview();
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
-    moveRoute = null;
-    moveRouteComplete = true;
-    moveRouteDurationMs = 0;
     moveRouteError = '';
     if (!cont || !army?.armyId || !army.coords || !destination) return 'failed';
 
+    const refreshing = movePreviewDestination?.x === destination.x && movePreviewDestination.y === destination.y && moveRoute !== null;
+    if (!refreshing) {
+      clearMovePreview();
+      moveRoute = null;
+      moveRouteComplete = true;
+      moveRouteDurationMs = 0;
+      movePreviewDestination = null;
+    }
+
     const request = ++movePreviewRequest;
-    moveRouteLoading = true;
+    moveRouteLoading = !refreshing;
     let steps = streamedMarch?.remainingRoute;
     let estimatedDuration = streamedMarch?.estimatedRemainingDuration;
     if (!streamedMarch) {
@@ -692,9 +698,9 @@
       } catch (e: unknown) {
         if (request === movePreviewRequest) {
           moveRouteLoading = false;
-          moveRouteError = errorText(e, 'The route preview could not be loaded');
+          if (!refreshing) moveRouteError = errorText(e, 'The route preview could not be loaded');
         }
-        return 'failed';
+        return refreshing ? 'loaded' : 'failed';
       }
     }
     if (request !== movePreviewRequest || moveArmyId !== army.armyId.value) return 'superseded';
@@ -764,8 +770,10 @@
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
     route.stroke({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, width: 2, alpha: 0.95 });
     route.zIndex = 9e6;
+    clearMovePreview();
     cont.addChild(route);
     moveGfx = route;
+    movePreviewDestination = { ...destination };
     return 'loaded';
   };
 
@@ -776,6 +784,7 @@
     moveRouteComplete = true;
     moveRouteLoading = false;
     moveRouteDurationMs = 0;
+    movePreviewDestination = null;
     moveOrderActive = false;
     moveDestinationObserved = false;
     moveConfirmationPending = false;
