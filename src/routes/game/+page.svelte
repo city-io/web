@@ -380,6 +380,8 @@
     const visibility = visibilityAt(step.x, step.y);
     return visibility === TileVisibilityState.EXPLORED || visibility === TileVisibilityState.VISIBLE;
   };
+  const routeSegmentExplored = (from: ArmyPathStep, to: ArmyPathStep): boolean => Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y)) === 1 && routeStepExplored(to);
+  const routeIncludesUnknown = (origin: ArmyPathStep, route: ArmyPathStep[]): boolean => route.some((step, index) => !routeSegmentExplored(index === 0 ? origin : route[index - 1], step));
 
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
@@ -725,10 +727,13 @@
       for (let index = 1; index < points.length; index++) {
         const from = points[index - 1];
         const to = points[index];
+        const fromStep = index === 1 ? army.coords : moveRoute[index - 2];
+        const toStep = moveRoute[index - 1];
+        const explored = routeSegmentExplored(fromStep, toStep);
         route.moveTo(from.sx, from.sy);
         route.lineTo(to.sx, to.sy);
         route.stroke({ color: 0x111611, width: 7, alpha: 0.85 });
-        if (routeStepExplored(moveRoute[index - 1])) {
+        if (explored) {
           route.moveTo(from.sx, from.sy);
           route.lineTo(to.sx, to.sy);
           route.stroke({ color: 0x7eb5ec, width: 3, alpha: 1 });
@@ -1741,7 +1746,7 @@
         {#if moveArmyId && movingArmy}
           {@const previewTarget = moveTarget ?? moveHover}
           {@const steps = moveRoute?.length ?? 0}
-          {@const unknownSteps = moveRoute?.filter((step) => !routeStepExplored(step)).length ?? 0}
+          {@const includesUnknown = movingArmy.coords && moveRoute ? routeIncludesUnknown(movingArmy.coords, moveRoute) : false}
           <div class="flex flex-wrap items-center gap-3 border-b px-4 py-2.5 {moveConfirmationPending ? 'border-red-300/30 bg-red-400/[0.09]' : 'border-blue-300/20 bg-blue-300/[0.07]'}">
             <div class="min-w-0 flex-1">
               <div class="text-xs font-semibold {moveConfirmationPending || (previewTarget && !moveRoute && !moveRouteLoading) ? 'text-red-200' : 'text-blue-200'}">
@@ -1765,12 +1770,12 @@
                 {moveConfirmationPending && previewTarget
                   ? moveRouteLoading
                     ? 'Plotting the route. A second right-click here will confirm once it is ready; any other click cancels.'
-                    : `${moveRoute ? `${steps} ${steps === 1 ? 'tile' : 'tiles'} · about ${fmtCountdown(moveRouteDurationMs)}` : 'Route unavailable'} · right-click this tile again to confirm; any other click cancels.`
+                    : `${moveRoute ? `${includesUnknown ? `${steps} disclosed ${steps === 1 ? 'step' : 'steps'} · continues through unexplored terrain` : `${steps} ${steps === 1 ? 'tile' : 'tiles'}`} · about ${fmtCountdown(moveRouteDurationMs)}` : 'Route unavailable'} · right-click this tile again to confirm; any other click cancels.`
                   : previewTarget
                     ? moveRouteLoading
                       ? 'Checking the known terrain and plotting through the fog.'
                       : moveRoute
-                        ? `${steps} ${steps === 1 ? 'tile' : 'tiles'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteDurationMs)}${unknownSteps ? ` · ${unknownSteps} through unexplored terrain` : ''}${!moveRouteComplete ? ' · stops at the closest reachable land' : ''}`
+                        ? `${steps} disclosed ${steps === 1 ? 'step' : 'steps'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteDurationMs)}${includesUnknown ? ' · continues through unexplored terrain' : ''}${!moveRouteComplete ? ' · stops at the closest reachable land' : ''}`
                         : moveRouteError
                           ? 'You can still right-click to send the order; the server will validate it directly.'
                           : 'Land armies cannot cross water or cut through a blocked corner.'
