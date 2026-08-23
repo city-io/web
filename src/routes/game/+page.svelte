@@ -1124,6 +1124,7 @@
     const population = new Text({
       text: Math.max(0, Math.round(city.population)).toLocaleString(),
       roundPixels: true,
+      resolution: 4,
       style: {
         fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
         fontSize: 9,
@@ -1194,11 +1195,13 @@
     const label = new Text({
       text: active.count.toLocaleString(),
       roundPixels: true,
+      resolution: 4,
       style: {
         fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
-        fontSize: 8,
+        fontSize: 9,
         fontWeight: 'bold',
-        fill: '#e1ebe7'
+        fill: '#ffffff',
+        stroke: { color: '#0b1110', width: 1.5 }
       }
     });
     label.anchor.set(0.5);
@@ -1267,7 +1270,14 @@
         const count = new Text({
           text: `×${visibleArmies.length}`,
           roundPixels: true,
-          style: { fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'], fontSize: 7, fontWeight: 'bold', fill: '#eef4f2' }
+          resolution: 4,
+          style: {
+            fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
+            fontSize: 8,
+            fontWeight: 'bold',
+            fill: '#ffffff',
+            stroke: { color: '#0b1110', width: 1.25 }
+          }
         });
         count.anchor.set(0.5);
         badge.addChild(plate, count);
