@@ -41,13 +41,18 @@
 
   const isVisible = (x: number, y: number) => {
     const ownedCities = $cities.filter((city) => city.owner?.value === $userId && city.start);
-    if (ownedCities.length === 0) return true;
-    return ownedCities.some((city) => {
-      const start = city.start!;
-      const dx = Math.max(start.x - x, x - (start.x + city.size - 1), 0);
-      const dy = Math.max(start.y - y, y - (start.y + city.size - 1), 0);
-      return Math.max(dx, dy) <= $gameConfig.visionRadius;
-    });
+    const ownedArmies = $armies.filter((army) => army.owner?.value === $userId && army.coords);
+    if (ownedCities.length === 0 && ownedArmies.length === 0) return true;
+    if (
+      ownedCities.some((city) => {
+        const start = city.start!;
+        const dx = Math.max(start.x - x, x - (start.x + city.size - 1), 0);
+        const dy = Math.max(start.y - y, y - (start.y + city.size - 1), 0);
+        return Math.max(dx, dy) <= $gameConfig.visionRadius;
+      })
+    )
+      return true;
+    return ownedArmies.some((army) => Math.max(Math.abs(army.coords!.x - x), Math.abs(army.coords!.y - y)) <= $gameConfig.visionRadius);
   };
 
   const draw = () => {

@@ -348,8 +348,14 @@
       const dy = Math.max(sy - row, row - (sy + s - 1), 0);
       min = Math.min(min, Math.max(dx, dy));
     }
+    for (const army of $armies) {
+      if (army.owner?.value !== $userId || !army.coords) continue;
+      min = Math.min(min, Math.max(Math.abs(army.coords.x - col), Math.abs(army.coords.y - row)));
+    }
     return min;
   };
+
+  const hasVisionSources = () => myCities.length > 0 || $armies.some((army) => army.owner?.value === $userId && army.coords);
 
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
@@ -881,7 +887,7 @@
     cont.addChild(tc);
     loaded.set(k, tc);
 
-    const dist = myCities.length > 0 ? getVisDist(col, row) : 0;
+    const dist = hasVisionSources() ? getVisDist(col, row) : 0;
     const inFog = dist > $gameConfig.visionRadius;
 
     const kind = inFog ? 'fog' : terrainKind(terrainAt(col, row));
@@ -891,7 +897,7 @@
         const neighborCol = col + dc;
         const neighborRow = row + dr;
         if (neighborCol < 0 || neighborRow < 0 || neighborCol >= worldWidth || neighborRow >= worldHeight) return null;
-        if (myCities.length > 0 && getVisDist(neighborCol, neighborRow) > $gameConfig.visionRadius) return 'fog';
+        if (hasVisionSources() && getVisDist(neighborCol, neighborRow) > $gameConfig.visionRadius) return 'fog';
         return terrainKind(terrainAt(neighborCol, neighborRow));
       }) as unknown as TerrainNeighbors;
       const transition = getTerrainTransitionSprite(kind, neighbors, col, row);
@@ -1443,7 +1449,7 @@
   <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
   <div class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4">
     {#if sel}
-      {@const selectedInFog = myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius}
+      {@const selectedInFog = hasVisionSources() && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius}
       {@const selectedTerrain = selectedInFog ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
       <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
         <div class="inspector-header flex items-center justify-between gap-4">
