@@ -114,6 +114,7 @@
   let trainingNoticeTimer: ReturnType<typeof setTimeout> | null = null;
   let policyDraftCityId: string | null = null;
   let militiaDraft = 10;
+  let militiaTargetDraft = 25;
   let taxDraft = 10;
   let policyDraftDirty = false;
   let policySaving = false;
@@ -141,10 +142,27 @@
     const input = event.currentTarget as HTMLInputElement;
     const target = input.valueAsNumber;
     if (!Number.isFinite(target) || capacity <= 0) {
-      input.value = Math.floor((capacity * militiaDraft) / 100).toString();
+      input.value = militiaTargetDraft.toString();
       return;
     }
-    militiaDraft = Math.max(minPercent, Math.min(maxPercent, Math.round((target / capacity) * 100)));
+    const minTarget = Math.ceil((capacity * minPercent) / 100);
+    const maxTarget = Math.floor((capacity * maxPercent) / 100);
+    militiaTargetDraft = Math.max(minTarget, Math.min(maxTarget, Math.round(target)));
+    militiaDraft = (militiaTargetDraft / capacity) * 100;
+    input.value = militiaTargetDraft.toString();
+    policyDraftDirty = true;
+  };
+
+  const setMilitiaDraftFromPercent = (event: Event, capacity: number, minPercent: number, maxPercent: number) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const percent = input.valueAsNumber;
+    if (!Number.isFinite(percent) || capacity <= 0) {
+      input.value = Number(militiaDraft.toFixed(2)).toString();
+      return;
+    }
+    const boundedPercent = Math.max(minPercent, Math.min(maxPercent, percent));
+    militiaTargetDraft = Math.round((capacity * boundedPercent) / 100);
+    militiaDraft = (militiaTargetDraft / capacity) * 100;
     policyDraftDirty = true;
   };
 
@@ -329,10 +347,12 @@
   $: if (selectedPolicyCityId && selectedPolicyCityId !== policyDraftCityId) {
     policyDraftCityId = selectedPolicyCityId;
     militiaDraft = sel?.city?.militiaPercent ?? $gameConfig.populationPolicy?.defaultMilitiaPercent ?? 10;
+    militiaTargetDraft = sel?.city?.militiaTarget ?? 0;
     taxDraft = sel?.city?.taxRatePercent ?? $gameConfig.populationPolicy?.defaultTaxRatePercent ?? 10;
     policyDraftDirty = false;
   } else if (selectedPolicyCityId && !policyDraftDirty) {
     militiaDraft = sel?.city?.militiaPercent ?? militiaDraft;
+    militiaTargetDraft = sel?.city?.militiaTarget ?? militiaTargetDraft;
     taxDraft = sel?.city?.taxRatePercent ?? taxDraft;
   }
   $: if (ownedBarracks.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
@@ -673,7 +693,7 @@
     try {
       const response = await cityClient.updateCityPolicy({
         cityId: city.cityId,
-        militiaPercent: militiaDraft,
+        militiaTarget: militiaTargetDraft,
         taxRatePercent: taxDraft
       });
       if (response.city) {
@@ -1334,20 +1354,23 @@
       glyph.lineTo(-5, 0);
       glyph.lineTo(-7, 2);
     } else if (active.type === TroopType.CAVALRY) {
-      glyph.moveTo(-15, 5);
+      glyph.moveTo(-15, 6);
       glyph.lineTo(-14, 1);
       glyph.lineTo(-11, -3);
       glyph.lineTo(-12, -6);
-      glyph.lineTo(-8, -4);
-      glyph.lineTo(-5, -6);
-      glyph.lineTo(-4, -1);
-      glyph.lineTo(-2, 1);
-      glyph.lineTo(-4, 4);
-      glyph.lineTo(-9, 4.5);
-      glyph.lineTo(-12, 6);
+      glyph.lineTo(-7, -4);
+      glyph.lineTo(-4, -7);
+      glyph.lineTo(-3, -1);
+      glyph.lineTo(0, 1);
+      glyph.lineTo(-2, 4);
+      glyph.lineTo(-8, 4.5);
+      glyph.lineTo(-11, 6);
+      glyph.closePath();
       glyph.moveTo(-10, -3);
-      glyph.lineTo(-6, 0);
-      glyph.circle(-4.8, 0.6, 0.65);
+      glyph.lineTo(-5, 0);
+      glyph.moveTo(-14, 1);
+      glyph.lineTo(-11, 2.5);
+      glyph.circle(-3.5, 0.5, 0.7);
       glyph.fill({ color: 0xb8cbc5, alpha: 1 });
     } else if (active.type === TroopType.ARTILLERY) {
       glyph.circle(-13, 3, 2.5);
@@ -2057,9 +2080,9 @@
         <path d="M10 6c13 4 13 20 0 24M10 6v24M8 18h20M25 15l4 3-4 3" stroke-width="1.8" />
         <path d="m10 18 7-7M10 18l7 7" stroke-width="1.2" opacity=".65" />
       {:else if type === TroopType.CAVALRY}
-        <path d="M8 30h21M11 28c.5-7 3.2-12.7 8.5-16.5L18 6l6 3 3-4 1 8 3 4-2.5 5-7 .5-4 3.5-1 4" fill="currentColor" opacity=".18" stroke-width="1.7" />
-        <path d="m12 25 6-2.5M18 11.5l6 4M24.5 9l2.5 4" stroke-width="1.5" />
-        <circle cx="26.5" cy="16.5" r="1.15" fill="currentColor" stroke="none" />
+        <path d="M8 31h21v-4h-4l2-5 4-4-3-5-1-8-4 5-7-4 2 7c-5 3.8-7.2 9-8 14L8 31Z" fill="currentColor" opacity=".2" stroke-width="1.8" />
+        <path d="M10 27h15M18 13l7 4M15 17l3 2-4 2M23 10l4 4M25 22h2" stroke-width="1.6" />
+        <circle cx="26.7" cy="16.8" r="1.1" fill="currentColor" stroke="none" />
       {:else}
         <circle cx="10" cy="27" r="4" stroke-width="1.8" /><circle cx="25" cy="27" r="4" stroke-width="1.8" />
         <circle cx="10" cy="27" r="1" fill="currentColor" stroke="none" /><circle cx="25" cy="27" r="1" fill="currentColor" stroke="none" />
@@ -2765,11 +2788,13 @@
                 {@const minMilitia = policy?.minMilitiaPercent ?? 5}
                 {@const maxMilitia = policy?.maxMilitiaPercent ?? 45}
                 {@const maxTax = policy?.maxTaxRatePercent ?? 100}
-                {@const militiaPolicyDirty = militiaDraft !== sel.city.militiaPercent}
+                {@const militiaPolicyDirty = militiaTargetDraft !== sel.city.militiaTarget}
                 {@const taxPolicyDirty = taxDraft !== sel.city.taxRatePercent}
                 {@const policyDirty = militiaPolicyDirty || taxPolicyDirty}
-                {@const previewTargetMilitia = (sel.city.populationCap * militiaDraft) / 100}
-                {@const previewMilitia = militiaPolicyDirty ? Math.min(previewTargetMilitia, Math.max(sel.city.population - sel.city.corePopulation, 0)) : sel.city.militiaPopulation}
+                {@const previewTargetMilitia = militiaTargetDraft}
+                {@const previewMilitia = militiaPolicyDirty
+                  ? Math.min(previewTargetMilitia, Math.max(sel.city.militiaPopulation, sel.city.population - sel.city.corePopulation, 0))
+                  : sel.city.militiaPopulation}
                 {@const previewRecruitable = Math.max(0, Math.floor(sel.city.population - sel.city.corePopulation - previewTargetMilitia))}
                 {@const previewTaxableRaw = Math.max(0, sel.city.population - previewMilitia)}
                 {@const previewTaxable = Math.floor(previewTaxableRaw)}
@@ -2803,9 +2828,9 @@
                             type="number"
                             min={minMilitia}
                             max={maxMilitia}
-                            step="1"
-                            bind:value={militiaDraft}
-                            on:input={() => (policyDraftDirty = true)}
+                            step="0.01"
+                            value={Number(militiaDraft.toFixed(2))}
+                            on:change={(event) => setMilitiaDraftFromPercent(event, sel!.city!.populationCap, minMilitia, maxMilitia)}
                           />
                           <span>% ·</span>
                           <input
@@ -2815,7 +2840,7 @@
                             min={Math.ceil((sel.city.populationCap * minMilitia) / 100)}
                             max={Math.floor((sel.city.populationCap * maxMilitia) / 100)}
                             step="1"
-                            value={Math.floor(previewTargetMilitia)}
+                            value={militiaTargetDraft}
                             on:change={(event) => setMilitiaDraftFromTarget(event, sel!.city!.populationCap, minMilitia, maxMilitia)}
                           />
                           <span>target</span>
@@ -2827,8 +2852,8 @@
                         min={minMilitia}
                         max={maxMilitia}
                         step="1"
-                        bind:value={militiaDraft}
-                        on:input={() => (policyDraftDirty = true)}
+                        value={militiaDraft}
+                        on:input={(event) => setMilitiaDraftFromPercent(event, sel!.city!.populationCap, minMilitia, maxMilitia)}
                       />
                       <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]"
                         >Local defenders separate from core civilians. They consume food, do not pay tax, and refill through future growth.</span

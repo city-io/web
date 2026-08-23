@@ -32,7 +32,7 @@ message ListCitiesResponse {
 
 message UpdateCityPolicyRequest {
   cityio.entity.v1.CityId city_id = 1;
-  int32 militia_percent = 2;
+  double militia_target = 2;
   int32 tax_rate_percent = 3;
 }
 message UpdateCityPolicyResponse {

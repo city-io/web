@@ -31,11 +31,13 @@ message City {
   // when growing, negative when declining). Public — observable from outside
   // by anyone watching the city over time.
   Rate population_growth = 13;
-  // The current non-mobile defensive reserve and its configured target share
-  // of housing capacity. Militia losses refill through future growth.
+  // The current non-mobile defensive reserve, its exact configured target, and
+  // that target as a derived share of housing capacity. Militia losses refill
+  // through future growth.
   double militia_population = 14;
-  int32 militia_percent = 15;
-  // The protected 55% housing share that training can never consume.
+  double militia_target = 15;
+  // The protected 55% share of the city's peak population that training can
+  // never consume. Adding housing does not reclassify existing residents.
   double core_population = 16;
   // Residents currently available to transfer into training orders.
   double recruitable_population = 17;
@@ -54,4 +56,5 @@ message City {
   // baseline lets clients preview policy changes without guessing the city
   // simulation's food and logistic-growth inputs.
   Rate population_growth_before_tax = 21;
+  double militia_percent = 22;
 }
