@@ -64,6 +64,7 @@
   let tileData = new Map<string, { tile?: Tile; city?: City; building?: Building; armies?: Army[] }>();
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
   let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
+  let trainingGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number }>();
   let selGfx: Graphics | null = null;
 
   // ── UI state ────────────────────────────────────────────
@@ -223,7 +224,7 @@
   $: if (selectedBarracksId && trainingOrdersAvailable && (trainingOrdersBarracksId !== selectedBarracksId || now - lastTrainingPoll >= 3000)) {
     loadTrainingOrders(selectedBarracksId);
   }
-  $: if (managementOpen && managementTab === 'training' && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
+  $: if (ownedBarracks.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
     loadTrainingOverview();
   }
 
@@ -525,6 +526,7 @@
     for (const label of labelLayer?.removeChildren() ?? []) label.destroy({ children: true });
     constructionGfx.clear();
     starvingGfx.clear();
+    trainingGfx.clear();
     if (selGfx) {
       selGfx.destroy();
       selGfx = null;
@@ -587,7 +589,15 @@
           return id ? [armyClient.listTrainingOrders({ barracksId: { value: id } }).then((response) => [id, response.orders] as const)] : [];
         })
       );
-      trainingQueues = new Map(entries);
+      const nextQueues = new Map(entries);
+      const signature = (queues: Map<string, TrainingOrder[]>) =>
+        [...queues]
+          .map(([id, orders]) => `${id}:${orders.map((order) => `${order.trainingOrderId?.value}:${timestampMs(order.startedAt)}:${timestampMs(order.completesAt)}`).join(',')}`)
+          .sort()
+          .join('|');
+      const changed = signature(trainingQueues) !== signature(nextQueues);
+      trainingQueues = nextQueues;
+      if (changed) scheduleRender();
     } catch (e: unknown) {
       if (e instanceof ConnectError && e.code === Code.Unimplemented) trainingOrdersAvailable = false;
     } finally {
@@ -616,6 +626,7 @@
         void loadTrainingOrders(barracks.buildingId.value, true);
       }
       notice = `${count} ${troopName(recruitType, count)} queued. This batch takes ${fmtCountdown(count * stat.trainSeconds * 1000)} once it reaches the front.`;
+      scheduleRender();
     } catch (e: unknown) {
       err = errorText(e, 'Training order failed');
     } finally {
@@ -976,6 +987,17 @@
         gfx.stroke({ color, width: 2.5, alpha: 0.7 });
       }
 
+      for (const [, entry] of trainingGfx) {
+        const { gfx, startMs, endMs } = entry;
+        const active = startMs > 0 && endMs > startMs;
+        const pct = active ? Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs))) : 0;
+        gfx.clear();
+        gfx.rect(-17, 7, 34, 2);
+        gfx.fill({ color: 0x0f191c, alpha: 1 });
+        gfx.rect(-17, 7, 34 * pct, 2);
+        gfx.fill({ color: 0x7fc4b5, alpha: 1 });
+      }
+
       // Starvation — pulsing red territory border + caution icon on the center
       const sPulse = 0.5 + 0.5 * Math.sin(t * 4);
       for (const [, entry] of starvingGfx) {
@@ -1053,6 +1075,47 @@
     labelLayer.addChild(wrapper);
   };
 
+  const addTrainingMarker = (building: Building, tile: Container, key: string) => {
+    const id = building.buildingId?.value;
+    const queue = id ? trainingQueues.get(id) : undefined;
+    const active = queue?.[0];
+    if (!active) return;
+
+    const marker = new Container();
+    marker.position.set(20, -42);
+    marker.zIndex = 3e6;
+    marker.eventMode = 'static';
+    marker.cursor = 'pointer';
+    marker.on('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.stopPropagation();
+      focusBuilding(building);
+    });
+
+    const plate = new Graphics();
+    plate.rect(-17, -7, 34, 14);
+    plate.fill({ color: 0x193034, alpha: 0.98 });
+    plate.rect(-17, -7, 34, 14);
+    plate.stroke({ color: 0x78a69e, width: 1, alpha: 1 });
+
+    const label = new Text({
+      text: `DRILL ${active.count}`,
+      roundPixels: true,
+      style: {
+        fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
+        fontSize: 7,
+        fontWeight: 'bold',
+        fill: '#dceae6'
+      }
+    });
+    label.anchor.set(0.5);
+
+    const progress = new Graphics();
+    marker.addChild(plate, label, progress);
+    tile.addChild(marker);
+    trainingGfx.set(key, { gfx: progress, startMs: timestampMs(active.startedAt), endMs: timestampMs(active.completesAt) });
+  };
+
   const renderTile = (col: number, row: number) => {
     if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return;
     const k = tileKey(col, row);
@@ -1099,15 +1162,45 @@
     if (visibleArmies?.length) {
       const army = visibleArmies.find((candidate) => candidate.armyId?.value === selectedArmyId) ?? [...visibleArmies].sort((a, b) => armySize(b) - armySize(a))[0];
       const marker = createArmyMarker(army, $userId, army.armyId?.value === selectedArmyId);
+      if (visibleArmies.length > 1) {
+        const badge = new Container();
+        badge.position.set(14, -14);
+        const plate = new Graphics();
+        plate.rect(-7, -6, 15, 12);
+        plate.fill({ color: 0x18282c, alpha: 0.98 });
+        plate.rect(-7, -6, 15, 12);
+        plate.stroke({ color: 0x8ba3a5, width: 1, alpha: 1 });
+        const count = new Text({
+          text: `×${visibleArmies.length}`,
+          roundPixels: true,
+          style: { fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'], fontSize: 7, fontWeight: 'bold', fill: '#eef4f2' }
+        });
+        count.anchor.set(0.5);
+        badge.addChild(plate, count);
+        marker.addChild(badge);
+      }
       marker.eventMode = 'static';
       marker.cursor = 'pointer';
       marker.on('pointerdown', (event) => {
         if (event.button !== 0) return;
         event.stopPropagation();
-        focusArmy(army, false);
+        if (visibleArmies.length === 1) {
+          focusArmy(army, false);
+          return;
+        }
+        cancelMoveMode();
+        trackedArmyId = null;
+        selectedArmyId = null;
+        sel = { x: col, y: row, ...tileData.get(k) };
+        err = '';
+        notice = '';
+        showBuild = false;
+        drawSel(col, row);
       });
       tc.addChild(marker);
     }
+
+    if (visible && td?.building?.type === BuildingType.BARRACKS) addTrainingMarker(td.building, tc, k);
 
     // Construction-in-progress overlay
     if (visible && td?.building?.constructionStart && td?.building?.constructionEnd) {
