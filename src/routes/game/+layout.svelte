@@ -19,7 +19,8 @@
   import { tileKey } from '$lib/game/iso';
   import type { Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
   import type { EntityBag } from '$lib/gen/cityio/entity/v1/bag_pb';
-  import type { EntityIdBag, StateDelta, StateSnapshot, TileVisibility } from '$lib/gen/cityio/service/v1/state_pb';
+  import type { EntityIdBag } from '$lib/gen/cityio/entity/v1/ids_pb';
+  import type { StateDelta, StateSnapshot, TileVisibility } from '$lib/gen/cityio/service/v1/state_pb';
   import { ratePerHour } from '$lib/game/rates';
   import { isTokenValid, handleUnauthenticated } from '$lib/session';
   import { Code, ConnectError } from '@connectrpc/connect';

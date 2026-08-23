@@ -26,3 +26,11 @@ message TileId {
   int32 x = 1;
   int32 y = 2;
 }
+
+message EntityIdBag {
+  repeated UserId user_ids = 1;
+  repeated CityId city_ids = 2;
+  repeated BuildingId building_ids = 3;
+  repeated ArmyId army_ids = 4;
+  repeated TileId tile_ids = 5;
+}

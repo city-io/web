@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/ids.proto.
  */
 export const file_cityio_entity_v1_ids: GenFile = /*@__PURE__*/
-  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIiAKD1RyYWluaW5nT3JkZXJJZBINCgV2YWx1ZRgBIAEoCSIeCgZUaWxlSWQSCQoBeBgBIAEoBRIJCgF5GAIgASgFYgZwcm90bzM");
+  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIiAKD1RyYWluaW5nT3JkZXJJZBINCgV2YWx1ZRgBIAEoCSIeCgZUaWxlSWQSCQoBeBgBIAEoBRIJCgF5GAIgASgFIvEBCgtFbnRpdHlJZEJhZxIqCgh1c2VyX2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEioKCGNpdHlfaWRzGAIgAygLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQSMgoMYnVpbGRpbmdfaWRzGAMgAygLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEioKCGFybXlfaWRzGAQgAygLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSKgoIdGlsZV9pZHMYBSADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZGIGcHJvdG8z");
 
 /**
  * @generated from message cityio.entity.v1.UserId
@@ -118,4 +118,41 @@ export type TileId = Message<"cityio.entity.v1.TileId"> & {
  */
 export const TileIdSchema: GenMessage<TileId> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_ids, 5);
+
+/**
+ * @generated from message cityio.entity.v1.EntityIdBag
+ */
+export type EntityIdBag = Message<"cityio.entity.v1.EntityIdBag"> & {
+  /**
+   * @generated from field: repeated cityio.entity.v1.UserId user_ids = 1;
+   */
+  userIds: UserId[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.CityId city_ids = 2;
+   */
+  cityIds: CityId[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.BuildingId building_ids = 3;
+   */
+  buildingIds: BuildingId[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.ArmyId army_ids = 4;
+   */
+  armyIds: ArmyId[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.TileId tile_ids = 5;
+   */
+  tileIds: TileId[];
+};
+
+/**
+ * Describes the message cityio.entity.v1.EntityIdBag.
+ * Use `create(EntityIdBagSchema)` to create a new message.
+ */
+export const EntityIdBagSchema: GenMessage<EntityIdBag> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_ids, 6);
 

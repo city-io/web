@@ -17,14 +17,6 @@ message TileVisibility {
   TileVisibilityState state = 2;
 }
 
-message EntityIdBag {
-  repeated cityio.entity.v1.UserId user_ids = 1;
-  repeated cityio.entity.v1.CityId city_ids = 2;
-  repeated cityio.entity.v1.BuildingId building_ids = 3;
-  repeated cityio.entity.v1.ArmyId army_ids = 4;
-  repeated cityio.entity.v1.TileId tile_ids = 5;
-}
-
 message StateSnapshot {
   cityio.entity.v1.EntityBag entities = 1;
   repeated TileVisibility tile_visibility = 2;
@@ -32,7 +24,7 @@ message StateSnapshot {
 
 message StateDelta {
   cityio.entity.v1.EntityBag upserts = 1;
-  EntityIdBag deleted = 2;
-  EntityIdBag hidden = 3;
+  cityio.entity.v1.EntityIdBag deleted = 2;
+  cityio.entity.v1.EntityIdBag hidden = 3;
   repeated TileVisibility tile_visibility = 4;
 }

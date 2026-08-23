@@ -6,7 +6,7 @@ import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2"
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { EntityBag } from "../../entity/v1/bag_pb";
 import { file_cityio_entity_v1_bag } from "../../entity/v1/bag_pb";
-import type { ArmyId, BuildingId, CityId, TileId, UserId } from "../../entity/v1/ids_pb";
+import type { EntityIdBag, TileId } from "../../entity/v1/ids_pb";
 import { file_cityio_entity_v1_ids } from "../../entity/v1/ids_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/service/v1/state.proto.
  */
 export const file_cityio_service_v1_state: GenFile = /*@__PURE__*/
-  fileDesc("Ch1jaXR5aW8vc2VydmljZS92MS9zdGF0ZS5wcm90bxIRY2l0eWlvLnNlcnZpY2UudjEicgoOVGlsZVZpc2liaWxpdHkSKQoHdGlsZV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuVGlsZUlkEjUKBXN0YXRlGAIgASgOMiYuY2l0eWlvLnNlcnZpY2UudjEuVGlsZVZpc2liaWxpdHlTdGF0ZSLxAQoLRW50aXR5SWRCYWcSKgoIdXNlcl9pZHMYASADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlVzZXJJZBIqCghjaXR5X2lkcxgCIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEjIKDGJ1aWxkaW5nX2lkcxgDIAMoCzIcLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdJZBIqCghhcm15X2lkcxgEIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEioKCHRpbGVfaWRzGAUgAygLMhguY2l0eWlvLmVudGl0eS52MS5UaWxlSWQiegoNU3RhdGVTbmFwc2hvdBItCghlbnRpdGllcxgBIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuRW50aXR5QmFnEjoKD3RpbGVfdmlzaWJpbGl0eRgCIAMoCzIhLmNpdHlpby5zZXJ2aWNlLnYxLlRpbGVWaXNpYmlsaXR5ItcBCgpTdGF0ZURlbHRhEiwKB3Vwc2VydHMYASABKAsyGy5jaXR5aW8uZW50aXR5LnYxLkVudGl0eUJhZxIvCgdkZWxldGVkGAIgASgLMh4uY2l0eWlvLnNlcnZpY2UudjEuRW50aXR5SWRCYWcSLgoGaGlkZGVuGAMgASgLMh4uY2l0eWlvLnNlcnZpY2UudjEuRW50aXR5SWRCYWcSOgoPdGlsZV92aXNpYmlsaXR5GAQgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuVGlsZVZpc2liaWxpdHkqqQEKE1RpbGVWaXNpYmlsaXR5U3RhdGUSJQohVElMRV9WSVNJQklMSVRZX1NUQVRFX1VOU1BFQ0lGSUVEEAASJAogVElMRV9WSVNJQklMSVRZX1NUQVRFX1VORVhQTE9SRUQQARIiCh5USUxFX1ZJU0lCSUxJVFlfU1RBVEVfRVhQTE9SRUQQAhIhCh1USUxFX1ZJU0lCSUxJVFlfU1RBVEVfVklTSUJMRRADYgZwcm90bzM", [file_cityio_entity_v1_bag, file_cityio_entity_v1_ids]);
+  fileDesc("Ch1jaXR5aW8vc2VydmljZS92MS9zdGF0ZS5wcm90bxIRY2l0eWlvLnNlcnZpY2UudjEicgoOVGlsZVZpc2liaWxpdHkSKQoHdGlsZV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuVGlsZUlkEjUKBXN0YXRlGAIgASgOMiYuY2l0eWlvLnNlcnZpY2UudjEuVGlsZVZpc2liaWxpdHlTdGF0ZSJ6Cg1TdGF0ZVNuYXBzaG90Ei0KCGVudGl0aWVzGAEgASgLMhsuY2l0eWlvLmVudGl0eS52MS5FbnRpdHlCYWcSOgoPdGlsZV92aXNpYmlsaXR5GAIgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuVGlsZVZpc2liaWxpdHki1QEKClN0YXRlRGVsdGESLAoHdXBzZXJ0cxgBIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuRW50aXR5QmFnEi4KB2RlbGV0ZWQYAiABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkVudGl0eUlkQmFnEi0KBmhpZGRlbhgDIAEoCzIdLmNpdHlpby5lbnRpdHkudjEuRW50aXR5SWRCYWcSOgoPdGlsZV92aXNpYmlsaXR5GAQgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuVGlsZVZpc2liaWxpdHkqqQEKE1RpbGVWaXNpYmlsaXR5U3RhdGUSJQohVElMRV9WSVNJQklMSVRZX1NUQVRFX1VOU1BFQ0lGSUVEEAASJAogVElMRV9WSVNJQklMSVRZX1NUQVRFX1VORVhQTE9SRUQQARIiCh5USUxFX1ZJU0lCSUxJVFlfU1RBVEVfRVhQTE9SRUQQAhIhCh1USUxFX1ZJU0lCSUxJVFlfU1RBVEVfVklTSUJMRRADYgZwcm90bzM", [file_cityio_entity_v1_bag, file_cityio_entity_v1_ids]);
 
 /**
  * @generated from message cityio.service.v1.TileVisibility
@@ -39,43 +39,6 @@ export const TileVisibilitySchema: GenMessage<TileVisibility> = /*@__PURE__*/
   messageDesc(file_cityio_service_v1_state, 0);
 
 /**
- * @generated from message cityio.service.v1.EntityIdBag
- */
-export type EntityIdBag = Message<"cityio.service.v1.EntityIdBag"> & {
-  /**
-   * @generated from field: repeated cityio.entity.v1.UserId user_ids = 1;
-   */
-  userIds: UserId[];
-
-  /**
-   * @generated from field: repeated cityio.entity.v1.CityId city_ids = 2;
-   */
-  cityIds: CityId[];
-
-  /**
-   * @generated from field: repeated cityio.entity.v1.BuildingId building_ids = 3;
-   */
-  buildingIds: BuildingId[];
-
-  /**
-   * @generated from field: repeated cityio.entity.v1.ArmyId army_ids = 4;
-   */
-  armyIds: ArmyId[];
-
-  /**
-   * @generated from field: repeated cityio.entity.v1.TileId tile_ids = 5;
-   */
-  tileIds: TileId[];
-};
-
-/**
- * Describes the message cityio.service.v1.EntityIdBag.
- * Use `create(EntityIdBagSchema)` to create a new message.
- */
-export const EntityIdBagSchema: GenMessage<EntityIdBag> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_state, 1);
-
-/**
  * @generated from message cityio.service.v1.StateSnapshot
  */
 export type StateSnapshot = Message<"cityio.service.v1.StateSnapshot"> & {
@@ -95,7 +58,7 @@ export type StateSnapshot = Message<"cityio.service.v1.StateSnapshot"> & {
  * Use `create(StateSnapshotSchema)` to create a new message.
  */
 export const StateSnapshotSchema: GenMessage<StateSnapshot> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_state, 2);
+  messageDesc(file_cityio_service_v1_state, 1);
 
 /**
  * @generated from message cityio.service.v1.StateDelta
@@ -107,12 +70,12 @@ export type StateDelta = Message<"cityio.service.v1.StateDelta"> & {
   upserts?: EntityBag | undefined;
 
   /**
-   * @generated from field: cityio.service.v1.EntityIdBag deleted = 2;
+   * @generated from field: cityio.entity.v1.EntityIdBag deleted = 2;
    */
   deleted?: EntityIdBag | undefined;
 
   /**
-   * @generated from field: cityio.service.v1.EntityIdBag hidden = 3;
+   * @generated from field: cityio.entity.v1.EntityIdBag hidden = 3;
    */
   hidden?: EntityIdBag | undefined;
 
@@ -127,7 +90,7 @@ export type StateDelta = Message<"cityio.service.v1.StateDelta"> & {
  * Use `create(StateDeltaSchema)` to create a new message.
  */
 export const StateDeltaSchema: GenMessage<StateDelta> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_state, 3);
+  messageDesc(file_cityio_service_v1_state, 2);
 
 /**
  * @generated from enum cityio.service.v1.TileVisibilityState
