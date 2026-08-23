@@ -60,16 +60,17 @@ export const EDGE_TO_NEIGHBOR: [number, number][] = [
 ];
 
 /**
- * Screen-space AABB of an N×N tile grid's diamond centers, padded for tall
+ * Screen-space AABB of a rectangular tile grid's diamond centers, padded for tall
  * sprites poking above the top row. Used for culling and camera clamping.
  */
-export function mapBounds(n: number) {
-  const m = n - 1;
+export function mapBounds(width: number, height = width) {
+  const maxX = width - 1;
+  const maxY = height - 1;
   return {
-    minX: -m * HW - HW,
-    maxX: m * HW + HW,
-    minY: -TH, // headroom for tall building sprites
-    maxY: 2 * m * HH + TH
+    minX: -maxY * HW - HW,
+    maxX: maxX * HW + HW,
+    minY: -64, // headroom for mountains and tall city sprites
+    maxY: (maxX + maxY) * HH + TH
   };
 }
 

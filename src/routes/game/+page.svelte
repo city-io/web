@@ -1,18 +1,19 @@
 <script lang="ts">
-  import { armies, buildings, cities, mapCenter, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { armies, buildings, cities, mapCenter, tiles, username, gold, food, userId, gameConfig } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import { fly, fade } from 'svelte/transition';
-  import { Application, Container, Graphics, Rectangle } from 'pixi.js';
+  import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
-  import { initSprites, getTileSprite, type TileKind } from '$lib/game/sprites';
+  import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
+  import { TerrainType, type Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
   import type { Duration } from '@bufbuild/protobuf/wkt';
   import { buildingClient, cityClient } from '$lib/api/client';
@@ -25,6 +26,7 @@
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
   let cont: Container;
+  let labelLayer: Container;
   let el: HTMLDivElement;
   let cw = 800,
     ch = 600;
@@ -51,13 +53,13 @@
 
   // tiles
   let loaded = new Map<string, Container>();
-  let tileData = new Map<string, { city?: City; building?: Building; armies?: Army[] }>();
+  let tileData = new Map<string, { tile?: Tile; city?: City; building?: Building; armies?: Army[] }>();
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
   let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let selGfx: Graphics | null = null;
 
   // ── UI state ────────────────────────────────────────────
-  let sel: { x: number; y: number; city?: City; building?: Building; armies?: Army[] } | null = null;
+  let sel: { x: number; y: number; tile?: Tile; city?: City; building?: Building; armies?: Army[] } | null = null;
   let myCities: City[] = [];
   let buildType: BuildingType = BuildingType.HOUSE;
   const placeTypes = [BuildingType.HOUSE, BuildingType.FARM, BuildingType.MINE, BuildingType.BARRACKS];
@@ -79,6 +81,67 @@
   // Minimap viewport rectangle span (tile units), updated by loadVisible.
   let viewTilesW = 0;
   let viewTilesH = 0;
+  let worldWidth = 0;
+  let worldHeight = 0;
+
+  $: worldWidth = $gameConfig.mapSize;
+  $: worldHeight = $gameConfig.mapSize;
+
+  const terrainAt = (col: number, row: number): TerrainType => {
+    if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return TerrainType.GRASSLAND;
+    return $tiles.get(tileKey(col, row))?.terrain ?? TerrainType.GRASSLAND;
+  };
+
+  const terrainKind = (value: TerrainType): TerrainKind => {
+    switch (value) {
+      case TerrainType.PLAINS:
+        return 'plains';
+      case TerrainType.FOREST:
+        return 'forest';
+      case TerrainType.HILLS:
+        return 'hills';
+      case TerrainType.MOUNTAINS:
+        return 'mountains';
+      case TerrainType.DESERT:
+        return 'desert';
+      case TerrainType.MARSH:
+        return 'marsh';
+      case TerrainType.WATER:
+        return 'water';
+      default:
+        return 'grassland';
+    }
+  };
+
+  const terrainInfo = (value: TerrainType): { name: string; note: string } => {
+    switch (value) {
+      case TerrainType.PLAINS:
+        return { name: 'Plains', note: 'Broad, dry country with sparse grass and scrub.' };
+      case TerrainType.FOREST:
+        return { name: 'Forest', note: 'Dense woodland with little open ground.' };
+      case TerrainType.HILLS:
+        return { name: 'Hills', note: 'Rolling, uneven country broken by low ridges.' };
+      case TerrainType.MOUNTAINS:
+        return { name: 'Mountains', note: 'Steep high country dominated by exposed rock.' };
+      case TerrainType.DESERT:
+        return { name: 'Desert', note: 'Arid country shaped by wind and scarce water.' };
+      case TerrainType.MARSH:
+        return { name: 'Marsh', note: 'Waterlogged lowland with reeds and shallow pools.' };
+      case TerrainType.WATER:
+        return { name: 'Water', note: 'Open water beyond the shoreline.' };
+      default:
+        return { name: 'Grassland', note: 'Open, fertile country with low vegetation.' };
+    }
+  };
+
+  const structureKind = (type: BuildingType): StructureKind => {
+    if (type === BuildingType.FARM) return 'farm';
+    if (type === BuildingType.MINE) return 'mine';
+    if (type === BuildingType.BARRACKS) return 'barracks';
+    if (type === BuildingType.CITY_CENTER) return 'city_center';
+    if (type === BuildingType.TOWN_CENTER) return 'town_center';
+    return 'house';
+  };
 
   // ── live clock (1s tick for construction progress) ───────
   let now = Date.now();
@@ -192,7 +255,7 @@
       rebuildTiles();
     });
   };
-  $: if ($cities || $buildings || $armies) {
+  $: if ($tiles || $cities || $buildings || $armies) {
     buildLookup();
     // Immediately hide construction overlays for finished/removed constructions
     for (const [k, entry] of constructionGfx) {
@@ -214,6 +277,7 @@
   // ── tile data ───────────────────────────────────────────
   const buildLookup = () => {
     tileData.clear();
+    for (const [key, tile] of $tiles) tileData.set(key, { tile });
     for (const c of $cities) {
       if (!c.start) continue;
       for (let dx = 0; dx < c.size; dx++)
@@ -258,7 +322,7 @@
   // Clamp a container position to the iso map's screen-space AABB (pure).
   const clampPos = (x: number, y: number, s: number) => {
     const pad = 200;
-    const b = mapBounds($gameConfig.mapSize);
+    const b = mapBounds(worldWidth, worldHeight);
     const xMin = cw - pad - b.maxX * s,
       xMax = pad - b.minX * s;
     const yMin = ch - pad - b.maxY * s,
@@ -371,6 +435,7 @@
   const rebuildTiles = () => {
     for (const [, c] of loaded) c.destroy({ children: true });
     loaded.clear();
+    for (const label of labelLayer?.removeChildren() ?? []) label.destroy({ children: true });
     constructionGfx.clear();
     starvingGfx.clear();
     if (selGfx) {
@@ -431,13 +496,16 @@
     cw = el.clientWidth;
     ch = el.clientHeight;
     app = new Application();
-    await app.init({ width: cw, height: ch, backgroundColor: 0x1d1811, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
+    await app.init({ width: cw, height: ch, backgroundColor: 0x171c18, antialias: false, roundPixels: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
     el.appendChild(app.canvas);
     cont = new Container();
     cont.sortableChildren = true;
     cont.interactive = true;
     cont.hitArea = new Rectangle(-1e5, -1e5, 2e5, 2e5);
     app.stage.addChild(cont);
+    labelLayer = new Container();
+    labelLayer.zIndex = 5e6;
+    cont.addChild(labelLayer);
     easeMotion = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     centerCam($mapCenter.x, $mapCenter.y, true);
     setupInput();
@@ -511,8 +579,51 @@
   };
 
   // ── tile rendering ──────────────────────────────────────
+  const addCityLabel = (city: City, px: number, py: number) => {
+    const owned = city.owner?.value === $userId;
+    const ownerColor = owned ? 0x336ca8 : city.owner ? 0x9b3f38 : 0x66685f;
+    const wrapper = new Container();
+    wrapper.position.set(px, py + HH + 3);
+
+    const population = new Text({
+      text: Math.max(0, Math.round(city.population)).toLocaleString(),
+      roundPixels: true,
+      style: {
+        fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
+        fontSize: 9,
+        fontWeight: 'bold',
+        fill: '#f5f2df',
+        stroke: { color: '#151712', width: 2 }
+      }
+    });
+    const badgeWidth = Math.max(14, Math.ceil(population.width) + 6);
+    const badge = new Graphics();
+    badge.rect(0, 0, badgeWidth, 13);
+    badge.fill({ color: ownerColor, alpha: 1 });
+    badge.rect(0, 0, badgeWidth, 13);
+    badge.stroke({ color: 0x171912, width: 1.5, alpha: 1 });
+    population.anchor.set(0.5);
+    population.position.set(badgeWidth / 2, 6.5);
+
+    const name = new Text({
+      text: city.name,
+      roundPixels: true,
+      style: {
+        fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
+        fontSize: 11,
+        fontWeight: 'bold',
+        fill: owned ? '#f4e47c' : '#efeee2',
+        stroke: { color: '#151712', width: 3 }
+      }
+    });
+    name.position.set(badgeWidth + 4, -1);
+    wrapper.addChild(badge, population, name);
+    wrapper.pivot.x = (badgeWidth + 4 + name.width) / 2;
+    labelLayer.addChild(wrapper);
+  };
+
   const renderTile = (col: number, row: number) => {
-    if (col < 0 || row < 0 || col >= $gameConfig.mapSize || row >= $gameConfig.mapSize) return;
+    if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return;
     const k = tileKey(col, row);
     if (loaded.has(k)) return;
 
@@ -530,25 +641,21 @@
     const dist = myCities.length > 0 ? getVisDist(col, row) : 0;
     const inFog = dist > $gameConfig.visionRadius;
 
-    let kind: TileKind;
-    if (inFog) {
-      kind = 'fog';
-    } else if (td?.building) {
-      const bt = td.building.type;
-      if (bt === BuildingType.FARM) kind = 'farm';
-      else if (bt === BuildingType.MINE) kind = 'mine';
-      else if (bt === BuildingType.BARRACKS) kind = 'barracks';
-      else if (bt === BuildingType.CITY_CENTER) kind = 'city_center';
-      else if (bt === BuildingType.TOWN_CENTER) kind = 'town_center';
-      else kind = 'house';
-    } else if (td?.city) {
-      kind = 'city';
-    } else {
-      kind = 'grass';
+    const kind = inFog ? 'fog' : terrainKind(terrainAt(col, row));
+    tc.addChild(getTerrainSprite(kind, col, row));
+    if (!inFog) {
+      const neighbors = EDGE_TO_NEIGHBOR.map(([dc, dr]) => {
+        const neighborCol = col + dc;
+        const neighborRow = row + dr;
+        if (neighborCol < 0 || neighborRow < 0 || neighborCol >= worldWidth || neighborRow >= worldHeight) return null;
+        if (myCities.length > 0 && getVisDist(neighborCol, neighborRow) > $gameConfig.visionRadius) return 'fog';
+        return terrainKind(terrainAt(neighborCol, neighborRow));
+      }) as unknown as TerrainNeighbors;
+      const transition = getTerrainTransitionSprite(kind, neighbors, col, row);
+      if (transition) tc.addChild(transition);
     }
-
-    const spr = getTileSprite(kind, col, row);
-    tc.addChild(spr);
+    if (!inFog && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
+    if (!inFog && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
 
     // Armies are lightweight overlays so the existing terrain/building art is
     // unchanged. A blue marker is owned, red is foreign; a small pennant means
@@ -605,18 +712,18 @@
           // This diamond edge is a boundary — draw it
           const vi = i * 2,
             vn = ((i + 1) % 4) * 2;
-          g.moveTo(DIAMOND_VERTS[vi], DIAMOND_VERTS[vi + 1]);
-          g.lineTo(DIAMOND_VERTS[vn], DIAMOND_VERTS[vn + 1]);
-          g.stroke({ color: oc, width: 3, alpha: 0.8 });
+          const x1 = DIAMOND_VERTS[vi],
+            y1 = DIAMOND_VERTS[vi + 1],
+            x2 = DIAMOND_VERTS[vn],
+            y2 = DIAMOND_VERTS[vn + 1];
+          g.moveTo(x1, y1);
+          g.lineTo(x2, y2);
+          g.stroke({ color: 0x10120e, width: 3, alpha: 0.8 });
+          g.moveTo(x1, y1);
+          g.lineTo(x2, y2);
+          g.stroke({ color: oc, width: 1.25, alpha: 0.9 });
           hasOverlay = true;
         }
-      }
-
-      // Visibility edge glow
-      if (dist >= $gameConfig.visionRadius - 1) {
-        g.poly(DIAMOND_VERTS);
-        g.stroke({ color: 0x40a0b0, width: 1.5, alpha: 0.2 });
-        hasOverlay = true;
       }
 
       if (hasOverlay) tc.addChild(g);
@@ -687,9 +794,7 @@
     const { sx: px, sy: py } = tileToScreen(col, row);
     selGfx.position.set(px, py);
     selGfx.poly(DIAMOND_VERTS);
-    selGfx.fill({ color: 0xffd700, alpha: 0.15 });
-    selGfx.poly(DIAMOND_VERTS);
-    selGfx.stroke({ color: 0xffd700, width: 3, alpha: 0.9 });
+    selGfx.stroke({ color: 0xffdf32, width: 2, alpha: 0.95 });
     selGfx.zIndex = 1e7;
     cont.addChild(selGfx);
   };
@@ -750,7 +855,7 @@
       if (Math.sqrt(dx * dx + dy * dy) < CLICK_DIST) {
         velX = velY = 0;
         const mc = screenToTile((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
-        if (mc.x >= 0 && mc.y >= 0 && mc.x < $gameConfig.mapSize && mc.y < $gameConfig.mapSize) {
+        if (mc.x >= 0 && mc.y >= 0 && mc.x < worldWidth && mc.y < worldHeight) {
           const t = tileData.get(tileKey(mc.x, mc.y));
           sel = { x: mc.x, y: mc.y, ...t };
           err = '';
@@ -1017,6 +1122,8 @@
   <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
   <div class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4">
     {#if sel}
+      {@const selectedInFog = myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius}
+      {@const selectedTerrain = selectedInFog ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
       <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
         <div class="inspector-header flex items-center justify-between gap-4">
           <div class="min-w-0">
@@ -1028,13 +1135,14 @@
               {:else if sel.city}
                 {sel.city.name}
               {:else}
-                Open ground
+                {selectedTerrain.name}
               {/if}
             </h2>
-            <div class="mt-0.5 text-[11px] text-[#b0b2a5]">
+            <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
               {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
-              {/if}Tile {sel.x}, {sel.y}
+              {/if}<span class="font-medium text-[#d4d5c8]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
             </div>
+            <p class="mt-1 truncate text-[11px] text-[#8f9387]">{selectedTerrain.note}</p>
           </div>
           <button
             aria-label="Close"
@@ -1290,7 +1398,7 @@
             {/if}
           {:else if !sel.city && !sel.armies?.length}
             <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
-              {myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius ? 'Beyond visibility range' : 'No structures on this tile'}
+              {selectedInFog ? 'Beyond visibility range' : 'No structures on this tile'}
             </div>
           {/if}
         </div>

@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/ids.proto.
  */
 export const file_cityio_entity_v1_ids: GenFile = /*@__PURE__*/
-  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJYgZwcm90bzM");
+  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIh4KBlRpbGVJZBIJCgF4GAEgASgFEgkKAXkYAiABKAViBnByb3RvMw");
 
 /**
  * @generated from message cityio.entity.v1.UserId
@@ -79,4 +79,26 @@ export type ArmyId = Message<"cityio.entity.v1.ArmyId"> & {
  */
 export const ArmyIdSchema: GenMessage<ArmyId> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_ids, 3);
+
+/**
+ * @generated from message cityio.entity.v1.TileId
+ */
+export type TileId = Message<"cityio.entity.v1.TileId"> & {
+  /**
+   * @generated from field: int32 x = 1;
+   */
+  x: number;
+
+  /**
+   * @generated from field: int32 y = 2;
+   */
+  y: number;
+};
+
+/**
+ * Describes the message cityio.entity.v1.TileId.
+ * Use `create(TileIdSchema)` to create a new message.
+ */
+export const TileIdSchema: GenMessage<TileId> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_ids, 4);
 

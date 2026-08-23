@@ -10,6 +10,8 @@ import type { Building } from "./building_pb";
 import { file_cityio_entity_v1_building } from "./building_pb";
 import type { City } from "./city_pb";
 import { file_cityio_entity_v1_city } from "./city_pb";
+import type { Tile } from "./tile_pb";
+import { file_cityio_entity_v1_tile } from "./tile_pb";
 import type { User } from "./user_pb";
 import { file_cityio_entity_v1_user } from "./user_pb";
 import type { Message } from "@bufbuild/protobuf";
@@ -18,7 +20,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/bag.proto.
  */
 export const file_cityio_entity_v1_bag: GenFile = /*@__PURE__*/
-  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2JhZy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSKxAQoJRW50aXR5QmFnEiUKBXVzZXJzGAEgAygLMhYuY2l0eWlvLmVudGl0eS52MS5Vc2VyEiYKBmNpdGllcxgCIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQ2l0eRItCglidWlsZGluZ3MYAyADKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJ1aWxkaW5nEiYKBmFybWllcxgEIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQXJteWIGcHJvdG8z", [file_cityio_entity_v1_army, file_cityio_entity_v1_building, file_cityio_entity_v1_city, file_cityio_entity_v1_user]);
+  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2JhZy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSLYAQoJRW50aXR5QmFnEiUKBXVzZXJzGAEgAygLMhYuY2l0eWlvLmVudGl0eS52MS5Vc2VyEiYKBmNpdGllcxgCIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQ2l0eRItCglidWlsZGluZ3MYAyADKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJ1aWxkaW5nEiYKBmFybWllcxgEIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQXJteRIlCgV0aWxlcxgFIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuVGlsZWIGcHJvdG8z", [file_cityio_entity_v1_army, file_cityio_entity_v1_building, file_cityio_entity_v1_city, file_cityio_entity_v1_tile, file_cityio_entity_v1_user]);
 
 /**
  * EntityBag groups raw entities returned in snapshots and state updates.
@@ -45,6 +47,11 @@ export type EntityBag = Message<"cityio.entity.v1.EntityBag"> & {
    * @generated from field: repeated cityio.entity.v1.Army armies = 4;
    */
   armies: Army[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.Tile tiles = 5;
+   */
+  tiles: Tile[];
 };
 
 /**

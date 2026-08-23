@@ -1,0 +1,27 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/ids.proto";
+
+// TerrainType identifies the natural terrain of a map tile.
+enum TerrainType {
+  TERRAIN_TYPE_UNSPECIFIED = 0;
+  TERRAIN_TYPE_GRASSLAND = 1;
+  TERRAIN_TYPE_PLAINS = 2;
+  TERRAIN_TYPE_FOREST = 3;
+  TERRAIN_TYPE_HILLS = 4;
+  TERRAIN_TYPE_MOUNTAINS = 5;
+  TERRAIN_TYPE_DESERT = 6;
+  TERRAIN_TYPE_MARSH = 7;
+  TERRAIN_TYPE_WATER = 8;
+}
+
+// Tile combines immutable terrain with the tile's current occupancy.
+message Tile {
+  TileId tile_id = 1;
+  optional CityId city_id = 2;
+  optional BuildingId building_id = 3;
+  repeated ArmyId army_ids = 4;
+  TerrainType terrain = 5;
+}

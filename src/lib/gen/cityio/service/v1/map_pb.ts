@@ -6,17 +6,17 @@ import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegen
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
 import type { EntityBag } from "../../entity/v1/bag_pb";
 import { file_cityio_entity_v1_bag } from "../../entity/v1/bag_pb";
-import type { Coordinates } from "../../entity/v1/common_pb";
-import { file_cityio_entity_v1_common } from "../../entity/v1/common_pb";
-import type { ArmyId, BuildingId, CityId } from "../../entity/v1/ids_pb";
+import type { TileId } from "../../entity/v1/ids_pb";
 import { file_cityio_entity_v1_ids } from "../../entity/v1/ids_pb";
+import type { Tile } from "../../entity/v1/tile_pb";
+import { file_cityio_entity_v1_tile } from "../../entity/v1/tile_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cityio/service/v1/map.proto.
  */
 export const file_cityio_service_v1_map: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vc2VydmljZS92MS9tYXAucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIg8KDUdldE1hcFJlcXVlc3QinwEKDkdldE1hcFJlc3BvbnNlEioKCGNpdHlfaWRzGAEgAygLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQSMgoMYnVpbGRpbmdfaWRzGAIgAygLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEi0KCGVudGl0aWVzGAMgASgLMhsuY2l0eWlvLmVudGl0eS52MS5FbnRpdHlCYWcizAEKBFRpbGUSCQoBeBgBIAEoBRIJCgF5GAIgASgFEi4KB2NpdHlfaWQYAyABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZEgAiAEBEjYKC2J1aWxkaW5nX2lkGAQgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkSAGIAQESKgoIYXJteV9pZHMYBSADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZEIKCghfY2l0eV9pZEIOCgxfYnVpbGRpbmdfaWQiPwoOR2V0VGlsZVJlcXVlc3QSLQoGY29vcmRzGAEgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcyI4Cg9HZXRUaWxlUmVzcG9uc2USJQoEdGlsZRgBIAEoCzIXLmNpdHlpby5zZXJ2aWNlLnYxLlRpbGUyrQEKCk1hcFNlcnZpY2USTQoGR2V0TWFwEiAuY2l0eWlvLnNlcnZpY2UudjEuR2V0TWFwUmVxdWVzdBohLmNpdHlpby5zZXJ2aWNlLnYxLkdldE1hcFJlc3BvbnNlElAKB0dldFRpbGUSIS5jaXR5aW8uc2VydmljZS52MS5HZXRUaWxlUmVxdWVzdBoiLmNpdHlpby5zZXJ2aWNlLnYxLkdldFRpbGVSZXNwb25zZWIGcHJvdG8z", [file_cityio_entity_v1_bag, file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+  fileDesc("ChtjaXR5aW8vc2VydmljZS92MS9tYXAucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIg8KDUdldE1hcFJlcXVlc3QiawoOR2V0TWFwUmVzcG9uc2USKgoIdGlsZV9pZHMYASADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZBItCghlbnRpdGllcxgCIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuRW50aXR5QmFnIjsKDkdldFRpbGVSZXF1ZXN0EikKB3RpbGVfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZCI3Cg9HZXRUaWxlUmVzcG9uc2USJAoEdGlsZRgBIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuVGlsZTKtAQoKTWFwU2VydmljZRJNCgZHZXRNYXASIC5jaXR5aW8uc2VydmljZS52MS5HZXRNYXBSZXF1ZXN0GiEuY2l0eWlvLnNlcnZpY2UudjEuR2V0TWFwUmVzcG9uc2USUAoHR2V0VGlsZRIhLmNpdHlpby5zZXJ2aWNlLnYxLkdldFRpbGVSZXF1ZXN0GiIuY2l0eWlvLnNlcnZpY2UudjEuR2V0VGlsZVJlc3BvbnNlYgZwcm90bzM", [file_cityio_entity_v1_bag, file_cityio_entity_v1_ids, file_cityio_entity_v1_tile]);
 
 /**
  * @generated from message cityio.service.v1.GetMapRequest
@@ -38,17 +38,12 @@ export const GetMapRequestSchema: GenMessage<GetMapRequest> = /*@__PURE__*/
  */
 export type GetMapResponse = Message<"cityio.service.v1.GetMapResponse"> & {
   /**
-   * @generated from field: repeated cityio.entity.v1.CityId city_ids = 1;
+   * @generated from field: repeated cityio.entity.v1.TileId tile_ids = 1;
    */
-  cityIds: CityId[];
+  tileIds: TileId[];
 
   /**
-   * @generated from field: repeated cityio.entity.v1.BuildingId building_ids = 2;
-   */
-  buildingIds: BuildingId[];
-
-  /**
-   * @generated from field: cityio.entity.v1.EntityBag entities = 3;
+   * @generated from field: cityio.entity.v1.EntityBag entities = 2;
    */
   entities?: EntityBag | undefined;
 };
@@ -61,50 +56,13 @@ export const GetMapResponseSchema: GenMessage<GetMapResponse> = /*@__PURE__*/
   messageDesc(file_cityio_service_v1_map, 1);
 
 /**
- * @generated from message cityio.service.v1.Tile
- */
-export type Tile = Message<"cityio.service.v1.Tile"> & {
-  /**
-   * @generated from field: int32 x = 1;
-   */
-  x: number;
-
-  /**
-   * @generated from field: int32 y = 2;
-   */
-  y: number;
-
-  /**
-   * @generated from field: optional cityio.entity.v1.CityId city_id = 3;
-   */
-  cityId?: CityId | undefined;
-
-  /**
-   * @generated from field: optional cityio.entity.v1.BuildingId building_id = 4;
-   */
-  buildingId?: BuildingId | undefined;
-
-  /**
-   * @generated from field: repeated cityio.entity.v1.ArmyId army_ids = 5;
-   */
-  armyIds: ArmyId[];
-};
-
-/**
- * Describes the message cityio.service.v1.Tile.
- * Use `create(TileSchema)` to create a new message.
- */
-export const TileSchema: GenMessage<Tile> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_map, 2);
-
-/**
  * @generated from message cityio.service.v1.GetTileRequest
  */
 export type GetTileRequest = Message<"cityio.service.v1.GetTileRequest"> & {
   /**
-   * @generated from field: cityio.entity.v1.Coordinates coords = 1;
+   * @generated from field: cityio.entity.v1.TileId tile_id = 1;
    */
-  coords?: Coordinates | undefined;
+  tileId?: TileId | undefined;
 };
 
 /**
@@ -112,14 +70,14 @@ export type GetTileRequest = Message<"cityio.service.v1.GetTileRequest"> & {
  * Use `create(GetTileRequestSchema)` to create a new message.
  */
 export const GetTileRequestSchema: GenMessage<GetTileRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_map, 3);
+  messageDesc(file_cityio_service_v1_map, 2);
 
 /**
  * @generated from message cityio.service.v1.GetTileResponse
  */
 export type GetTileResponse = Message<"cityio.service.v1.GetTileResponse"> & {
   /**
-   * @generated from field: cityio.service.v1.Tile tile = 1;
+   * @generated from field: cityio.entity.v1.Tile tile = 1;
    */
   tile?: Tile | undefined;
 };
@@ -129,7 +87,7 @@ export type GetTileResponse = Message<"cityio.service.v1.GetTileResponse"> & {
  * Use `create(GetTileResponseSchema)` to create a new message.
  */
 export const GetTileResponseSchema: GenMessage<GetTileResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_map, 4);
+  messageDesc(file_cityio_service_v1_map, 3);
 
 /**
  * MapService serves world snapshots read from the persistence layer.
