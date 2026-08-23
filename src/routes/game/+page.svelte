@@ -3001,7 +3001,7 @@
   {/if}
 
   <!-- Minimap -->
-  <div class="pointer-events-auto absolute left-4 z-[11] {sel ? 'top-20' : 'bottom-4'}">
+  <div class="pointer-events-auto absolute bottom-4 left-4 z-[11]">
     <MiniMap onPan={(col, row) => centerCam(col, row)} viewCols={viewTilesW} viewRows={viewTilesH} />
   </div>
 

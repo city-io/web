@@ -18,6 +18,8 @@
   let canvas: HTMLCanvasElement;
   let raf = 0;
   let minimapZoom = MIN_ZOOM;
+  let dragPointerId: number | null = null;
+  let dragBounds: { cols: number; rows: number; left: number; top: number } | null = null;
 
   $: mapWidth = $gameConfig.mapSize || 75;
   $: mapHeight = $gameConfig.mapSize || 75;
@@ -48,6 +50,7 @@
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
   const minimapBounds = () => {
+    if (dragBounds) return dragBounds;
     const cols = mapWidth / minimapZoom;
     const rows = mapHeight / minimapZoom;
     return {
@@ -145,12 +148,34 @@
     };
   });
 
-  const handleClick = (e: MouseEvent) => {
+  const panFromPointer = (clientX: number, clientY: number) => {
     const rect = canvas.getBoundingClientRect();
     const { cols, rows, left, top } = minimapBounds();
-    const col = clamp(Math.round(left + ((e.clientX - rect.left) / rect.width) * cols), 0, mapWidth - 1);
-    const row = clamp(Math.round(top + ((e.clientY - rect.top) / rect.height) * rows), 0, mapHeight - 1);
+    const col = clamp(Math.round(left + ((clientX - rect.left) / rect.width) * cols), 0, mapWidth - 1);
+    const row = clamp(Math.round(top + ((clientY - rect.top) / rect.height) * rows), 0, mapHeight - 1);
     onPan(col, row);
+  };
+
+  const handlePointerDown = (e: PointerEvent) => {
+    if (e.button !== 0) return;
+    dragBounds = minimapBounds();
+    dragPointerId = e.pointerId;
+    canvas.setPointerCapture(e.pointerId);
+    panFromPointer(e.clientX, e.clientY);
+  };
+
+  const handlePointerMove = (e: PointerEvent) => {
+    if (e.pointerId !== dragPointerId) return;
+    panFromPointer(e.clientX, e.clientY);
+  };
+
+  const finishPointerDrag = (e: PointerEvent, panToPointer: boolean) => {
+    if (e.pointerId !== dragPointerId) return;
+    if (panToPointer) panFromPointer(e.clientX, e.clientY);
+    if (canvas.hasPointerCapture(e.pointerId)) canvas.releasePointerCapture(e.pointerId);
+    dragPointerId = null;
+    dragBounds = null;
+    schedule();
   };
 
   const setMinimapZoom = (zoom: number) => {
@@ -167,7 +192,16 @@
 </script>
 
 <div class="relative overflow-hidden rounded-lg border border-white/[0.1] bg-[#101512]/90 p-1 shadow-[0_12px_36px_rgba(0,0,0,0.22)] backdrop-blur-md">
-  <canvas bind:this={canvas} width={SIZE} height={SIZE} class="cursor-action-custom block rounded" style="image-rendering: pixelated; width: {SIZE}px; height: {SIZE}px" on:click={handleClick}
+  <canvas
+    bind:this={canvas}
+    width={SIZE}
+    height={SIZE}
+    class="block touch-none rounded {dragPointerId === null ? 'cursor-action-custom' : 'cursor-map-drag'}"
+    style="image-rendering: pixelated; width: {SIZE}px; height: {SIZE}px"
+    on:pointerdown={handlePointerDown}
+    on:pointermove={handlePointerMove}
+    on:pointerup={(e) => finishPointerDrag(e, true)}
+    on:pointercancel={(e) => finishPointerDrag(e, false)}
   ></canvas>
   <div class="absolute right-2 top-2 flex overflow-hidden border border-white/15 bg-[#101512]/90 text-[9px] font-bold text-white/75 shadow-md">
     <button
