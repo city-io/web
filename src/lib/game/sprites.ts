@@ -1,6 +1,6 @@
 import { Sprite, Texture } from 'pixi.js';
 import { HW, HH, TH } from './iso';
-import { tileHash, varyColor } from './colors';
+import { tileHash } from './colors';
 
 export type TerrainKind = 'grassland' | 'plains' | 'forest' | 'hills' | 'mountains' | 'desert' | 'marsh' | 'water' | 'fog';
 export type TerrainNeighbors = readonly [TerrainKind | null, TerrainKind | null, TerrainKind | null, TerrainKind | null];
@@ -385,7 +385,7 @@ function renderTerrain(kind: TerrainKind, variant: number): HTMLCanvasElement {
     return canvas;
   }
 
-  drawFlatGround(ctx, cx, cy, varyColor(TERRAIN_BASE[kind], variant, variant * 3, 5));
+  drawFlatGround(ctx, cx, cy, TERRAIN_BASE[kind]);
   switch (kind) {
     case 'grassland':
       drawGrass(ctx, cx, cy, seed);
