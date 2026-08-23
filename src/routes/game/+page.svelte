@@ -2102,17 +2102,25 @@
     </aside>
   {/if}
 
-  <!-- Selection details live in a compact control deck instead of a map-obscuring sidebar. -->
+  <!-- City management opens as a focused strategy-game dialog; other selections use the compact control deck. -->
   <div
-    class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1120px] -translate-x-1/2 sm:bottom-4 {managementOpen
-      ? 'lg:left-4 lg:right-[22rem] lg:w-auto lg:max-w-none lg:translate-x-0'
-      : ''}"
+    class={sel?.city && !selectedArmy
+      ? 'pointer-events-auto absolute inset-0 z-10 flex items-center justify-center bg-black/40 p-3 sm:p-8'
+      : `pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1120px] -translate-x-1/2 sm:bottom-4 ${
+          managementOpen ? 'lg:left-4 lg:right-[22rem] lg:w-auto lg:max-w-none lg:translate-x-0' : ''
+        }`}
   >
     {#if sel}
       {@const selectedVisibility = visibilityAt(sel.x, sel.y)}
       {@const selectedUnknown = selectedVisibility === TileVisibilityState.UNEXPLORED}
       {@const selectedTerrain = selectedUnknown ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
-      <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
+      <div
+        class="inspector-panel pointer-events-auto {sel.city && !selectedArmy ? 'city-dialog' : ''}"
+        role={sel.city && !selectedArmy ? 'dialog' : undefined}
+        aria-modal={sel.city && !selectedArmy ? 'true' : undefined}
+        aria-label={sel.city && !selectedArmy ? `${sel.city.name} management` : undefined}
+        transition:fly={{ y: 16, duration: 180 }}
+      >
         <div class="inspector-header flex items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-2.5">
             <span class="selection-crest">
@@ -2151,7 +2159,7 @@
                 </div>
               {:else}
                 <div class="mt-0.5 flex min-w-0 items-center gap-x-1 truncate text-[10px] text-[#aaa997]">
-                  {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
+                  {#if sel.city}{sel.city.owner?.value === $userId ? 'City management' : cName(sel.city.type)} ·
                   {/if}<span class="font-medium text-[#d8e4e2]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
                   <span class="hidden text-[#828275] md:inline">· {selectedTerrain.note}</span>
                 </div>
@@ -2430,6 +2438,7 @@
               <!-- Food economy is owner-only intel; non-owners receive these unset -->
               {#if sel.city.owner?.value === $userId}
                 {@const policy = $gameConfig.populationPolicy}
+                {@const minGarrison = policy?.minGarrisonPercent ?? 5}
                 {@const maxGarrison = policy?.maxGarrisonPercent ?? 30}
                 {@const maxTax = policy?.maxTaxRatePercent ?? 100}
                 {@const previewTargetGarrison = (cityHousing * garrisonDraft) / 100}
@@ -2487,7 +2496,7 @@
                         <span class="font-semibold text-[#bdc8c7]">Garrison target</span>
                         <strong class="tabular-nums text-blue-200">{garrisonDraft}% · {Math.floor(previewGarrison).toLocaleString()} present</strong>
                       </span>
-                      <input class="mt-1.5 block w-full accent-[#78a9b5]" type="range" min="0" max={maxGarrison} step="1" bind:value={garrisonDraft} />
+                      <input class="mt-1.5 block w-full accent-[#78a9b5]" type="range" min={minGarrison} max={maxGarrison} step="1" bind:value={garrisonDraft} />
                       <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]">Permanent local defenders. Higher targets fill from future growth; lowering releases excess.</span>
                     </label>
                     <label class="block border-t border-white/[0.06] pt-2.5">

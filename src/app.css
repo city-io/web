@@ -198,6 +198,36 @@
       inset 0 -1px rgba(0, 0, 0, 0.7);
   }
 
+  .city-dialog {
+    width: min(980px, calc(100vw - 2rem));
+    max-height: calc(100vh - 5rem);
+    border: 2px solid #8b835f;
+    background: #1b292b;
+    box-shadow:
+      0 0 0 1px #20291f,
+      0 0 0 3px #4e553f,
+      0 22px 64px rgba(0, 0, 0, 0.62),
+      inset 0 1px rgba(255, 242, 181, 0.12),
+      inset 0 -1px rgba(0, 0, 0, 0.82);
+  }
+
+  .city-dialog .inspector-header {
+    border-color: #777354;
+    background: linear-gradient(180deg, #465b59 0%, #344846 100%);
+  }
+
+  .city-dialog .inspector-body {
+    max-height: min(650px, calc(100vh - 9.5rem));
+  }
+
+  .city-dialog .inspector-section {
+    padding: 1rem;
+  }
+
+  .city-dialog .inspector-label {
+    color: #d2c89a;
+  }
+
   .inspector-header {
     @apply border-b border-[#5b6e73] bg-[#34474b] px-3 py-2;
     box-shadow: inset 0 1px rgba(222, 240, 238, 0.12);
@@ -362,6 +392,15 @@
 
     .inspector-actions {
       @apply sticky bottom-0 flex-row border-l-0 border-t border-[#4a4b3e];
+    }
+
+    .city-dialog {
+      width: calc(100vw - 1rem);
+      max-height: calc(100vh - 1rem);
+    }
+
+    .city-dialog .inspector-body {
+      max-height: calc(100vh - 5.5rem);
     }
   }
 

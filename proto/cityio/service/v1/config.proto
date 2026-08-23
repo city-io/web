@@ -42,6 +42,7 @@ message PopulationPolicyConfig {
   int32 max_tax_rate_percent = 7;
   // Gold per taxable resident at a 100% tax rate.
   cityio.entity.v1.Rate tax_gold_per_population = 8;
+  int32 min_garrison_percent = 9;
 }
 
 message GetGameConfigResponse {
