@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { armies, buildings, cities, mapCenter, tiles, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { armies, buildings, cities, mapCenter, tiles, tileVisibility, username, gold, food, userId, gameConfig } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
@@ -7,7 +7,7 @@
   import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
   import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
-  import { TROOP_STATS, TROOP_TYPES, armyPathCost, armySize, armyTitle, createArmyMarker, findArmyPath, troopName, type ArmyPathStep } from '$lib/game/troops';
+  import { TROOP_STATS, TROOP_TYPES, armySize, armyTitle, createArmyMarker, troopName, type ArmyPathStep } from '$lib/game/troops';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
@@ -15,6 +15,7 @@
   import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
   import { TerrainType, type Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
+  import { TileVisibilityState } from '$lib/gen/cityio/service/v1/state_pb';
   import type { TrainingOrder } from '$lib/gen/cityio/service/v1/army_pb';
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
   import type { Duration, Timestamp } from '@bufbuild/protobuf/wkt';
@@ -77,11 +78,14 @@
   let trackedArmyId: string | null = null;
   let moveTarget: { x: number; y: number } | null = null;
   let moveHover: { x: number; y: number } | null = null;
-  let moveRoute: ArmyPathStep[] | null = null;
-  let moveRouteCost = 0;
+  let moveRoute: (ArmyPathStep & { explored: boolean })[] | null = null;
+  let moveRouteComplete = true;
+  let moveRouteLoading = false;
+  let moveRouteDurationMs = 0;
   let moveOrderActive = false;
   let moveDestinationObserved = false;
   let moveGfx: Graphics | null = null;
+  let movePreviewRequest = 0;
   let trainingOrders: TrainingOrder[] = [];
   let trainingOrdersBarracksId: string | null = null;
   let trainingOrdersAvailable = true;
@@ -283,7 +287,7 @@
       rebuildTiles();
     });
   };
-  $: if ($tiles || $cities || $buildings || $armies) {
+  $: if ($tiles || $tileVisibility || $cities || $buildings || $armies) {
     buildLookup();
     // Immediately hide construction overlays for finished/removed constructions
     for (const [k, entry] of constructionGfx) {
@@ -328,13 +332,10 @@
   const buildLookup = () => {
     tileData.clear();
     for (const [key, tile] of $tiles) tileData.set(key, { tile });
-    for (const c of $cities) {
-      if (!c.start) continue;
-      for (let dx = 0; dx < c.size; dx++)
-        for (let dy = 0; dy < c.size; dy++) {
-          const k = tileKey(c.start.x + dx, c.start.y + dy);
-          tileData.set(k, { ...tileData.get(k), city: c });
-        }
+    const cityById = new Map($cities.map((city) => [city.cityId?.value, city]));
+    for (const [key, data] of tileData) {
+      const city = cityById.get(data.tile?.cityId?.value);
+      if (city) tileData.set(key, { ...data, city });
     }
     for (const b of $buildings) {
       if (!b.coords) continue;
@@ -350,25 +351,7 @@
   };
 
   // ── visibility (fog of war) ─────────────────────────────
-  const getVisDist = (col: number, row: number): number => {
-    let min = Infinity;
-    for (const city of myCities) {
-      if (!city.start) continue;
-      const sx = city.start.x,
-        sy = city.start.y,
-        s = city.size;
-      const dx = Math.max(sx - col, col - (sx + s - 1), 0);
-      const dy = Math.max(sy - row, row - (sy + s - 1), 0);
-      min = Math.min(min, Math.max(dx, dy));
-    }
-    for (const army of $armies) {
-      if (army.owner?.value !== $userId || !army.coords) continue;
-      min = Math.min(min, Math.max(Math.abs(army.coords.x - col), Math.abs(army.coords.y - row)));
-    }
-    return min;
-  };
-
-  const hasVisionSources = () => myCities.length > 0 || $armies.some((army) => army.owner?.value === $userId && army.coords);
+  const visibilityAt = (col: number, row: number): TileVisibilityState => $tileVisibility.get(tileKey(col, row)) ?? TileVisibilityState.UNEXPLORED;
 
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
@@ -613,32 +596,59 @@
     moveGfx = null;
   };
 
-  const drawMovePreview = (destination: { x: number; y: number } | null) => {
+  const drawMovePreview = async (destination: { x: number; y: number } | null): Promise<boolean> => {
     clearMovePreview();
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
     moveRoute = null;
-    moveRouteCost = 0;
-    if (!cont || !army?.coords || !destination) return;
+    moveRouteComplete = true;
+    moveRouteDurationMs = 0;
+    if (!cont || !army?.armyId || !army.coords || !destination) return false;
 
-    moveRoute = findArmyPath($tiles, army.coords, destination);
-    moveRouteCost = moveRoute ? armyPathCost($tiles, moveRoute) : 0;
+    const request = ++movePreviewRequest;
+    moveRouteLoading = true;
+    let preview;
+    try {
+      preview = await armyClient.previewArmyRoute({ armyId: army.armyId, destination });
+    } catch {
+      if (request === movePreviewRequest) moveRouteLoading = false;
+      return false;
+    }
+    if (request !== movePreviewRequest || moveArmyId !== army.armyId.value) return false;
+    moveRouteLoading = false;
+    moveRoute = preview.steps.flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y, explored: step.explored }] : []));
+    moveRouteComplete = preview.reachesDestination;
+    moveRouteDurationMs = durationSeconds(preview.estimatedDuration) * 1000;
     const points = [army.coords, ...(moveRoute ?? [])].map((step) => tileToScreen(step.x, step.y));
 
     const route = new Graphics();
     if (moveRoute) {
-      for (const point of points.slice(1, -1)) {
+      for (let index = 1; index < points.length - 1; index++) {
+        const point = points[index];
+        const known = moveRoute[index - 1]?.explored;
         route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
-        route.fill({ color: 0x6ca7dc, alpha: 0.11 });
+        route.fill({ color: known ? 0x6ca7dc : 0x9aa4a0, alpha: known ? 0.11 : 0.07 });
         route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
-        route.stroke({ color: 0x9cc9ee, width: 0.75, alpha: 0.32 });
+        route.stroke({ color: known ? 0x9cc9ee : 0xc2c9c5, width: 0.75, alpha: known ? 0.32 : 0.2 });
       }
-      const strokeRoute = (color: number, width: number, alpha: number) => {
-        route.moveTo(points[0].sx, points[0].sy);
-        for (const point of points.slice(1)) route.lineTo(point.sx, point.sy);
-        route.stroke({ color, width, alpha });
-      };
-      strokeRoute(0x111611, 7, 0.85);
-      strokeRoute(0x7eb5ec, 3, 1);
+      for (let index = 1; index < points.length; index++) {
+        const from = points[index - 1];
+        const to = points[index];
+        route.moveTo(from.sx, from.sy);
+        route.lineTo(to.sx, to.sy);
+        route.stroke({ color: 0x111611, width: 7, alpha: 0.85 });
+        if (moveRoute[index - 1]?.explored) {
+          route.moveTo(from.sx, from.sy);
+          route.lineTo(to.sx, to.sy);
+          route.stroke({ color: 0x7eb5ec, width: 3, alpha: 1 });
+        } else {
+          const distance = Math.hypot(to.sx - from.sx, to.sy - from.sy);
+          for (let offset = 4; offset < distance; offset += 7) {
+            const ratio = offset / distance;
+            route.circle(from.sx + (to.sx - from.sx) * ratio, from.sy + (to.sy - from.sy) * ratio, 1.5);
+            route.fill({ color: 0xb6c0bc, alpha: 0.9 });
+          }
+        }
+      }
       route.circle(points[0].sx, points[0].sy, 5);
       route.fill({ color: 0x17202a, alpha: 0.95 });
       route.circle(points[0].sx, points[0].sy, 5);
@@ -664,21 +674,25 @@
     }
     const target = tileToScreen(destination.x, destination.y);
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
-    route.fill({ color: moveRoute ? 0xf0d65a : 0xd96257, alpha: 0.13 });
+    route.fill({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, alpha: 0.13 });
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
-    route.stroke({ color: moveRoute ? 0xf0d65a : 0xd96257, width: 2, alpha: 0.95 });
+    route.stroke({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, width: 2, alpha: 0.95 });
     route.zIndex = 9e6;
     cont.addChild(route);
     moveGfx = route;
+    return true;
   };
 
   const clearMoveTarget = () => {
     moveTarget = null;
     moveHover = null;
     moveRoute = null;
-    moveRouteCost = 0;
+    moveRouteComplete = true;
+    moveRouteLoading = false;
+    moveRouteDurationMs = 0;
     moveOrderActive = false;
     moveDestinationObserved = false;
+    movePreviewRequest++;
     clearMovePreview();
   };
 
@@ -737,11 +751,11 @@
     notice = '';
     try {
       await armyClient.moveArmy({ armyId: army.armyId, destination });
-      if (moveRoute.length === 0) {
+      if (destination.x === army.coords.x && destination.y === army.coords.y) {
         notice = 'Army ordered to hold its current position.';
         cancelMoveMode();
       } else {
-        notice = `Marching to tile ${destination.x}, ${destination.y}.`;
+        notice = moveRouteComplete ? `Marching to tile ${destination.x}, ${destination.y}.` : `Marching as close as known land permits to ${destination.x}, ${destination.y}.`;
         moveTarget = { ...destination };
         moveHover = moveTarget;
         moveOrderActive = true;
@@ -944,26 +958,33 @@
     cont.addChild(tc);
     loaded.set(k, tc);
 
-    const dist = hasVisionSources() ? getVisDist(col, row) : 0;
-    const inFog = dist > $gameConfig.visionRadius;
-
-    const kind = inFog ? 'fog' : terrainKind(terrainAt(col, row));
+    const visibility = visibilityAt(col, row);
+    const visible = visibility === TileVisibilityState.VISIBLE;
+    const explored = visibility === TileVisibilityState.EXPLORED;
+    const kind = visibility === TileVisibilityState.UNEXPLORED ? 'fog' : terrainKind(terrainAt(col, row));
     tc.addChild(getTerrainSprite(kind, col, row));
-    if (!inFog) {
+    if (visibility !== TileVisibilityState.UNEXPLORED) {
       const neighbors = EDGE_TO_NEIGHBOR.map(([dc, dr]) => {
         const neighborCol = col + dc;
         const neighborRow = row + dr;
         if (neighborCol < 0 || neighborRow < 0 || neighborCol >= worldWidth || neighborRow >= worldHeight) return null;
-        if (hasVisionSources() && getVisDist(neighborCol, neighborRow) > $gameConfig.visionRadius) return 'fog';
+        if (visibilityAt(neighborCol, neighborRow) === TileVisibilityState.UNEXPLORED) return 'fog';
         return terrainKind(terrainAt(neighborCol, neighborRow));
       }) as unknown as TerrainNeighbors;
       const transition = getTerrainTransitionSprite(kind, neighbors, col, row);
       if (transition) tc.addChild(transition);
     }
-    if (!inFog && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
-    if (!inFog && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
+    if (explored) {
+      const memoryFog = new Graphics();
+      memoryFog.poly(DIAMOND_VERTS);
+      memoryFog.fill({ color: 0x101613, alpha: 0.52 });
+      memoryFog.zIndex = 9e5;
+      tc.addChild(memoryFog);
+    }
+    if (visible && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
+    if (visible && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
 
-    const visibleArmies = inFog ? td?.armies?.filter((army) => army.owner?.value === $userId) : td?.armies;
+    const visibleArmies = visible ? td?.armies : undefined;
     if (visibleArmies?.length) {
       const army = visibleArmies.find((candidate) => candidate.armyId?.value === selectedArmyId) ?? [...visibleArmies].sort((a, b) => armySize(b) - armySize(a))[0];
       const marker = createArmyMarker(army, $userId, army.armyId?.value === selectedArmyId);
@@ -978,7 +999,7 @@
     }
 
     // Construction-in-progress overlay
-    if (!inFog && td?.building?.constructionStart && td?.building?.constructionEnd) {
+    if (visible && td?.building?.constructionStart && td?.building?.constructionEnd) {
       const startMs = Number(td.building.constructionStart.seconds) * 1000;
       const endMs = Number(td.building.constructionEnd.seconds) * 1000;
       if (endMs > Date.now()) {
@@ -989,7 +1010,7 @@
       }
     }
 
-    if (!inFog) {
+    if (visible) {
       let hasOverlay = false;
       const g = new Graphics();
 
@@ -1205,7 +1226,7 @@
     zoomAt(mx, my, Math.max(1 / maxStep, Math.min(maxStep, rawFactor)));
   };
 
-  const onContextMenu = (e: MouseEvent) => {
+  const onContextMenu = async (e: MouseEvent) => {
     e.preventDefault();
     const army = selectedArmyId ? $armies.find((candidate) => candidate.armyId?.value === selectedArmyId) : undefined;
     if (!army?.armyId?.value || !army.coords || army.owner?.value !== $userId) return;
@@ -1218,12 +1239,11 @@
     moveHover = tile;
     err = '';
     notice = '';
-    drawMovePreview(tile);
-    if (!moveRoute) {
-      err = 'That destination cannot be reached by a land army.';
+    if (!(await drawMovePreview(tile))) {
+      err = 'The route preview could not be loaded.';
       return;
     }
-    void issueMove(tile);
+    await issueMove(tile);
   };
 
   const logout = () => {
@@ -1510,8 +1530,9 @@
   <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
   <div class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4">
     {#if sel}
-      {@const selectedInFog = hasVisionSources() && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius}
-      {@const selectedTerrain = selectedInFog ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
+      {@const selectedVisibility = visibilityAt(sel.x, sel.y)}
+      {@const selectedUnknown = selectedVisibility === TileVisibilityState.UNEXPLORED}
+      {@const selectedTerrain = selectedUnknown ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
       <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
         <div class="inspector-header flex items-center justify-between gap-4">
           <div class="min-w-0">
@@ -1563,24 +1584,31 @@
         {#if moveArmyId && movingArmy}
           {@const previewTarget = moveTarget ?? moveHover}
           {@const steps = moveRoute?.length ?? 0}
+          {@const unknownSteps = moveRoute?.filter((step) => !step.explored).length ?? 0}
           <div class="flex flex-wrap items-center gap-3 border-b border-blue-300/20 bg-blue-300/[0.07] px-4 py-2.5">
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-semibold {previewTarget && !moveRoute ? 'text-red-200' : 'text-blue-200'}">
+              <div class="text-xs font-semibold {previewTarget && !moveRoute && !moveRouteLoading ? 'text-red-200' : 'text-blue-200'}">
                 {busy
                   ? 'Issuing movement order…'
-                  : moveOrderActive && previewTarget
-                    ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
-                    : previewTarget
-                      ? moveRoute
-                        ? `Route to ${previewTarget.x}, ${previewTarget.y}`
-                        : 'That tile is unreachable'
-                      : 'Move army'}
+                  : moveRouteLoading
+                    ? 'Calculating route…'
+                    : moveOrderActive && previewTarget
+                      ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
+                      : previewTarget
+                        ? moveRoute
+                          ? moveRouteComplete
+                            ? `Route to ${previewTarget.x}, ${previewTarget.y}`
+                            : `Best known approach to ${previewTarget.x}, ${previewTarget.y}`
+                          : 'That tile is unreachable'
+                        : 'Move army'}
               </div>
               <div class="mt-0.5 text-[11px] text-[#9ba9b1]">
                 {previewTarget
-                  ? moveRoute
-                    ? `${steps} ${steps === 1 ? 'tile' : 'tiles'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteCost * 1000)} across this terrain`
-                    : 'Land armies cannot cross water or cut through a blocked corner.'
+                  ? moveRouteLoading
+                    ? 'Checking the known terrain and plotting through the fog.'
+                    : moveRoute
+                      ? `${steps} ${steps === 1 ? 'tile' : 'tiles'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteDurationMs)}${unknownSteps ? ` · ${unknownSteps} through unexplored terrain` : ''}${!moveRouteComplete ? ' · stops at the closest reachable land' : ''}`
+                      : 'Land armies cannot cross water or cut through a blocked corner.'
                   : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
               </div>
             </div>
@@ -2011,7 +2039,7 @@
             {/if}
           {:else if !selectedArmy && !sel.city && !sel.armies?.length}
             <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
-              {selectedInFog ? 'Beyond visibility range' : 'No structures on this tile'}
+              {selectedUnknown ? 'Beyond explored territory' : selectedVisibility === TileVisibilityState.EXPLORED ? 'Terrain remembered; current occupants are hidden' : 'No structures on this tile'}
             </div>
           {/if}
         </div>
