@@ -99,14 +99,11 @@
   let moveConfirmationPending = false;
   let moveConfirmationPreview: Promise<MovePreviewResult> | null = null;
   let movePreviewRequest = 0;
-  let trainingOrders: TrainingOrder[] = [];
-  let trainingOrdersBarracksId: string | null = null;
   let trainingOrdersAvailable = true;
-  let trainingOrdersLoading = false;
-  let lastTrainingPoll = 0;
   let trainingQueues = new Map<string, TrainingOrder[]>();
   let trainingOverviewLoading = false;
   let lastTrainingOverviewPoll = 0;
+  let trainingNoticeTimer: ReturnType<typeof setTimeout> | null = null;
 
   // Resource details stay compact; entity management lives in the right rail.
   let ratesOpen = false;
@@ -197,7 +194,10 @@
   const tick = setInterval(() => {
     now = Date.now();
   }, 1000);
-  onDestroy(() => clearInterval(tick));
+  onDestroy(() => {
+    clearInterval(tick);
+    if (trainingNoticeTimer) clearTimeout(trainingNoticeTimer);
+  });
 
   // ── names ───────────────────────────────────────────────
   const BN: Record<number, string> = {
@@ -256,11 +256,9 @@
   $: ownedOrderCount = ownedArmies.filter((army) => orderForArmy(army)).length;
   $: ownedCityIds = new Set($cities.filter((city) => city.owner?.value === $userId).map((city) => city.cityId?.value));
   $: ownedBarracks = $buildings.filter((building) => building.type === BuildingType.BARRACKS && ownedCityIds.has(building.cityId?.value));
-  $: queuedTrainingCount = [...trainingQueues.values()].reduce((total, queue) => total + queue.length, 0);
+  $: queuedTrainingCount = [...trainingQueues.values()].reduce((total, queue) => total + currentTrainingQueue(queue).length, 0);
   $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
-  $: if (selectedBarracksId && trainingOrdersAvailable && (trainingOrdersBarracksId !== selectedBarracksId || now - lastTrainingPoll >= 3000)) {
-    loadTrainingOrders(selectedBarracksId);
-  }
+  $: selectedTrainingOrders = selectedBarracksId ? currentTrainingQueue(trainingQueues.get(selectedBarracksId) ?? []) : [];
   $: if (ownedBarracks.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
     loadTrainingOverview();
   }
@@ -334,6 +332,8 @@
   };
 
   const timestampMs = (timestamp?: Timestamp): number => (timestamp ? Number(timestamp.seconds) * 1000 + timestamp.nanos / 1e6 : 0);
+
+  const currentTrainingQueue = (orders: TrainingOrder[]): TrainingOrder[] => orders.filter((order) => !order.completesAt || timestampMs(order.completesAt) > now);
 
   // ── reactive store sync ─────────────────────────────────
   // buildLookup is cheap (rebuilds a Map) — run synchronously so tileData is always fresh.
@@ -585,30 +585,6 @@
     }
   };
 
-  const loadTrainingOrders = async (barracksId: string, reportError = false) => {
-    if (trainingOrdersLoading) return;
-    if (trainingOrdersBarracksId !== barracksId) {
-      trainingOrders = [];
-      trainingOrdersBarracksId = barracksId;
-    }
-    trainingOrdersLoading = true;
-    lastTrainingPoll = Date.now();
-    try {
-      const response = await armyClient.listTrainingOrders({ barracksId: { value: barracksId } });
-      trainingQueues = new Map(trainingQueues).set(barracksId, response.orders);
-      if (selectedBarracksId === barracksId) trainingOrders = response.orders;
-    } catch (e: unknown) {
-      if (e instanceof ConnectError && e.code === Code.Unimplemented) {
-        trainingOrdersAvailable = false;
-        trainingOrders = [];
-      } else if (reportError) {
-        err = errorText(e, 'Could not load the training queue');
-      }
-    } finally {
-      trainingOrdersLoading = false;
-    }
-  };
-
   const loadTrainingOverview = async () => {
     if (trainingOverviewLoading) return;
     trainingOverviewLoading = true;
@@ -623,7 +599,10 @@
       const nextQueues = new Map(entries);
       const signature = (queues: Map<string, TrainingOrder[]>) =>
         [...queues]
-          .map(([id, orders]) => `${id}:${orders.map((order) => `${order.trainingOrderId?.value}:${timestampMs(order.startedAt)}:${timestampMs(order.completesAt)}`).join(',')}`)
+          .map(
+            ([id, orders]) =>
+              `${id}:${orders.map((order) => `${order.trainingOrderId?.value}:${order.type}:${order.count}:${timestampMs(order.startedAt)}:${timestampMs(order.completesAt)}`).join(',')}`
+          )
           .sort()
           .join('|');
       const changed = signature(trainingQueues) !== signature(nextQueues);
@@ -650,13 +629,21 @@
       const response = await armyClient.trainTroops({ barracksId: barracks.buildingId, type: recruitType, count });
       if (response.order) {
         const orderId = response.order.trainingOrderId?.value;
-        trainingOrders = [...trainingOrders.filter((order) => order.trainingOrderId?.value !== orderId), response.order];
-        trainingOrdersBarracksId = barracks.buildingId?.value ?? null;
-        if (trainingOrdersBarracksId) trainingQueues = new Map(trainingQueues).set(trainingOrdersBarracksId, trainingOrders);
-      } else if (trainingOrdersAvailable && barracks.buildingId?.value) {
-        void loadTrainingOrders(barracks.buildingId.value, true);
+        const barracksId = barracks.buildingId?.value;
+        if (barracksId) {
+          const queue = currentTrainingQueue(trainingQueues.get(barracksId) ?? []);
+          trainingQueues = new Map(trainingQueues).set(barracksId, [...queue.filter((order) => order.trainingOrderId?.value !== orderId), response.order]);
+        }
+      } else {
+        lastTrainingOverviewPoll = 0;
       }
-      notice = `${count} ${troopName(recruitType, count)} queued. This batch takes ${fmtCountdown(count * stat.trainSeconds * 1000)} once it reaches the front.`;
+      const trainingNotice = `${count} ${troopName(recruitType, count)} added to training · ${fmtCountdown(count * stat.trainSeconds * 1000)}`;
+      notice = trainingNotice;
+      if (trainingNoticeTimer) clearTimeout(trainingNoticeTimer);
+      trainingNoticeTimer = setTimeout(() => {
+        if (notice === trainingNotice) notice = '';
+        trainingNoticeTimer = null;
+      }, 4000);
       scheduleRender();
     } catch (e: unknown) {
       err = errorText(e, 'Training order failed');
@@ -1082,6 +1069,10 @@
       for (const [, entry] of trainingGfx) {
         const { gfx, startMs, endMs } = entry;
         const active = startMs > 0 && endMs > startMs;
+        if (active && nowMs >= endMs) {
+          gfx.parent.visible = false;
+          continue;
+        }
         const pct = active ? Math.max(0, Math.min(1, (nowMs - startMs) / (endMs - startMs))) : 0;
         gfx.clear();
         gfx.rect(-17, 7, 34, 2);
@@ -1169,8 +1160,8 @@
 
   const addTrainingMarker = (building: Building, tile: Container, key: string) => {
     const id = building.buildingId?.value;
-    const queue = id ? trainingQueues.get(id) : undefined;
-    const active = queue?.[0];
+    const queue = id ? currentTrainingQueue(trainingQueues.get(id) ?? []) : [];
+    const active = queue[0];
     if (!active) return;
 
     const marker = new Container();
@@ -1186,24 +1177,35 @@
 
     const plate = new Graphics();
     plate.rect(-17, -7, 34, 14);
-    plate.fill({ color: 0x193034, alpha: 0.98 });
+    plate.fill({ color: 0x1b292b, alpha: 0.98 });
     plate.rect(-17, -7, 34, 14);
-    plate.stroke({ color: 0x78a69e, width: 1, alpha: 1 });
+    plate.stroke({ color: 0x6f8d8b, width: 1, alpha: 1 });
+
+    const glyph = new Graphics();
+    glyph.arc(-9, 1, 5, Math.PI, Math.PI * 2);
+    glyph.moveTo(-14, 1);
+    glyph.lineTo(-4, 1);
+    glyph.moveTo(-13, 1);
+    glyph.lineTo(-13, 4);
+    glyph.moveTo(-5, 1);
+    glyph.lineTo(-5, 4);
+    glyph.stroke({ color: 0xb8cbc5, width: 1.3, alpha: 1 });
 
     const label = new Text({
-      text: `DRILL ${active.count}`,
+      text: active.count.toLocaleString(),
       roundPixels: true,
       style: {
         fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
-        fontSize: 7,
+        fontSize: 8,
         fontWeight: 'bold',
-        fill: '#dceae6'
+        fill: '#e1ebe7'
       }
     });
     label.anchor.set(0.5);
+    label.position.x = 4;
 
     const progress = new Graphics();
-    marker.addChild(plate, label, progress);
+    marker.addChild(plate, glyph, label, progress);
     tile.addChild(marker);
     trainingGfx.set(key, { gfx: progress, startMs: timestampMs(active.startedAt), endMs: timestampMs(active.completesAt) });
   };
@@ -1856,7 +1858,9 @@
                 ? `${ownedArmyTroops.toLocaleString()} troops · ${ownedOrderCount} active`
                 : managementTab === 'cities'
                   ? `${ownedCities.length} settlements under your rule`
-                  : `${queuedTrainingCount} formations in drill`}
+                  : queuedTrainingCount
+                    ? `${queuedTrainingCount} ${queuedTrainingCount === 1 ? 'batch' : 'batches'} in training`
+                    : 'Barracks ready'}
             </div>
           </div>
           <button class="flex h-7 w-7 items-center justify-center text-[#788179] transition-colors hover:text-white" aria-label="Close command panel" on:click={() => (managementOpen = false)}
@@ -1931,24 +1935,37 @@
             {#if trainingOverviewLoading}<span>Refreshing…</span>{/if}
           </div>
           {#each ownedBarracks as barracks}
-            {@const queue = trainingQueues.get(barracks.buildingId?.value ?? '') ?? []}
+            {@const queue = currentTrainingQueue(trainingQueues.get(barracks.buildingId?.value ?? '') ?? [])}
             {@const active = queue[0]}
+            {@const startsAt = timestampMs(active?.startedAt)}
+            {@const completesAt = timestampMs(active?.completesAt)}
+            {@const activeProgress = active && startsAt > 0 && completesAt > startsAt ? Math.max(0, Math.min(100, ((now - startsAt) / (completesAt - startsAt)) * 100)) : 0}
             <button
               class="mb-1.5 w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
               on:click={() => focusBuilding(barracks)}
             >
               <div class="flex items-center justify-between gap-3">
                 <span class="text-xs font-semibold text-[#dce1dc]">Barracks · level {barracks.level}</span>
-                <span class="text-[10px] text-[#879089]">{queue.length} queued</span>
+                <span class="text-[10px] text-[#879089]">{queue.length ? `${queue.length} ${queue.length === 1 ? 'batch' : 'batches'}` : 'Ready'}</span>
               </div>
               <div class="mt-1 text-[10px] text-[#7b847d]">Tile {barracks.coords?.x ?? '—'}, {barracks.coords?.y ?? '—'}</div>
               {#if active}
-                <div class="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2 text-[10px]">
-                  <span class="text-blue-200/80">{active.count} {troopName(active.type, active.count)}</span>
-                  <span class="tabular-nums text-[#9ba49d]">{active.completesAt ? fmtCountdown(timestampMs(active.completesAt) - now) : 'Waiting'}</span>
+                <div class="mt-2 border-t border-white/[0.06] pt-2">
+                  <div class="flex items-center justify-between gap-3 text-[10px]">
+                    <span class="text-blue-200/80">Training {active.count} {troopName(active.type, active.count)}</span>
+                    <span class="tabular-nums text-[#9ba49d]">{completesAt ? fmtCountdown(completesAt - now) : 'Waiting'}</span>
+                  </div>
+                  {#if completesAt > startsAt}
+                    <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.07]">
+                      <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div>
+                    </div>
+                  {/if}
+                  {#if queue.length > 1}
+                    <div class="mt-1.5 text-[9px] tabular-nums text-[#707971]">+{queue.length - 1} {queue.length === 2 ? 'batch' : 'batches'} waiting</div>
+                  {/if}
                 </div>
               {:else}
-                <div class="mt-2 border-t border-white/[0.06] pt-2 text-[10px] text-[#68716a]">Idle · select to recruit</div>
+                <div class="mt-2 border-t border-white/[0.06] pt-2 text-[10px] text-[#68716a]">Ready · select to train troops</div>
               {/if}
             </button>
           {:else}
@@ -2323,7 +2340,7 @@
             {@const trainingCost = batchCount * recruitStat.gold}
             {@const trainingPopulation = batchCount * recruitStat.population}
             {@const trainingBatchSeconds = batchCount * recruitStat.trainSeconds}
-            {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && trainingOrdersBarracksId === selectedBarracksId && trainingOrders.length > 0}
+            {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && selectedTrainingOrders.length > 0}
             {@const canTrain =
               isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && BigInt(trainingCost) <= $gold && trainingPopulation <= availablePopulation}
             <section class="inspector-section">
@@ -2344,7 +2361,7 @@
                 <div class="mt-3 space-y-2">
                   <div class="flex items-center justify-between text-[10px]">
                     <span class="font-medium text-amber-300/80">
-                      {isBuilding ? 'Building' : `Upgrading to Lv ${sel.building.targetLevel}`}
+                      {isBuilding ? 'Constructing' : `Upgrading to Lv ${sel.building.targetLevel}`}
                     </span>
                     <span class="font-medium tabular-nums text-amber-200">{remainMs > 0 ? fmtCountdown(remainMs) : 'Done'}</span>
                   </div>
@@ -2413,8 +2430,32 @@
             </section>
             {#if isBarracks && sel.city?.owner?.value === $userId && !isBuilding}
               <section class="inspector-section">
+                {#if trainingOrdersAvailable && selectedTrainingOrders.length > 0}
+                  {@const activeOrder = selectedTrainingOrders[0]}
+                  {@const activeStartsAt = timestampMs(activeOrder.startedAt)}
+                  {@const activeCompletesAt = timestampMs(activeOrder.completesAt)}
+                  {@const activeProgress =
+                    activeStartsAt > 0 && activeCompletesAt > activeStartsAt ? Math.max(0, Math.min(100, ((now - activeStartsAt) / (activeCompletesAt - activeStartsAt)) * 100)) : 0}
+                  <div class="mb-2 border border-blue-200/15 bg-blue-200/[0.05] px-2.5 py-2">
+                    <div class="flex items-center justify-between gap-3 text-[10px]">
+                      <span class="font-semibold text-blue-100">Training {activeOrder.count} {troopName(activeOrder.type, activeOrder.count)}</span>
+                      <span class="tabular-nums text-blue-200/80">{activeCompletesAt ? fmtCountdown(activeCompletesAt - now) : 'Waiting'}</span>
+                    </div>
+                    {#if activeStartsAt > 0 && activeCompletesAt > activeStartsAt}
+                      <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.08]">
+                        <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div>
+                      </div>
+                    {/if}
+                    {#if selectedTrainingOrders.length > 1}
+                      <div class="mt-1.5 text-[9px] tabular-nums text-[#7f9292]">
+                        +{selectedTrainingOrders.length - 1}
+                        {selectedTrainingOrders.length === 2 ? 'batch' : 'batches'} waiting
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
                 <div class="mb-2 flex items-center justify-between gap-3">
-                  <span class="inspector-label">Raise troops</span>
+                  <span class="inspector-label">Train troops</span>
                   <span class="text-[10px] tabular-nums text-[#818a83]">Batch limit {trainingCapacity}</span>
                 </div>
                 <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
@@ -2433,7 +2474,7 @@
                   {/each}
                 </div>
                 <div class="mt-2 flex items-center justify-between gap-3">
-                  <span class="text-[10px] text-[#95a5a6]">Number to raise</span>
+                  <span class="text-[10px] text-[#95a5a6]">Number to train</span>
                   <div class="flex items-center border border-white/[0.1] bg-black/15">
                     <button
                       class="h-7 w-7 text-sm text-[#aeb6af] hover:bg-white/[0.06] hover:text-white"
@@ -2475,46 +2516,6 @@
                     <span class="text-emerald-200/80">{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
                   </div>
                 </div>
-                {#if trainingOrdersAvailable && trainingOrdersBarracksId === selectedBarracksId}
-                  <div class="mt-2 border-t border-[#465a5f] pt-2">
-                    <div class="mb-2 flex items-center justify-between gap-3">
-                      <span class="inspector-label">Drill yard</span>
-                      {#if trainingOrders.length > 0}
-                        <span class="text-[10px] tabular-nums text-[#818a83]">{trainingOrders.length} {trainingOrders.length === 1 ? 'order' : 'orders'}</span>
-                      {/if}
-                    </div>
-                    {#if trainingOrdersLoading && trainingOrders.length === 0}
-                      <div class="text-[10px] text-[#737c75]">Reading barracks orders…</div>
-                    {:else if trainingOrders.length === 0}
-                      <div class="border border-dashed border-white/[0.09] px-3 py-2 text-[10px] text-[#747d76]">No troops are waiting to train.</div>
-                    {:else}
-                      <div class="space-y-1.5">
-                        {#each trainingOrders.slice(0, 3) as order, index (order.trainingOrderId?.value)}
-                          {@const startsAt = timestampMs(order.startedAt)}
-                          {@const completesAt = timestampMs(order.completesAt)}
-                          {@const active = startsAt > 0 && completesAt > 0}
-                          {@const progress = active ? Math.max(0, Math.min(100, ((now - startsAt) / Math.max(1, completesAt - startsAt)) * 100)) : 0}
-                          <div class="border border-white/[0.08] bg-black/10 px-2.5 py-2">
-                            <div class="flex items-center justify-between gap-3 text-[10px]">
-                              <span class="font-semibold text-[#c2c9c2]">{order.count} {troopName(order.type, order.count)}</span>
-                              <span class={active ? 'tabular-nums text-blue-200' : 'text-[#7c857e]'}>
-                                {active ? fmtCountdown(completesAt - now) : `Waiting · ${index + 1}`}
-                              </span>
-                            </div>
-                            {#if active}
-                              <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.07]">
-                                <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${progress}%`}></div>
-                              </div>
-                            {/if}
-                          </div>
-                        {/each}
-                      </div>
-                      {#if trainingOrders.length > 3}
-                        <div class="mt-2 text-[9px] tabular-nums text-[#707971]">+{trainingOrders.length - 3} more in queue</div>
-                      {/if}
-                    {/if}
-                  </div>
-                {/if}
               </section>
             {/if}
             {#if sel.city?.owner?.value === $userId}
@@ -2522,7 +2523,7 @@
                 {#if isBarracks && !isBuilding}
                   <button class="game-action game-action-primary" disabled={busy || !canTrain} on:click={queueTroops}>
                     {@render managementGlyph('training')}
-                    {busy ? 'Working…' : `Raise ${batchCount} ${troopName(recruitType, batchCount)}`}
+                    {busy ? 'Working…' : `Train ${batchCount} ${troopName(recruitType, batchCount)}`}
                   </button>
                 {/if}
                 <button
@@ -2595,15 +2596,15 @@
                 <button
                   class="game-action game-action-primary w-full"
                   disabled={busy}
-                  on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Build failed')}
-                  >{busy ? 'Working…' : `Raise ${bName(buildType)}`}</button
+                  on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Construction failed')}
+                  >{busy ? 'Working…' : `Construct ${bName(buildType)}`}</button
                 >
               </div>
             {:else}
               <div class="inspector-actions">
                 <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 17h14M5 17V8l5-4 5 4v9M8 17v-5h4v5" /></svg>
-                  Raise a building
+                  Construct a building
                 </button>
               </div>
             {/if}
