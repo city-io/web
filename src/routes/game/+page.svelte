@@ -2738,7 +2738,7 @@
                 {@const maxMilitia = policy?.maxMilitiaPercent ?? 45}
                 {@const maxTax = policy?.maxTaxRatePercent ?? 100}
                 {@const previewTargetMilitia = (cityHousing * militiaDraft) / 100}
-                {@const previewMilitia = Math.min(sel.city.militiaPopulation, previewTargetMilitia)}
+                {@const previewMilitia = militiaDraft === sel.city.militiaPercent ? sel.city.militiaPopulation : Math.min(previewTargetMilitia, Math.max(cityResidents - cityCore, 0))}
                 {@const previewRecruitable = Math.max(0, Math.floor(cityResidents - cityCore - previewTargetMilitia))}
                 {@const previewTaxable = Math.max(0, Math.floor(cityResidents - previewMilitia))}
                 {@const taxGoldPerResident = ratePerHour(policy?.taxGoldPerPopulation)}
