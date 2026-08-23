@@ -86,6 +86,7 @@
   let moveTarget: { x: number; y: number } | null = null;
   let moveHover: { x: number; y: number } | null = null;
   let moveRoute: ArmyPathStep[] | null = null;
+  let moveHiddenSegmentEnd: ArmyPathStep | null = null;
   let moveRouteComplete = true;
   let moveRouteLoading = false;
   let moveRouteError = '';
@@ -414,13 +415,6 @@
 
   // ── visibility (fog of war) ─────────────────────────────
   const visibilityAt = (col: number, row: number): TileVisibilityState => $tileVisibility.get(tileKey(col, row)) ?? TileVisibilityState.UNEXPLORED;
-  const routeStepExplored = (step: ArmyPathStep): boolean => {
-    const visibility = visibilityAt(step.x, step.y);
-    return visibility === TileVisibilityState.EXPLORED || visibility === TileVisibilityState.VISIBLE;
-  };
-  const routeSegmentExplored = (from: ArmyPathStep, to: ArmyPathStep): boolean => Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y)) === 1 && routeStepExplored(to);
-  const routeIncludesUnknown = (origin: ArmyPathStep, route: ArmyPathStep[]): boolean => route.some((step, index) => !routeSegmentExplored(index === 0 ? origin : route[index - 1], step));
-
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
     return screenToTile((-cont.x + cw / 2) / cont.scale.x, (-cont.y + ch / 2) / cont.scale.y);
@@ -731,6 +725,7 @@
     if (!refreshing) {
       clearMovePreview();
       moveRoute = null;
+      moveHiddenSegmentEnd = null;
       moveRouteComplete = true;
       moveRouteDurationMs = 0;
       movePreviewDestination = null;
@@ -738,12 +733,12 @@
 
     const request = ++movePreviewRequest;
     moveRouteLoading = !refreshing;
-    let steps = streamedOrder?.remainingRoute;
+    let routeProjection = streamedOrder?.remainingRoute;
     let estimatedDuration = streamedOrder?.estimatedRemainingDuration;
     if (!streamedOrder) {
       try {
         const preview = await armyClient.previewArmyRoute({ armyId: army.armyId, destination });
-        steps = preview.steps;
+        routeProjection = preview.route;
         estimatedDuration = preview.estimatedDuration;
       } catch (e: unknown) {
         if (request === movePreviewRequest) {
@@ -756,42 +751,45 @@
     if (request !== movePreviewRequest || moveArmyId !== army.armyId.value) return 'superseded';
     moveRouteLoading = false;
     moveRouteError = '';
-    moveRoute = (steps ?? []).flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y }] : []));
-    const routeEnd = moveRoute.at(-1);
+    moveRoute = (routeProjection?.knownSteps ?? []).flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y }] : []));
+    moveHiddenSegmentEnd = routeProjection?.hiddenSegmentEnd ? { x: routeProjection.hiddenSegmentEnd.x, y: routeProjection.hiddenSegmentEnd.y } : null;
+    const routeEnd = moveHiddenSegmentEnd ?? moveRoute.at(-1);
     moveRouteComplete = (army.coords.x === destination.x && army.coords.y === destination.y) || (routeEnd?.x === destination.x && routeEnd?.y === destination.y);
     moveRouteDurationMs = durationSeconds(estimatedDuration) * 1000;
     const points = [army.coords, ...(moveRoute ?? [])].map((step) => tileToScreen(step.x, step.y));
 
     const route = new Graphics();
     if (moveRoute) {
-      for (let index = 1; index < points.length - 1; index++) {
+      for (let index = 1; index < points.length; index++) {
         const point = points[index];
-        const known = routeStepExplored(moveRoute[index - 1]);
+        const step = moveRoute[index - 1];
+        if (step.x === destination.x && step.y === destination.y) continue;
         route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
-        route.fill({ color: known ? 0x6ca7dc : 0x9aa4a0, alpha: known ? 0.11 : 0.07 });
+        route.fill({ color: 0x6ca7dc, alpha: 0.11 });
         route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
-        route.stroke({ color: known ? 0x9cc9ee : 0xc2c9c5, width: 0.75, alpha: known ? 0.32 : 0.2 });
+        route.stroke({ color: 0x9cc9ee, width: 0.75, alpha: 0.32 });
       }
       for (let index = 1; index < points.length; index++) {
         const from = points[index - 1];
         const to = points[index];
-        const fromStep = index === 1 ? army.coords : moveRoute[index - 2];
-        const toStep = moveRoute[index - 1];
-        const explored = routeSegmentExplored(fromStep, toStep);
         route.moveTo(from.sx, from.sy);
         route.lineTo(to.sx, to.sy);
         route.stroke({ color: 0x111611, width: 7, alpha: 0.85 });
-        if (explored) {
-          route.moveTo(from.sx, from.sy);
-          route.lineTo(to.sx, to.sy);
-          route.stroke({ color: 0x7eb5ec, width: 3, alpha: 1 });
-        } else {
-          const distance = Math.hypot(to.sx - from.sx, to.sy - from.sy);
-          for (let offset = 4; offset < distance; offset += 7) {
-            const ratio = offset / distance;
-            route.circle(from.sx + (to.sx - from.sx) * ratio, from.sy + (to.sy - from.sy) * ratio, 1.5);
-            route.fill({ color: 0xb6c0bc, alpha: 0.9 });
-          }
+        route.moveTo(from.sx, from.sy);
+        route.lineTo(to.sx, to.sy);
+        route.stroke({ color: 0x7eb5ec, width: 3, alpha: 1 });
+      }
+      if (moveHiddenSegmentEnd) {
+        const from = points.at(-1) ?? tileToScreen(army.coords.x, army.coords.y);
+        const to = tileToScreen(moveHiddenSegmentEnd.x, moveHiddenSegmentEnd.y);
+        route.moveTo(from.sx, from.sy);
+        route.lineTo(to.sx, to.sy);
+        route.stroke({ color: 0x111611, width: 7, alpha: 0.85 });
+        const distance = Math.hypot(to.sx - from.sx, to.sy - from.sy);
+        for (let offset = 4; offset < distance; offset += 7) {
+          const ratio = offset / distance;
+          route.circle(from.sx + (to.sx - from.sx) * ratio, from.sy + (to.sy - from.sy) * ratio, 1.5);
+          route.fill({ color: 0xb6c0bc, alpha: 0.9 });
         }
       }
       route.circle(points[0].sx, points[0].sy, 5);
@@ -834,6 +832,7 @@
     moveTarget = null;
     moveHover = null;
     moveRoute = null;
+    moveHiddenSegmentEnd = null;
     moveRouteComplete = true;
     moveRouteLoading = false;
     moveRouteDurationMs = 0;
@@ -1875,7 +1874,7 @@
           {#each ownedArmies as army}
             {@const order = orderForArmy(army)}
             {@const destination = orderDestination(order)}
-            {@const endpoint = order?.remainingRoute.at(-1)?.coords}
+            {@const endpoint = order?.remainingRoute?.hiddenSegmentEnd ?? order?.remainingRoute?.knownSteps.at(-1)?.coords}
             {@const partial = destination && endpoint && (destination.x !== endpoint.x || destination.y !== endpoint.y)}
             <button
               class="mb-1.5 w-full border px-3 py-2.5 text-left transition-colors {army.armyId?.value === selectedArmyId
@@ -1894,7 +1893,11 @@
               {#if order}
                 <div class="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2 text-[10px]">
                   <span class={partial ? 'text-orange-300/80' : 'text-blue-200/80'}
-                    >{army.battleId ? 'Battle engaged' : partial ? 'Best known approach' : `${order.remainingRoute.length} tiles remaining`}</span
+                    >{army.battleId
+                      ? 'Battle engaged'
+                      : partial
+                        ? 'Best known approach'
+                        : `${order.remainingRoute?.knownSteps.length ?? 0} known tiles remaining${order.remainingRoute?.hiddenSegmentEnd ? ' · through fog' : ''}`}</span
                   >
                   {#if order.estimatedRemainingDuration}<span class="tabular-nums text-[#9ba49d]">~{fmtCountdown(durationSeconds(order.estimatedRemainingDuration) * 1000)}</span>{/if}
                 </div>
@@ -2032,7 +2035,7 @@
         {#if moveArmyId && movingArmy}
           {@const previewTarget = moveTarget ?? moveHover}
           {@const steps = moveRoute?.length ?? 0}
-          {@const includesUnknown = movingArmy.coords && moveRoute ? routeIncludesUnknown(movingArmy.coords, moveRoute) : false}
+          {@const includesUnknown = !!moveHiddenSegmentEnd}
           <div class="flex flex-wrap items-center gap-2.5 border-b px-3 py-1.5 {moveConfirmationPending ? 'border-red-300/30 bg-red-400/[0.09]' : 'border-blue-300/20 bg-blue-300/[0.07]'}">
             <span class="selection-crest h-7 w-7 {moveConfirmationPending ? 'text-red-200' : 'text-blue-200'}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">

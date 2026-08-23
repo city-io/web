@@ -72,9 +72,8 @@ message PreviewArmyRouteRequest {
   cityio.entity.v1.Coordinates destination = 2;
 }
 message PreviewArmyRouteResponse {
-  repeated cityio.entity.v1.ArmyRouteStep steps = 1;
-  reserved 2;
-  google.protobuf.Duration estimated_duration = 3;
+  cityio.entity.v1.ArmyRoute route = 1;
+  google.protobuf.Duration estimated_duration = 2;
 }
 
 message MergeArmiesRequest {
