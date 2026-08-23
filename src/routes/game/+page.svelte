@@ -563,7 +563,7 @@
       } else if (trainingOrdersAvailable && barracks.buildingId?.value) {
         void loadTrainingOrders(barracks.buildingId.value, true);
       }
-      notice = `${count} ${troopName(recruitType, count)} queued. Training takes ${stat.trainSeconds}s once this order reaches the front.`;
+      notice = `${count} ${troopName(recruitType, count)} queued. This batch takes ${fmtCountdown(count * stat.trainSeconds * 1000)} once it reaches the front.`;
     } catch (e: unknown) {
       err = errorText(e, 'Training order failed');
     } finally {
@@ -1702,6 +1702,7 @@
             {@const batchCount = Number.isFinite(recruitCount) ? Math.floor(recruitCount) : 1}
             {@const trainingCost = batchCount * recruitStat.gold}
             {@const trainingPopulation = batchCount * recruitStat.population}
+            {@const trainingBatchSeconds = batchCount * recruitStat.trainSeconds}
             {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && trainingOrdersBarracksId === selectedBarracksId && trainingOrders.length > 0}
             {@const canTrain =
               isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && BigInt(trainingCost) <= $gold && trainingPopulation <= availablePopulation}
@@ -1845,7 +1846,7 @@
                   </div>
                   <div class="inspector-row">
                     <span>Training</span>
-                    <span>{recruitStat.trainSeconds}s per order</span>
+                    <span>{recruitStat.trainSeconds}s each · {fmtCountdown(trainingBatchSeconds * 1000)} batch</span>
                   </div>
                   <div class="inspector-row">
                     <span>Army upkeep</span>

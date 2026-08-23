@@ -17,10 +17,10 @@ export type TroopStat = {
 export const TROOP_TYPES = [TroopType.SOLDIER, TroopType.ARCHER, TroopType.CAVALRY, TroopType.ARTILLERY] as const;
 
 export const TROOP_STATS: Record<(typeof TROOP_TYPES)[number], TroopStat> = {
-  [TroopType.SOLDIER]: { name: 'Soldiers', singular: 'Soldier', gold: 50, trainSeconds: 20, foodPerHour: 60, population: 1 },
-  [TroopType.ARCHER]: { name: 'Archers', singular: 'Archer', gold: 75, trainSeconds: 30, foodPerHour: 60, population: 1 },
-  [TroopType.CAVALRY]: { name: 'Cavalry', singular: 'Cavalry', gold: 150, trainSeconds: 45, foodPerHour: 180, population: 1 },
-  [TroopType.ARTILLERY]: { name: 'Artillery', singular: 'Artillery', gold: 300, trainSeconds: 60, foodPerHour: 120, population: 3 }
+  [TroopType.SOLDIER]: { name: 'Soldiers', singular: 'Soldier', gold: 50, trainSeconds: 5, foodPerHour: 60, population: 1 },
+  [TroopType.ARCHER]: { name: 'Archers', singular: 'Archer', gold: 75, trainSeconds: 7, foodPerHour: 60, population: 1 },
+  [TroopType.CAVALRY]: { name: 'Cavalry', singular: 'Cavalry', gold: 150, trainSeconds: 10, foodPerHour: 180, population: 1 },
+  [TroopType.ARTILLERY]: { name: 'Artillery', singular: 'Artillery', gold: 300, trainSeconds: 15, foodPerHour: 120, population: 3 }
 };
 
 export function troopName(type: TroopType, count = 2): string {
