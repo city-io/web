@@ -818,6 +818,24 @@
     route.fill({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, alpha: 0.13 });
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
     route.stroke({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, width: 2, alpha: 0.95 });
+    if (moveRouteComplete && !moveHiddenSegmentEnd && points.length > 1) {
+      const from = points.at(-2)!;
+      const dx = target.sx - from.sx;
+      const dy = target.sy - from.sy;
+      const length = Math.hypot(dx, dy) || 1;
+      const nx = dx / length;
+      const ny = dy / length;
+      const px = -ny;
+      const py = nx;
+      const baseX = target.sx - nx * 14;
+      const baseY = target.sy - ny * 14;
+      route.poly([target.sx + nx * 2, target.sy + ny * 2, baseX + px * 8, baseY + py * 8, baseX - px * 8, baseY - py * 8]);
+      route.fill({ color: 0x111611, alpha: 0.96 });
+      const innerBaseX = target.sx - nx * 11;
+      const innerBaseY = target.sy - ny * 11;
+      route.poly([target.sx, target.sy, innerBaseX + px * 5, innerBaseY + py * 5, innerBaseX - px * 5, innerBaseY - py * 5]);
+      route.fill({ color: 0xb9dff5, alpha: 1 });
+    }
     route.zIndex = 9e6;
     clearMovePreview();
     cont.addChild(route);
