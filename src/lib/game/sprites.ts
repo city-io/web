@@ -516,16 +516,35 @@ function drawTerrainEdge(ctx: CanvasRenderingContext2D, edge: number, kind: Terr
   const inwardX = -Math.sign(midpointX);
   const inwardY = -Math.sign(midpointY);
   const isCoast = kind === 'water' || neighbor === 'water';
-  const depth = isCoast ? 5 : 3;
+
+  if (!isCoast) {
+    for (let step = 2; step < 31; step++) {
+      const t = step / 32;
+      const edgeX = W / 2 + x1 + (x2 - x1) * t;
+      const edgeY = GROUND_CENTER_Y + y1 + (y2 - y1) * t;
+      const noise = (step * 7 + variant * 11 + edge * 5) % 17;
+
+      if (noise % 3 !== 0) {
+        ctx.fillStyle = css(mixColor(TERRAIN_BASE[kind], TERRAIN_BASE[neighbor], 0.5), 0.52);
+        ctx.fillRect(Math.round(edgeX), Math.round(edgeY), 1, 1);
+      }
+      if (noise < 7) {
+        const offset = 1 + (noise % 3);
+        ctx.fillStyle = css(mixColor(TERRAIN_BASE[kind], TERRAIN_BASE[neighbor], 0.36), 0.42);
+        ctx.fillRect(Math.round(edgeX + inwardX * offset), Math.round(edgeY + inwardY * Math.ceil(offset / 2)), 1, 1);
+      }
+    }
+    return;
+  }
 
   for (let step = 2; step < 31; step++) {
     const t = step / 32;
     const edgeX = W / 2 + x1 + (x2 - x1) * t;
     const edgeY = GROUND_CENTER_Y + y1 + (y2 - y1) * t;
-    for (let offset = 0; offset < depth; offset++) {
+    for (let offset = 0; offset < 5; offset++) {
       if (offset > 1 && (step + offset + variant + edge) % 3 === 0) continue;
 
-      let color: number;
+      let color = TERRAIN_BASE[kind];
       let alpha = 0.78;
       if (kind === 'water') {
         color = offset === 0 && step % 4 < 2 ? 0xa8d3d2 : mixColor(TERRAIN_BASE.water, 0x6da3bc, 0.55);
@@ -533,9 +552,6 @@ function drawTerrainEdge(ctx: CanvasRenderingContext2D, edge: number, kind: Terr
       } else if (neighbor === 'water') {
         color = offset < 2 ? 0xc9ad68 : mixColor(TERRAIN_BASE[kind], 0xc9ad68, 0.55);
         alpha = offset < 2 ? 0.92 : 0.68;
-      } else {
-        color = mixColor(TERRAIN_BASE[kind], TERRAIN_BASE[neighbor], offset < 2 ? 0.52 : 0.34);
-        alpha = offset < 2 ? 0.82 : 0.58;
       }
 
       ctx.fillStyle = css(color, alpha);
@@ -554,10 +570,16 @@ function transitionTexture(kind: TerrainKind, neighbors: TerrainNeighbors, varia
   canvas.width = W;
   canvas.height = GROUND_HEIGHT;
   const ctx = canvas.getContext('2d')!;
+  let drewEdge = false;
   for (let edge = 0; edge < neighbors.length; edge++) {
     const neighbor = neighbors[edge];
-    if (neighbor && neighbor !== 'fog' && neighbor !== kind) drawTerrainEdge(ctx, edge, kind, neighbor, variant);
+    const isCoast = kind === 'water' || neighbor === 'water';
+    if (neighbor && neighbor !== 'fog' && neighbor !== kind && (isCoast || edge < 2)) {
+      drawTerrainEdge(ctx, edge, kind, neighbor, variant);
+      drewEdge = true;
+    }
   }
+  if (!drewEdge) return null;
   const texture = Texture.from(canvas);
   texture.source.scaleMode = 'nearest';
   transitionCache.set(key, texture);
