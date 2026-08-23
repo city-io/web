@@ -1468,9 +1468,6 @@
 <!-- Keyboard shortcuts; close pinned menus when clicking outside them -->
 <svelte:window
   on:keydown={onKeydown}
-  on:pointerdown={(e) => {
-    if (e.button === 0 && moveConfirmationPending) cancelMoveMode();
-  }}
   on:click={(e) => {
     if (ratesOpen && ratesEl && !ratesEl.contains(e.target as Node)) ratesOpen = false;
   }}
