@@ -1,18 +1,19 @@
 <script lang="ts">
-  import { armies, buildings, cities, mapCenter, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { armies, buildings, cities, mapCenter, terrain, username, gold, food, userId, gameConfig } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import { fly, fade } from 'svelte/transition';
   import { Application, Container, Graphics, Rectangle } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
-  import { initSprites, getTileSprite, type TileKind } from '$lib/game/sprites';
+  import { getStructureSprite, getTerrainSprite, initSprites, type StructureKind, type TerrainKind } from '$lib/game/sprites';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
+  import { TerrainType } from '$lib/gen/cityio/entity/v1/tile_pb';
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
   import type { Duration } from '@bufbuild/protobuf/wkt';
   import { buildingClient, cityClient } from '$lib/api/client';
@@ -79,6 +80,47 @@
   // Minimap viewport rectangle span (tile units), updated by loadVisible.
   let viewTilesW = 0;
   let viewTilesH = 0;
+  let worldWidth = 0;
+  let worldHeight = 0;
+
+  $: worldWidth = $terrain?.width || $gameConfig.mapSize;
+  $: worldHeight = $terrain?.height || $gameConfig.mapSize;
+
+  const terrainAt = (col: number, row: number): TerrainType => {
+    const grid = $terrain;
+    if (!grid || col < 0 || row < 0 || col >= grid.width || row >= grid.height) return TerrainType.GRASSLAND;
+    return grid.tiles[row * grid.width + col] ?? TerrainType.GRASSLAND;
+  };
+
+  const terrainKind = (value: TerrainType): TerrainKind => {
+    switch (value) {
+      case TerrainType.PLAINS:
+        return 'plains';
+      case TerrainType.FOREST:
+        return 'forest';
+      case TerrainType.HILLS:
+        return 'hills';
+      case TerrainType.MOUNTAINS:
+        return 'mountains';
+      case TerrainType.DESERT:
+        return 'desert';
+      case TerrainType.MARSH:
+        return 'marsh';
+      case TerrainType.WATER:
+        return 'water';
+      default:
+        return 'grassland';
+    }
+  };
+
+  const structureKind = (type: BuildingType): StructureKind => {
+    if (type === BuildingType.FARM) return 'farm';
+    if (type === BuildingType.MINE) return 'mine';
+    if (type === BuildingType.BARRACKS) return 'barracks';
+    if (type === BuildingType.CITY_CENTER) return 'city_center';
+    if (type === BuildingType.TOWN_CENTER) return 'town_center';
+    return 'house';
+  };
 
   // ── live clock (1s tick for construction progress) ───────
   let now = Date.now();
@@ -258,7 +300,7 @@
   // Clamp a container position to the iso map's screen-space AABB (pure).
   const clampPos = (x: number, y: number, s: number) => {
     const pad = 200;
-    const b = mapBounds($gameConfig.mapSize);
+    const b = mapBounds(worldWidth, worldHeight);
     const xMin = cw - pad - b.maxX * s,
       xMax = pad - b.minX * s;
     const yMin = ch - pad - b.maxY * s,
@@ -431,7 +473,7 @@
     cw = el.clientWidth;
     ch = el.clientHeight;
     app = new Application();
-    await app.init({ width: cw, height: ch, backgroundColor: 0x1d1811, antialias: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
+    await app.init({ width: cw, height: ch, backgroundColor: 0x050604, antialias: false, roundPixels: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
     el.appendChild(app.canvas);
     cont = new Container();
     cont.sortableChildren = true;
@@ -512,7 +554,7 @@
 
   // ── tile rendering ──────────────────────────────────────
   const renderTile = (col: number, row: number) => {
-    if (col < 0 || row < 0 || col >= $gameConfig.mapSize || row >= $gameConfig.mapSize) return;
+    if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return;
     const k = tileKey(col, row);
     if (loaded.has(k)) return;
 
@@ -530,25 +572,8 @@
     const dist = myCities.length > 0 ? getVisDist(col, row) : 0;
     const inFog = dist > $gameConfig.visionRadius;
 
-    let kind: TileKind;
-    if (inFog) {
-      kind = 'fog';
-    } else if (td?.building) {
-      const bt = td.building.type;
-      if (bt === BuildingType.FARM) kind = 'farm';
-      else if (bt === BuildingType.MINE) kind = 'mine';
-      else if (bt === BuildingType.BARRACKS) kind = 'barracks';
-      else if (bt === BuildingType.CITY_CENTER) kind = 'city_center';
-      else if (bt === BuildingType.TOWN_CENTER) kind = 'town_center';
-      else kind = 'house';
-    } else if (td?.city) {
-      kind = 'city';
-    } else {
-      kind = 'grass';
-    }
-
-    const spr = getTileSprite(kind, col, row);
-    tc.addChild(spr);
+    tc.addChild(getTerrainSprite(inFog ? 'fog' : terrainKind(terrainAt(col, row)), col, row));
+    if (!inFog && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
 
     // Armies are lightweight overlays so the existing terrain/building art is
     // unchanged. A blue marker is owned, red is foreign; a small pennant means
@@ -605,18 +630,18 @@
           // This diamond edge is a boundary — draw it
           const vi = i * 2,
             vn = ((i + 1) % 4) * 2;
-          g.moveTo(DIAMOND_VERTS[vi], DIAMOND_VERTS[vi + 1]);
-          g.lineTo(DIAMOND_VERTS[vn], DIAMOND_VERTS[vn + 1]);
-          g.stroke({ color: oc, width: 3, alpha: 0.8 });
+          const x1 = DIAMOND_VERTS[vi],
+            y1 = DIAMOND_VERTS[vi + 1],
+            x2 = DIAMOND_VERTS[vn],
+            y2 = DIAMOND_VERTS[vn + 1];
+          g.moveTo(x1, y1);
+          g.lineTo(x2, y2);
+          g.stroke({ color: 0x10120e, width: 3, alpha: 0.8 });
+          g.moveTo(x1, y1);
+          g.lineTo(x2, y2);
+          g.stroke({ color: oc, width: 1.25, alpha: 0.9 });
           hasOverlay = true;
         }
-      }
-
-      // Visibility edge glow
-      if (dist >= $gameConfig.visionRadius - 1) {
-        g.poly(DIAMOND_VERTS);
-        g.stroke({ color: 0x40a0b0, width: 1.5, alpha: 0.2 });
-        hasOverlay = true;
       }
 
       if (hasOverlay) tc.addChild(g);
@@ -687,9 +712,7 @@
     const { sx: px, sy: py } = tileToScreen(col, row);
     selGfx.position.set(px, py);
     selGfx.poly(DIAMOND_VERTS);
-    selGfx.fill({ color: 0xffd700, alpha: 0.15 });
-    selGfx.poly(DIAMOND_VERTS);
-    selGfx.stroke({ color: 0xffd700, width: 3, alpha: 0.9 });
+    selGfx.stroke({ color: 0xffdf32, width: 2, alpha: 0.95 });
     selGfx.zIndex = 1e7;
     cont.addChild(selGfx);
   };
@@ -750,7 +773,7 @@
       if (Math.sqrt(dx * dx + dy * dy) < CLICK_DIST) {
         velX = velY = 0;
         const mc = screenToTile((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
-        if (mc.x >= 0 && mc.y >= 0 && mc.x < $gameConfig.mapSize && mc.y < $gameConfig.mapSize) {
+        if (mc.x >= 0 && mc.y >= 0 && mc.x < worldWidth && mc.y < worldHeight) {
           const t = tileData.get(tileKey(mc.x, mc.y));
           sel = { x: mc.x, y: mc.y, ...t };
           err = '';

@@ -5,29 +5,30 @@ package cityio.service.v1;
 import "cityio/entity/v1/bag.proto";
 import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/ids.proto";
+import "cityio/entity/v1/tile.proto";
 
 message GetMapRequest {}
+
+// TerrainGrid stores terrain in row-major order at tiles[y * width + x].
+message TerrainGrid {
+  int32 width = 1;
+  int32 height = 2;
+  repeated cityio.entity.v1.TerrainType tiles = 3;
+}
 
 // GetMapResponse is the visible world snapshot used to bootstrap a client.
 message GetMapResponse {
   repeated cityio.entity.v1.CityId city_ids = 1;
   repeated cityio.entity.v1.BuildingId building_ids = 2;
   cityio.entity.v1.EntityBag entities = 3;
-}
-
-message Tile {
-  int32 x = 1;
-  int32 y = 2;
-  optional cityio.entity.v1.CityId city_id = 3;
-  optional cityio.entity.v1.BuildingId building_id = 4;
-  repeated cityio.entity.v1.ArmyId army_ids = 5;
+  TerrainGrid terrain = 4;
 }
 
 message GetTileRequest {
   cityio.entity.v1.Coordinates coords = 1;
 }
 message GetTileResponse {
-  Tile tile = 1;
+  cityio.entity.v1.Tile tile = 1;
 }
 
 // MapService serves world snapshots read from the persistence layer.

@@ -1,0 +1,26 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/ids.proto";
+
+enum TerrainType {
+  TERRAIN_TYPE_UNSPECIFIED = 0;
+  TERRAIN_TYPE_GRASSLAND = 1;
+  TERRAIN_TYPE_PLAINS = 2;
+  TERRAIN_TYPE_FOREST = 3;
+  TERRAIN_TYPE_HILLS = 4;
+  TERRAIN_TYPE_MOUNTAINS = 5;
+  TERRAIN_TYPE_DESERT = 6;
+  TERRAIN_TYPE_MARSH = 7;
+  TERRAIN_TYPE_WATER = 8;
+}
+
+message Tile {
+  int32 x = 1;
+  int32 y = 2;
+  optional CityId city_id = 3;
+  optional BuildingId building_id = 4;
+  repeated ArmyId army_ids = 5;
+  TerrainType terrain = 6;
+}

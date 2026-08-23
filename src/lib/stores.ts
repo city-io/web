@@ -6,6 +6,7 @@ import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
 import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
 import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
 import type { BuildingConfig } from '$lib/gen/cityio/service/v1/config_pb';
+import type { TerrainGrid } from '$lib/gen/cityio/service/v1/map_pb';
 
 const persisted = (key: string) => {
   const init = typeof window !== 'undefined' ? localStorage.getItem(key) || '' : '';
@@ -42,6 +43,7 @@ export const gameConfig = writable<{
 
 export const capital = writable<City | null>(null);
 export const mapCenter = writable<{ x: number; y: number }>({ x: 0, y: 0 });
+export const terrain = writable<TerrainGrid | null>(null);
 
 export const cities = writable<City[]>([]);
 export const buildings = writable<Building[]>([]);

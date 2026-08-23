@@ -12,6 +12,7 @@
     gameConfig,
     gold,
     mapCenter,
+    terrain,
     userId
   } from '$lib/stores';
   import { ratePerHour } from '$lib/game/rates';
@@ -58,6 +59,7 @@
       citiesStore.set(response.entities?.cities ?? []);
       buildingsStore.set(response.entities?.buildings ?? []);
       armiesStore.set(response.entities?.armies ?? []);
+      terrain.set(response.terrain ?? null);
 
       // Find user's capital
       const allCities = response.entities?.cities ?? [];
