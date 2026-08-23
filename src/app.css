@@ -1,3 +1,170 @@
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
 @import 'tailwindcss/utilities';
+
+@layer base {
+  :root {
+    color-scheme: dark;
+  }
+
+  body {
+    @apply bg-[#0e110f] font-sans text-[#edf0ed] antialiased;
+    margin: 0;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgba(167, 205, 166, 0.25);
+  }
+}
+
+@layer components {
+  .panel {
+    @apply rounded-xl border border-white/[0.09] bg-[#151a17]/95 shadow-[0_18px_50px_rgba(0,0,0,0.24)] backdrop-blur-md;
+  }
+
+  .panel-title {
+    @apply text-xs font-semibold text-[#a7afa9];
+  }
+
+  .btn {
+    @apply rounded-lg border border-white/[0.1] bg-white/[0.06] px-4 py-2 text-sm font-medium text-[#e8ece9] transition-colors duration-150;
+  }
+  .btn:hover {
+    @apply border-white/[0.16] bg-white/[0.1];
+  }
+  .btn:active {
+    @apply bg-white/[0.04];
+  }
+  .btn:disabled {
+    @apply cursor-not-allowed opacity-40;
+  }
+
+  .btn-primary {
+    @apply border-[#dfe9dc] bg-[#dfe9dc] text-[#172019];
+  }
+  .btn-primary:hover {
+    @apply border-white bg-white;
+  }
+  .btn-danger {
+    @apply border-red-400/20 bg-red-400/10 text-red-300;
+  }
+
+  .field {
+    @apply w-full rounded-lg border border-white/[0.12] bg-[#0e1210] px-3.5 py-3 text-[15px] text-white outline-none transition-[border-color,box-shadow] placeholder:text-[#687069];
+  }
+  .field:focus {
+    @apply border-[#a7caa5] ring-2 ring-[#a7caa5]/15;
+  }
+
+  .field-label {
+    @apply mb-2 block text-[13px] font-medium text-[#c5cbc6];
+  }
+
+  .hud-surface {
+    @apply rounded-md border border-white/[0.1] bg-[#101511]/95 shadow-[0_10px_28px_rgba(0,0,0,0.28)] backdrop-blur-md;
+  }
+
+  .game-popover {
+    border: 1px solid #4b4c40;
+    border-radius: 2px;
+    background: rgba(25, 27, 22, 0.98);
+    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
+  }
+
+  .inspector-panel {
+    border: 1px solid #555344;
+    border-radius: 2px;
+    overflow: hidden;
+    background: rgba(35, 36, 30, 0.98);
+    box-shadow:
+      0 18px 48px rgba(0, 0, 0, 0.38),
+      inset 0 1px rgba(255, 245, 207, 0.08);
+  }
+
+  .inspector-header {
+    @apply border-b border-[#555344] bg-[#3b3c32] px-4 py-2.5;
+    box-shadow: inset 0 1px rgba(255, 245, 207, 0.12);
+  }
+
+  .inspector-body {
+    display: flex;
+    align-items: stretch;
+  }
+
+  .inspector-section {
+    min-width: 0;
+    flex: 1 1 0;
+    @apply border-r border-[#4a4b3e] px-4 py-3 last:border-r-0;
+  }
+
+  .inspector-label {
+    @apply text-[12px] font-medium text-[#a7aa99];
+  }
+
+  .inspector-stat-label {
+    @apply text-[11px] text-[#8f9385];
+  }
+
+  .inspector-stat-value {
+    @apply mt-1 text-sm font-semibold tabular-nums text-[#eeeee5];
+  }
+
+  .inspector-row {
+    @apply flex items-baseline justify-between gap-5 py-1 text-[12px] tabular-nums text-[#d0d1c6];
+  }
+
+  .inspector-row > :first-child {
+    @apply shrink-0 text-[#92968a];
+  }
+
+  .inspector-row > :last-child {
+    @apply text-right;
+  }
+
+  .inspector-actions {
+    flex: 0 0 166px;
+    @apply flex flex-col justify-start gap-2 bg-[#1c1e18] p-3;
+  }
+
+  .inspector-actions::before {
+    content: 'Commands';
+    @apply mb-1 text-[12px] font-medium text-[#a7aa99];
+  }
+
+  .game-action {
+    @apply w-full border px-3 py-2 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-30;
+  }
+
+  .game-action-primary {
+    @apply border-[#67775f] bg-[#394937] text-[#f0f2e8] hover:bg-[#465a43];
+  }
+
+  .game-action-danger {
+    @apply border-[#5a3d37] bg-[#2c211e] text-[#d8aaa0] hover:bg-[#3a2925] hover:text-[#efbeb3];
+  }
+
+  .inspector-empty {
+    flex: 1 1 auto;
+  }
+
+  @media (max-width: 639px) {
+    .inspector-body {
+      display: grid;
+      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+    }
+
+    .inspector-section {
+      @apply border-b border-r border-[#4a4b3e];
+    }
+
+    .inspector-actions {
+      grid-column: 1 / -1;
+      @apply flex-row border-t border-[#4a4b3e];
+    }
+  }
+}

@@ -26,7 +26,7 @@ src/
 ├── lib/
 │   ├── api/
 │   │   ├── transport.ts    # Connect RPC transport + JWT auth interceptor
-│   │   └── client.ts       # Service client exports (user, city, building, map, config)
+│   │   └── client.ts       # Service client exports (user, city, building, army, map, config)
 │   ├── game/
 │   │   ├── hex.ts          # Hex grid math (flat-top, odd-q offset), coordinate conversion
 │   │   ├── colors.ts       # Deterministic per-tile color variation, darken utility
@@ -62,13 +62,14 @@ All defined in `proto/cityio/service/v1/` (package `cityio.service.v1`, so proce
 - **UserService** — Register, Login, GetUser, StreamState (gold/food SSE)
 - **CityService** — GetCity, CreateCity, ListCities
 - **BuildingService** — CreateBuilding, UpgradeBuilding, DeleteBuilding
-- **MapService** — GetMap (returns all visible cities + buildings)
+- **ArmyService** — TrainTroops, GetArmy, MoveArmy, MergeArmies, ListArmies
+- **MapService** — GetMap (returns all visible cities, buildings, and armies)
 
 ### State Management
 Svelte writable stores in `src/lib/stores.ts`:
 - Auth stores (`token`, `userId`, `email`, `username`) are persisted to localStorage
 - `gameConfig` — loaded from ConfigService on game layout mount
-- `cities`, `buildings` — loaded from MapService
+- `cities`, `buildings`, `armies` — loaded from MapService and updated by StreamState
 - `gold`, `food` — streamed via UserService.StreamState
 
 ### Environment
@@ -82,11 +83,11 @@ authoritative side, and nothing enforces that the two stay in sync. Regenerate a
 change:
 
 ```sh
-# Copy the whole tree from the sibling backend checkout (entity/v1 + service/v1)
-cp -R ../backend/proto/cityio/ proto/cityio/
+# Mirror the whole tree from the sibling backend checkout (entity/v1 + service/v1)
+rsync -a --delete ../cityio-backend/proto/cityio/ proto/cityio/
 
 # Verify they now match — this must print nothing
-diff -r ../backend/proto proto
+diff -r ../cityio-backend/proto proto
 
 # Regenerate TypeScript into src/lib/gen/
 yarn generate

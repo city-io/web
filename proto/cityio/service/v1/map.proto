@@ -2,12 +2,13 @@ syntax = "proto3";
 
 package cityio.service.v1;
 
-import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/bag.proto";
+import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/ids.proto";
 
 message GetMapRequest {}
 
-// GetMapResponse is the full world snapshot used to bootstrap a client.
+// GetMapResponse is the visible world snapshot used to bootstrap a client.
 message GetMapResponse {
   repeated cityio.entity.v1.CityId city_ids = 1;
   repeated cityio.entity.v1.BuildingId building_ids = 2;
@@ -19,6 +20,7 @@ message Tile {
   int32 y = 2;
   optional cityio.entity.v1.CityId city_id = 3;
   optional cityio.entity.v1.BuildingId building_id = 4;
+  repeated cityio.entity.v1.ArmyId army_ids = 5;
 }
 
 message GetTileRequest {

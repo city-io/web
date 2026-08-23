@@ -3,6 +3,7 @@ syntax = "proto3";
 package cityio.entity.v1;
 
 import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/ids.proto";
 import "google/protobuf/timestamp.proto";
 
 // Building is a structure within a city.

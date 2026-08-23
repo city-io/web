@@ -1,0 +1,22 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/ids.proto";
+
+// TroopStack is a count of one troop type within an army.
+message TroopStack {
+  TroopType type = 1;
+  int32 count = 2;
+}
+
+// Army is a mobile group of troops on the map, owned by a player. destination
+// is set while the army is marching toward a tile and unset when idle.
+message Army {
+  ArmyId army_id = 1;
+  UserId owner = 2;
+  Coordinates coords = 3;
+  repeated TroopStack troops = 4;
+  optional Coordinates destination = 5;
+}

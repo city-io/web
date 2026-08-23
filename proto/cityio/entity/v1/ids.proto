@@ -1,0 +1,19 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+message UserId {
+  string value = 1;
+}
+
+message CityId {
+  string value = 1;
+}
+
+message BuildingId {
+  string value = 1;
+}
+
+message ArmyId {
+  string value = 1;
+}

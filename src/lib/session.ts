@@ -1,6 +1,6 @@
 import { goto } from '$app/navigation';
 
-import { token, userId, email, username, gold, food, foodIncomePerHour, foodUpkeepPerHour, capital, cities, buildings } from '$lib/stores';
+import { token, userId, email, username, gold, food, foodIncomePerHour, foodUpkeepPerHour, capital, cities, buildings, armies } from '$lib/stores';
 
 // clearSession wipes every piece of per-account state — persisted auth stores
 // (which also clears localStorage) and in-memory game state — so no stale
@@ -18,6 +18,7 @@ export const clearSession = () => {
   capital.set(null);
   cities.set([]);
   buildings.set([]);
+  armies.set([]);
 };
 
 // isTokenValid does a cheap client-side sanity check: the token must exist,
