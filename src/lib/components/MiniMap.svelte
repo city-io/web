@@ -1,6 +1,7 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { armies, cities, buildings, mapCenter, terrain, userId, gameConfig } from '$lib/stores';
+  import { armies, cities, buildings, mapCenter, tiles, userId, gameConfig } from '$lib/stores';
+  import { tileKey } from '$lib/game/iso';
   import { TerrainType } from '$lib/gen/cityio/entity/v1/tile_pb';
 
   // A plain square overview (readability over iso fidelity). No new RPC — every
@@ -14,8 +15,8 @@
   let canvas: HTMLCanvasElement;
   let raf = 0;
 
-  $: mapWidth = $terrain?.width || $gameConfig.mapSize || 75;
-  $: mapHeight = $terrain?.height || $gameConfig.mapSize || 75;
+  $: mapWidth = $gameConfig.mapSize || 75;
+  $: mapHeight = $gameConfig.mapSize || 75;
 
   const terrainColor = (type: TerrainType) => {
     switch (type) {
@@ -60,11 +61,11 @@
     ctx.fillStyle = '#1d241f';
     ctx.fillRect(0, 0, SIZE, SIZE);
 
-    if ($terrain) {
-      for (let y = 0; y < $terrain.height; y++) {
-        for (let x = 0; x < $terrain.width; x++) {
+    if ($tiles.size) {
+      for (let y = 0; y < mapHeight; y++) {
+        for (let x = 0; x < mapWidth; x++) {
           if (!isVisible(x, y)) continue;
-          ctx.fillStyle = terrainColor($terrain.tiles[y * $terrain.width + x] ?? TerrainType.GRASSLAND);
+          ctx.fillStyle = terrainColor($tiles.get(tileKey(x, y))?.terrain ?? TerrainType.GRASSLAND);
           ctx.fillRect(Math.floor(x * scaleX), Math.floor(y * scaleY), Math.ceil(scaleX), Math.ceil(scaleY));
         }
       }
@@ -114,7 +115,7 @@
 
   // Redraw when any source changes ($mapCenter is an object, always truthy —
   // the condition exists only to register the reactive dependencies).
-  $: if ($terrain || $cities || $buildings || $armies || $mapCenter || viewCols || viewRows) schedule();
+  $: if ($tiles || $cities || $buildings || $armies || $mapCenter || viewCols || viewRows) schedule();
 
   onMount(() => {
     draw();

@@ -17,3 +17,8 @@ message BuildingId {
 message ArmyId {
   string value = 1;
 }
+
+message TileId {
+  int32 x = 1;
+  int32 y = 2;
+}

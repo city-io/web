@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { armies, buildings, cities, mapCenter, terrain, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { armies, buildings, cities, mapCenter, tiles, username, gold, food, userId, gameConfig } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
@@ -13,7 +13,7 @@
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
-  import { TerrainType } from '$lib/gen/cityio/entity/v1/tile_pb';
+  import { TerrainType, type Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
   import type { Duration } from '@bufbuild/protobuf/wkt';
   import { buildingClient, cityClient } from '$lib/api/client';
@@ -53,13 +53,13 @@
 
   // tiles
   let loaded = new Map<string, Container>();
-  let tileData = new Map<string, { city?: City; building?: Building; armies?: Army[] }>();
+  let tileData = new Map<string, { tile?: Tile; city?: City; building?: Building; armies?: Army[] }>();
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
   let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let selGfx: Graphics | null = null;
 
   // ── UI state ────────────────────────────────────────────
-  let sel: { x: number; y: number; city?: City; building?: Building; armies?: Army[] } | null = null;
+  let sel: { x: number; y: number; tile?: Tile; city?: City; building?: Building; armies?: Army[] } | null = null;
   let myCities: City[] = [];
   let buildType: BuildingType = BuildingType.HOUSE;
   const placeTypes = [BuildingType.HOUSE, BuildingType.FARM, BuildingType.MINE, BuildingType.BARRACKS];
@@ -84,13 +84,12 @@
   let worldWidth = 0;
   let worldHeight = 0;
 
-  $: worldWidth = $terrain?.width || $gameConfig.mapSize;
-  $: worldHeight = $terrain?.height || $gameConfig.mapSize;
+  $: worldWidth = $gameConfig.mapSize;
+  $: worldHeight = $gameConfig.mapSize;
 
   const terrainAt = (col: number, row: number): TerrainType => {
-    const grid = $terrain;
-    if (!grid || col < 0 || row < 0 || col >= grid.width || row >= grid.height) return TerrainType.GRASSLAND;
-    return grid.tiles[row * grid.width + col] ?? TerrainType.GRASSLAND;
+    if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return TerrainType.GRASSLAND;
+    return $tiles.get(tileKey(col, row))?.terrain ?? TerrainType.GRASSLAND;
   };
 
   const terrainKind = (value: TerrainType): TerrainKind => {
@@ -256,7 +255,7 @@
       rebuildTiles();
     });
   };
-  $: if ($cities || $buildings || $armies) {
+  $: if ($tiles || $cities || $buildings || $armies) {
     buildLookup();
     // Immediately hide construction overlays for finished/removed constructions
     for (const [k, entry] of constructionGfx) {
@@ -278,6 +277,7 @@
   // ── tile data ───────────────────────────────────────────
   const buildLookup = () => {
     tileData.clear();
+    for (const [key, tile] of $tiles) tileData.set(key, { tile });
     for (const c of $cities) {
       if (!c.start) continue;
       for (let dx = 0; dx < c.size; dx++)

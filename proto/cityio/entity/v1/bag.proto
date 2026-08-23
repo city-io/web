@@ -5,6 +5,7 @@ package cityio.entity.v1;
 import "cityio/entity/v1/army.proto";
 import "cityio/entity/v1/building.proto";
 import "cityio/entity/v1/city.proto";
+import "cityio/entity/v1/tile.proto";
 import "cityio/entity/v1/user.proto";
 
 // EntityBag groups raw entities returned in snapshots and state updates.
@@ -13,4 +14,5 @@ message EntityBag {
   repeated City cities = 2;
   repeated Building buildings = 3;
   repeated Army armies = 4;
+  repeated Tile tiles = 5;
 }

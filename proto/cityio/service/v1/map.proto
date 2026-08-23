@@ -3,29 +3,19 @@ syntax = "proto3";
 package cityio.service.v1;
 
 import "cityio/entity/v1/bag.proto";
-import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/ids.proto";
 import "cityio/entity/v1/tile.proto";
 
 message GetMapRequest {}
 
-// TerrainGrid stores terrain in row-major order at tiles[y * width + x].
-message TerrainGrid {
-  int32 width = 1;
-  int32 height = 2;
-  repeated cityio.entity.v1.TerrainType tiles = 3;
-}
-
 // GetMapResponse is the visible world snapshot used to bootstrap a client.
 message GetMapResponse {
-  repeated cityio.entity.v1.CityId city_ids = 1;
-  repeated cityio.entity.v1.BuildingId building_ids = 2;
-  cityio.entity.v1.EntityBag entities = 3;
-  TerrainGrid terrain = 4;
+  repeated cityio.entity.v1.TileId tile_ids = 1;
+  cityio.entity.v1.EntityBag entities = 2;
 }
 
 message GetTileRequest {
-  cityio.entity.v1.Coordinates coords = 1;
+  cityio.entity.v1.TileId tile_id = 1;
 }
 message GetTileResponse {
   cityio.entity.v1.Tile tile = 1;

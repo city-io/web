@@ -63,12 +63,13 @@ All defined in `proto/cityio/service/v1/` (package `cityio.service.v1`, so proce
 - **CityService** — GetCity, CreateCity, ListCities
 - **BuildingService** — CreateBuilding, UpgradeBuilding, DeleteBuilding
 - **ArmyService** — TrainTroops, GetArmy, MoveArmy, MergeArmies, ListArmies
-- **MapService** — GetMap (returns all visible cities, buildings, and armies)
+- **MapService** — GetMap (returns tile IDs plus raw tiles and visible occupants in EntityBag)
 
 ### State Management
 Svelte writable stores in `src/lib/stores.ts`:
 - Auth stores (`token`, `userId`, `email`, `username`) are persisted to localStorage
 - `gameConfig` — loaded from ConfigService on game layout mount
+- `tiles` — normalized by coordinate `TileId` from MapService and ready for streamed tile deltas
 - `cities`, `buildings`, `armies` — loaded from MapService and updated by StreamState
 - `gold`, `food` — streamed via UserService.StreamState
 

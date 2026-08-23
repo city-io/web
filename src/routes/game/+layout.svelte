@@ -12,9 +12,11 @@
     gameConfig,
     gold,
     mapCenter,
-    terrain,
+    tiles as tilesStore,
     userId
   } from '$lib/stores';
+  import { tileKey } from '$lib/game/iso';
+  import type { Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
   import { ratePerHour } from '$lib/game/rates';
   import { isTokenValid, handleUnauthenticated } from '$lib/session';
   import { Code, ConnectError } from '@connectrpc/connect';
@@ -59,7 +61,19 @@
       citiesStore.set(response.entities?.cities ?? []);
       buildingsStore.set(response.entities?.buildings ?? []);
       armiesStore.set(response.entities?.armies ?? []);
-      terrain.set(response.terrain ?? null);
+
+      const rawTiles = new Map<string, Tile>();
+      for (const tile of response.entities?.tiles ?? []) {
+        if (!tile.tileId) continue;
+        rawTiles.set(tileKey(tile.tileId.x, tile.tileId.y), tile);
+      }
+      const rootedTiles = new Map<string, Tile>();
+      for (const id of response.tileIds) {
+        const key = tileKey(id.x, id.y);
+        const tile = rawTiles.get(key);
+        if (tile) rootedTiles.set(key, tile);
+      }
+      tilesStore.set(rootedTiles);
 
       // Find user's capital
       const allCities = response.entities?.cities ?? [];
@@ -136,6 +150,17 @@
                   const idx = updated.findIndex((x) => x.armyId?.value === id);
                   if (idx >= 0) updated[idx] = army;
                   else updated.push(army);
+                }
+                return updated;
+              });
+            }
+
+            if (bag.tiles.length) {
+              tilesStore.update((prev) => {
+                const updated = new Map(prev);
+                for (const tile of bag.tiles) {
+                  if (!tile.tileId) continue;
+                  updated.set(tileKey(tile.tileId.x, tile.tileId.y), tile);
                 }
                 return updated;
               });

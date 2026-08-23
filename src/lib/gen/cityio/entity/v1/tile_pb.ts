@@ -4,7 +4,7 @@
 
 import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { ArmyId, BuildingId, CityId } from "./ids_pb";
+import type { ArmyId, BuildingId, CityId, TileId } from "./ids_pb";
 import { file_cityio_entity_v1_ids } from "./ids_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -12,39 +12,36 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/tile.proto.
  */
 export const file_cityio_entity_v1_tile: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL3RpbGUucHJvdG8SEGNpdHlpby5lbnRpdHkudjEi/AEKBFRpbGUSCQoBeBgBIAEoBRIJCgF5GAIgASgFEi4KB2NpdHlfaWQYAyABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZEgAiAEBEjYKC2J1aWxkaW5nX2lkGAQgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkSAGIAQESKgoIYXJteV9pZHMYBSADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIuCgd0ZXJyYWluGAYgASgOMh0uY2l0eWlvLmVudGl0eS52MS5UZXJyYWluVHlwZUIKCghfY2l0eV9pZEIOCgxfYnVpbGRpbmdfaWQq9gEKC1RlcnJhaW5UeXBlEhwKGFRFUlJBSU5fVFlQRV9VTlNQRUNJRklFRBAAEhoKFlRFUlJBSU5fVFlQRV9HUkFTU0xBTkQQARIXChNURVJSQUlOX1RZUEVfUExBSU5TEAISFwoTVEVSUkFJTl9UWVBFX0ZPUkVTVBADEhYKElRFUlJBSU5fVFlQRV9ISUxMUxAEEhoKFlRFUlJBSU5fVFlQRV9NT1VOVEFJTlMQBRIXChNURVJSQUlOX1RZUEVfREVTRVJUEAYSFgoSVEVSUkFJTl9UWVBFX01BUlNIEAcSFgoSVEVSUkFJTl9UWVBFX1dBVEVSEAhiBnByb3RvMw", [file_cityio_entity_v1_ids]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL3RpbGUucHJvdG8SEGNpdHlpby5lbnRpdHkudjEikQIKBFRpbGUSKQoHdGlsZV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuVGlsZUlkEi4KB2NpdHlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZEgAiAEBEjYKC2J1aWxkaW5nX2lkGAMgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkSAGIAQESKgoIYXJteV9pZHMYBCADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIuCgd0ZXJyYWluGAUgASgOMh0uY2l0eWlvLmVudGl0eS52MS5UZXJyYWluVHlwZUIKCghfY2l0eV9pZEIOCgxfYnVpbGRpbmdfaWQq9gEKC1RlcnJhaW5UeXBlEhwKGFRFUlJBSU5fVFlQRV9VTlNQRUNJRklFRBAAEhoKFlRFUlJBSU5fVFlQRV9HUkFTU0xBTkQQARIXChNURVJSQUlOX1RZUEVfUExBSU5TEAISFwoTVEVSUkFJTl9UWVBFX0ZPUkVTVBADEhYKElRFUlJBSU5fVFlQRV9ISUxMUxAEEhoKFlRFUlJBSU5fVFlQRV9NT1VOVEFJTlMQBRIXChNURVJSQUlOX1RZUEVfREVTRVJUEAYSFgoSVEVSUkFJTl9UWVBFX01BUlNIEAcSFgoSVEVSUkFJTl9UWVBFX1dBVEVSEAhiBnByb3RvMw", [file_cityio_entity_v1_ids]);
 
 /**
+ * Tile combines immutable terrain with the tile's current occupancy.
+ *
  * @generated from message cityio.entity.v1.Tile
  */
 export type Tile = Message<"cityio.entity.v1.Tile"> & {
   /**
-   * @generated from field: int32 x = 1;
+   * @generated from field: cityio.entity.v1.TileId tile_id = 1;
    */
-  x: number;
+  tileId?: TileId | undefined;
 
   /**
-   * @generated from field: int32 y = 2;
-   */
-  y: number;
-
-  /**
-   * @generated from field: optional cityio.entity.v1.CityId city_id = 3;
+   * @generated from field: optional cityio.entity.v1.CityId city_id = 2;
    */
   cityId?: CityId | undefined;
 
   /**
-   * @generated from field: optional cityio.entity.v1.BuildingId building_id = 4;
+   * @generated from field: optional cityio.entity.v1.BuildingId building_id = 3;
    */
   buildingId?: BuildingId | undefined;
 
   /**
-   * @generated from field: repeated cityio.entity.v1.ArmyId army_ids = 5;
+   * @generated from field: repeated cityio.entity.v1.ArmyId army_ids = 4;
    */
   armyIds: ArmyId[];
 
   /**
-   * @generated from field: cityio.entity.v1.TerrainType terrain = 6;
+   * @generated from field: cityio.entity.v1.TerrainType terrain = 5;
    */
   terrain: TerrainType;
 };
@@ -57,6 +54,8 @@ export const TileSchema: GenMessage<Tile> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_tile, 0);
 
 /**
+ * TerrainType identifies the natural terrain of a map tile.
+ *
  * @generated from enum cityio.entity.v1.TerrainType
  */
 export enum TerrainType {
