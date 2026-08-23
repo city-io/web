@@ -216,12 +216,32 @@
     background: linear-gradient(180deg, #465b59 0%, #344846 100%);
   }
 
+  .city-dialog-tabs {
+    @apply flex border-b border-[#5f6048] bg-[#202d2d] px-3 pt-2;
+  }
+
+  .city-dialog-tabs button {
+    @apply min-w-28 border border-b-0 border-transparent px-4 py-2 text-[10px] font-semibold uppercase tracking-[0.08em] text-[#899694] transition-colors;
+  }
+
+  .city-dialog-tabs button:hover {
+    @apply text-[#e1ddc4];
+  }
+
+  .city-dialog-tabs .city-dialog-tab-active {
+    @apply border-[#777354] bg-[#344240] text-[#f0e5b2];
+  }
+
   .city-dialog .inspector-body {
     max-height: min(650px, calc(100vh - 9.5rem));
   }
 
   .city-dialog .inspector-section {
     padding: 1rem;
+  }
+
+  .city-dialog .inspector-actions {
+    flex-basis: 168px;
   }
 
   .city-dialog .inspector-label {

@@ -75,6 +75,8 @@
   let err = '';
   let notice = '';
   let showBuild = false;
+  let showCityManagement = false;
+  let cityManagementView: 'city' | 'building' = 'city';
   let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
   let recruitCount = 1;
   let selectedArmyId: string | null = null;
@@ -122,6 +124,12 @@
     }
     managementTab = tab;
     managementOpen = true;
+  };
+
+  const openCityManagement = () => {
+    const selectedType = sel?.building?.type;
+    cityManagementView = selectedType && selectedType !== BuildingType.CITY_CENTER && selectedType !== BuildingType.TOWN_CENTER ? 'building' : 'city';
+    showCityManagement = true;
   };
 
   // Keyboard navigation
@@ -490,6 +498,7 @@
     err = '';
     notice = '';
     showBuild = false;
+    showCityManagement = false;
     drawSel(col, row);
   };
 
@@ -504,6 +513,7 @@
     err = '';
     notice = '';
     showBuild = false;
+    showCityManagement = false;
     drawSel(x, y);
   };
 
@@ -927,6 +937,7 @@
     err = '';
     notice = '';
     showBuild = false;
+    showCityManagement = false;
     if (center) centerCam(x, y);
     drawSel(x, y);
     const order = orderForArmy(army);
@@ -1408,6 +1419,7 @@
         err = '';
         notice = '';
         showBuild = false;
+        showCityManagement = false;
         drawSel(col, row);
       });
       tc.addChild(marker);
@@ -1534,6 +1546,7 @@
     cancelMoveMode();
     trackedArmyId = null;
     selectedArmyId = null;
+    showCityManagement = false;
     sel = null;
     if (selGfx) {
       cont.removeChild(selGfx);
@@ -1603,6 +1616,7 @@
             err = '';
             notice = '';
             showBuild = false;
+            showCityManagement = false;
             recruitCount = 1;
             drawSel(mc.x, mc.y);
           }
@@ -1758,6 +1772,7 @@
       case 'Escape':
         if (moveArmyId) cancelMoveMode();
         else if (showHelp) showHelp = false;
+        else if (showCityManagement) showCityManagement = false;
         else deselect();
         break;
       default:
@@ -2102,9 +2117,9 @@
     </aside>
   {/if}
 
-  <!-- City management opens as a focused strategy-game dialog; other selections use the compact control deck. -->
+  <!-- Tile selection stays compact; city management expands explicitly into a focused dialog. -->
   <div
-    class={sel?.city && !selectedArmy
+    class={showCityManagement && sel?.city && !selectedArmy
       ? 'pointer-events-auto absolute inset-0 z-10 flex items-center justify-center bg-black/40 p-3 sm:p-8'
       : `pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1120px] -translate-x-1/2 sm:bottom-4 ${
           managementOpen ? 'lg:left-4 lg:right-[22rem] lg:w-auto lg:max-w-none lg:translate-x-0' : ''
@@ -2115,10 +2130,10 @@
       {@const selectedUnknown = selectedVisibility === TileVisibilityState.UNEXPLORED}
       {@const selectedTerrain = selectedUnknown ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
       <div
-        class="inspector-panel pointer-events-auto {sel.city && !selectedArmy ? 'city-dialog' : ''}"
-        role={sel.city && !selectedArmy ? 'dialog' : undefined}
-        aria-modal={sel.city && !selectedArmy ? 'true' : undefined}
-        aria-label={sel.city && !selectedArmy ? `${sel.city.name} management` : undefined}
+        class="inspector-panel pointer-events-auto {showCityManagement && sel.city && !selectedArmy ? 'city-dialog' : ''}"
+        role={showCityManagement && sel.city && !selectedArmy ? 'dialog' : undefined}
+        aria-modal={showCityManagement && sel.city && !selectedArmy ? 'true' : undefined}
+        aria-label={showCityManagement && sel.city && !selectedArmy ? `${sel.city.name} management` : undefined}
         transition:fly={{ y: 16, duration: 180 }}
       >
         <div class="inspector-header flex items-center justify-between gap-3">
@@ -2159,7 +2174,7 @@
                 </div>
               {:else}
                 <div class="mt-0.5 flex min-w-0 items-center gap-x-1 truncate text-[10px] text-[#aaa997]">
-                  {#if sel.city}{sel.city.owner?.value === $userId ? 'City management' : cName(sel.city.type)} ·
+                  {#if sel.city}{showCityManagement && sel.city.owner?.value === $userId ? 'City management' : cName(sel.city.type)} ·
                   {/if}<span class="font-medium text-[#d8e4e2]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
                   <span class="hidden text-[#828275] md:inline">· {selectedTerrain.note}</span>
                 </div>
@@ -2169,13 +2184,22 @@
           <button
             aria-label="Close"
             class="flex h-7 w-7 shrink-0 items-center justify-center border border-white/[0.12] text-[#c6c8bb] transition-colors duration-150 hover:border-white/30 hover:text-white"
-            on:click={deselect}
+            on:click={() => (showCityManagement ? (showCityManagement = false) : deselect())}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
               <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
             </svg>
           </button>
         </div>
+
+        {#if showCityManagement && sel.city && !selectedArmy}
+          <div class="city-dialog-tabs" aria-label="City management sections">
+            <button class:city-dialog-tab-active={cityManagementView === 'city'} on:click={() => (cityManagementView = 'city')}>City</button>
+            {#if sel.building}
+              <button class:city-dialog-tab-active={cityManagementView === 'building'} on:click={() => (cityManagementView = 'building')}>{bName(sel.building.type)}</button>
+            {/if}
+          </div>
+        {/if}
 
         {#if err}
           <div class="border-b border-red-400/30 bg-red-500/[0.08] px-4 py-2 text-xs text-red-300">{err}</div>
@@ -2251,7 +2275,76 @@
         {/if}
 
         <div class="inspector-body">
-          {#if selectedArmy}
+          {#if sel.city && !selectedArmy && !showCityManagement}
+            {@const quickResidents = residents(sel.city)}
+            {@const quickHousing = housingCapacity(sel.city)}
+            {@const quickGarrison = garrisonPopulation(sel.city)}
+            {@const quickRecruitable = trainablePopulation(sel.city)}
+            <section class="inspector-section">
+              <div class="mb-2 flex items-center justify-between gap-3">
+                <span class="inspector-label">Settlement overview</span>
+                {#if sel.city.owner?.value === $userId}
+                  <span class="flex items-center gap-1.5 text-[10px] font-medium text-blue-300"><span class="h-1.5 w-1.5 bg-blue-400"></span>Yours</span>
+                {:else if sel.city.owner}
+                  <span class="flex items-center gap-1.5 text-[10px] font-medium text-red-300"><span class="h-1.5 w-1.5 bg-red-400"></span>Foreign</span>
+                {:else}
+                  <span class="flex items-center gap-1.5 text-[10px] font-medium text-[#8c958e]"><span class="h-1.5 w-1.5 bg-[#788179]"></span>Neutral</span>
+                {/if}
+              </div>
+              <div class="grid grid-cols-4 gap-4">
+                <div>
+                  <div class="inspector-stat-label">Residents</div>
+                  <div class="inspector-stat-value">{quickResidents.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Housing</div>
+                  <div class="inspector-stat-value">{quickHousing.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Garrison</div>
+                  <div class="inspector-stat-value text-blue-200">{quickGarrison.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">{sel.city.owner?.value === $userId ? 'Recruitable' : 'Growth'}</div>
+                  {#if sel.city.owner?.value === $userId}
+                    <div class="inspector-stat-value text-emerald-200">{quickRecruitable.toLocaleString()}</div>
+                  {:else}
+                    <div class="mt-1 text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</div>
+                  {/if}
+                </div>
+              </div>
+              {#if sel.city.starving}
+                <div class="mt-2 text-[10px] font-medium text-red-300">Starving · population is declining</div>
+              {:else}
+                <div class="mt-2 text-[10px] text-[#829294]">Growth {@render popChip(ratePerHour(sel.city.populationGrowth))}</div>
+              {/if}
+            </section>
+            {#if sel.building}
+              {@const quickBuildingActive = !!(sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
+              <section class="inspector-section">
+                <div class="flex items-center gap-2.5">
+                  {@render structureGlyph(sel.building.type, sel.building.level)}
+                  <div class="min-w-0">
+                    <strong class="block truncate text-[12px] font-bold text-[#e9f0ee]">{bName(sel.building.type)}</strong>
+                    <span class="mt-0.5 block text-[9px] text-[#829496]">
+                      {quickBuildingActive ? `Building toward level ${sel.building.targetLevel}` : `Level ${sel.building.level} city building`}
+                    </span>
+                  </div>
+                </div>
+              </section>
+            {/if}
+            <div class="inspector-actions">
+              <button class="game-action game-action-primary" on:click={openCityManagement}>
+                {@render managementGlyph('cities')}
+                {sel.building && sel.building.type !== BuildingType.CITY_CENTER && sel.building.type !== BuildingType.TOWN_CENTER
+                  ? `Manage ${bName(sel.building.type)}`
+                  : sel.city.owner?.value === $userId
+                    ? 'City management'
+                    : 'View city details'}
+              </button>
+              <div class="merge-note">Policies, buildings, training, and detailed economy</div>
+            </div>
+          {:else if selectedArmy}
             {@const selectedArmyOwned = selectedArmy.owner?.value === $userId}
             {@const selectedArmySize = armySize(selectedArmy)}
             {@const selectedArmyPersonnel = armyPersonnel(selectedArmy)}
@@ -2390,7 +2483,7 @@
             {/if}
           {/if}
 
-          {#if !selectedArmy && sel.city}
+          {#if !selectedArmy && sel.city && showCityManagement && cityManagementView === 'city'}
             {@const cityResidents = residents(sel.city)}
             {@const cityHousing = housingCapacity(sel.city)}
             {@const cityGarrison = garrisonPopulation(sel.city)}
@@ -2549,7 +2642,7 @@
             </section>
           {/if}
 
-          {#if !selectedArmy && sel.armies?.length}
+          {#if !selectedArmy && sel.armies?.length && (!sel.city || (showCityManagement && cityManagementView === 'city'))}
             {@const stackCompositionExact = sel.armies.every((army) => army.compositionVisibility === ArmyCompositionVisibility.EXACT)}
             {@const friendlyArmies = sel.armies.filter((army) => army.owner?.value === $userId)}
             <section class="inspector-section">
@@ -2601,7 +2694,7 @@
           {/if}
 
           <!-- Building information -->
-          {#if !selectedArmy && sel.building}
+          {#if !selectedArmy && sel.building && (!sel.city || (showCityManagement && cityManagementView === 'building'))}
             {@const isBuilding = sel.building.level === 0}
             {@const stats = isBuilding ? null : getLevelStats(sel.building.type, sel.building.level)}
             {@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
@@ -2756,29 +2849,14 @@
                     </button>
                   {/each}
                 </div>
-                <div class="mt-2 flex items-center justify-between gap-3">
-                  <span class="text-[10px] text-[#95a5a6]">Number to train</span>
-                  <div class="flex items-center border border-white/[0.1] bg-black/15">
-                    <button
-                      class="h-7 w-7 text-sm text-[#aeb6af] hover:bg-white/[0.06] hover:text-white"
-                      on:click={() => (recruitCount = Math.max(1, (recruitCount || 1) - 1))}
-                      aria-label="Decrease troop count">−</button
-                    >
-                    <input
-                      class="h-7 w-11 border-x border-white/[0.08] bg-transparent text-center text-xs font-semibold tabular-nums text-white outline-none"
-                      type="number"
-                      min="1"
-                      max={trainingCapacity}
-                      bind:value={recruitCount}
-                      on:change={() => (recruitCount = Math.max(1, Math.min(trainingCapacity, Math.floor(recruitCount || 1))))}
-                    />
-                    <button
-                      class="h-7 w-7 text-sm text-[#aeb6af] hover:bg-white/[0.06] hover:text-white"
-                      on:click={() => (recruitCount = Math.min(trainingCapacity, (recruitCount || 1) + 1))}
-                      aria-label="Increase troop count">+</button
-                    >
-                  </div>
-                </div>
+                <label class="mt-3 block border border-white/[0.08] bg-black/10 px-3 py-2.5">
+                  <span class="flex items-center justify-between gap-3 text-[10px]">
+                    <span class="font-semibold text-[#bdc8c7]">Number to train</span>
+                    <strong class="text-sm tabular-nums text-blue-200">{batchCount} / {trainingCapacity}</strong>
+                  </span>
+                  <input class="mt-2 block w-full accent-[#78a9b5]" type="range" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
+                  <span class="mt-1 flex justify-between text-[8px] tabular-nums text-[#687679]"><span>1</span><span>Batch capacity {trainingCapacity}</span></span>
+                </label>
                 <div class="mt-2 border border-blue-200/10 bg-blue-200/[0.035] px-2 py-1.5 text-[9px] leading-relaxed text-[#849698]">
                   Recruits leave the city population as soon as the order is queued. Population growth can replenish the available pool.
                 </div>
@@ -2830,19 +2908,21 @@
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M10 17V4M5 9l5-5 5 5M4 17h12" /></svg>
                   {busy ? 'Working…' : 'Upgrade'}
                 </button>
-                <button
-                  class="game-action game-action-danger"
-                  disabled={busy || upgrading}
-                  on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}
-                >
-                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"
-                    ><path d="M5 6h10M8 3h4l1 3H7l1-3ZM7 8v7M10 8v7M13 8v7M6 17h8l1-11H5l1 11Z" /></svg
+                {#if sel.building?.type !== BuildingType.CITY_CENTER && sel.building?.type !== BuildingType.TOWN_CENTER}
+                  <button
+                    class="game-action game-action-danger"
+                    disabled={busy || upgrading}
+                    on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}
                   >
-                  {busy ? 'Working…' : 'Demolish'}
-                </button>
+                    <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"
+                      ><path d="M5 6h10M8 3h4l1 3H7l1-3ZM7 8v7M10 8v7M13 8v7M6 17h8l1-11H5l1 11Z" /></svg
+                    >
+                    {busy ? 'Working…' : 'Demolish'}
+                  </button>
+                {/if}
               </div>
             {/if}
-          {:else if !selectedArmy && sel.city?.owner?.value === $userId}
+          {:else if !selectedArmy && !sel.building && sel.city?.owner?.value === $userId && showCityManagement && cityManagementView === 'city'}
             {#if showBuild}
               {@const buildStats = getLevelStats(buildType, 1)}
               <section class="inspector-section">
