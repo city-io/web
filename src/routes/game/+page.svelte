@@ -1251,7 +1251,7 @@
     wrapper.position.set(px, py + HH + 3);
 
     const population = new Text({
-      text: Math.max(0, Math.round(city.population)).toLocaleString(),
+      text: residents(city).toLocaleString(),
       roundPixels: true,
       resolution: 4,
       style: {
@@ -1990,10 +1990,10 @@
       <path d="M12 8.5v7M9.5 10.5h3.8a1.7 1.7 0 0 1 0 3.4H9.5" />
     </svg>
   {:else}
-    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter">
-      <path d="M4 12c0-4.6 3.6-8 8-8s8 3.4 8 8v8H4v-8Z" fill="currentColor" opacity=".14" />
-      <path d="M4 12c0-4.6 3.6-8 8-8s8 3.4 8 8v8H4v-8ZM4 15h16" />
-      <path d="m7.5 8.5 2.5 3M11 6.5l2.5 3M15 7.5l2.5 3" />
+    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M3.5 15.2C4.4 10.7 9.7 5 14.1 3.8c3.2-.9 6.7 2.1 6.2 5.3-.7 4.5-6.7 10.1-11.2 11.1-3.1.7-6.2-1.9-5.6-5Z" fill="currentColor" opacity=".14" />
+      <path d="M3.5 15.2C4.4 10.7 9.7 5 14.1 3.8c3.2-.9 6.7 2.1 6.2 5.3-.7 4.5-6.7 10.1-11.2 11.1-3.1.7-6.2-1.9-5.6-5Z" />
+      <path d="M8.1 9.3c.8 1.1 1.9 1.8 3.2 2.1M11.2 6.5c.9 1.2 2 1.9 3.3 2.2M14.8 4.1c.7 1.2 1.8 2 3.1 2.4" />
     </svg>
   {/if}
 {/snippet}
