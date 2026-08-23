@@ -67,11 +67,60 @@
     @apply mb-2 block text-[13px] font-medium text-[#c5cbc6];
   }
 
-  .hud-bar {
-    @apply rounded-xl border border-white/[0.08] bg-[#101512]/90 shadow-[0_12px_36px_rgba(0,0,0,0.2)] backdrop-blur-md;
+  .hud-surface {
+    @apply rounded-md border border-white/[0.1] bg-[#101511]/95 shadow-[0_10px_28px_rgba(0,0,0,0.28)] backdrop-blur-md;
   }
 
-  .hud-control {
-    @apply rounded-lg border border-transparent px-2.5 py-1.5 text-xs text-[#aeb6b0] transition-colors hover:border-white/[0.08] hover:bg-white/[0.06] hover:text-white;
+  .inspector-panel {
+    @apply rounded-md border border-[#303830] bg-[#111612]/[0.98] shadow-[0_18px_48px_rgba(0,0,0,0.35)];
+  }
+
+  .inspector-header {
+    @apply border-b border-white/[0.08] bg-[#0c110d] px-4 py-3.5;
+    box-shadow: inset 0 2px 0 rgba(159, 195, 157, 0.35);
+  }
+
+  .inspector-section {
+    @apply border-b border-white/[0.08] px-4 py-4;
+  }
+
+  .inspector-label {
+    @apply text-[9px] font-semibold uppercase tracking-[0.16em] text-[#737d75];
+  }
+
+  .inspector-stat-label {
+    @apply text-[9px] font-medium uppercase tracking-[0.1em] text-[#69736b];
+  }
+
+  .inspector-stat-value {
+    @apply mt-1 text-[12px] font-semibold tabular-nums text-[#dbe0dc];
+  }
+
+  .inspector-row {
+    @apply flex items-baseline justify-between gap-4 py-1 text-[10px] tabular-nums text-[#b7beb8];
+  }
+
+  .inspector-row > :first-child {
+    @apply shrink-0 text-[#79837b];
+  }
+
+  .inspector-row > :last-child {
+    @apply text-right;
+  }
+
+  .inspector-actions {
+    @apply border-t border-white/[0.08] bg-[#0b100c] p-3;
+  }
+
+  .game-action {
+    @apply border px-3 py-2.5 text-[11px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-30;
+  }
+
+  .game-action-primary {
+    @apply border-[#a7caa5]/30 bg-[#a7caa5]/15 text-[#dcebd9] hover:bg-[#a7caa5]/25;
+  }
+
+  .game-action-danger {
+    @apply border-red-400/15 bg-transparent text-red-300/80 hover:bg-red-400/10 hover:text-red-300;
   }
 }
