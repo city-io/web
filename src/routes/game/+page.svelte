@@ -137,6 +137,17 @@
     activeGameTooltip = null;
   };
 
+  const setMilitiaDraftFromTarget = (event: Event, capacity: number, minPercent: number, maxPercent: number) => {
+    const input = event.currentTarget as HTMLInputElement;
+    const target = input.valueAsNumber;
+    if (!Number.isFinite(target) || capacity <= 0) {
+      input.value = Math.floor((capacity * militiaDraft) / 100).toString();
+      return;
+    }
+    militiaDraft = Math.max(minPercent, Math.min(maxPercent, Math.round((target / capacity) * 100)));
+    policyDraftDirty = true;
+  };
+
   // Resource details stay compact; entity management lives in the right rail.
   let ratesOpen = false;
   let ratesEl: HTMLDivElement;
@@ -254,8 +265,8 @@
   const barracksCapacity = (building: Building) => Math.max(0, building.level * 5);
   const residents = (city: City) => Math.max(0, Math.floor(city.population));
   const housingCapacity = (city: City) => Math.max(0, Math.floor(city.populationCap));
-  const militiaPopulation = (city: City) => Math.max(0, Math.floor(city.militiaPopulation));
-  const corePopulation = (city: City) => Math.max(0, Math.ceil(city.corePopulation));
+  const taxpayerPopulation = (city: City) => Math.min(residents(city), Math.max(0, Math.floor(city.taxablePopulation)));
+  const militiaPopulation = (city: City) => residents(city) - taxpayerPopulation(city);
   const trainablePopulation = (city?: City) => (city ? Math.max(0, Math.floor(city.recruitablePopulation)) : 0);
   const troopPopulationCost = (type: TroopType, count: number) => (TROOP_STATS[type as keyof typeof TROOP_STATS]?.population ?? 0) * count;
   const queuePopulationCost = (orders: TrainingOrder[]) => orders.reduce((total, order) => total + troopPopulationCost(order.type, order.count), 0);
@@ -1665,7 +1676,9 @@
           const clickedKey = tileKey(mc.x, mc.y);
           const clickedAt = performance.now();
           const t = tileData.get(clickedKey);
-          const openBuildingManagement = !!t?.building && lastTileClickKey === clickedKey && clickedAt - lastTileClickAt <= DOUBLE_CLICK_MS;
+          const doubleClicked = lastTileClickKey === clickedKey && clickedAt - lastTileClickAt <= DOUBLE_CLICK_MS;
+          const openBuildingManagement = !!t?.building && doubleClicked;
+          const openConstruction = !t?.building && !t?.armies?.length && t?.city?.owner?.value === $userId && doubleClicked;
           lastTileClickKey = clickedKey;
           lastTileClickAt = clickedAt;
           if (t?.armies?.length === 1 && !t.building) {
@@ -1676,7 +1689,7 @@
             sel = { x: mc.x, y: mc.y, ...t };
             err = '';
             notice = '';
-            showBuild = false;
+            showBuild = openConstruction;
             showCityManagement = false;
             recruitCount = 1;
             drawSel(mc.x, mc.y);
@@ -1906,8 +1919,8 @@
   {@const totalCapacity = housingCapacity(city)}
   {@const displayedCapacity = Math.max(totalCapacity, totalResidents)}
   {@const openHousing = Math.max(0, totalCapacity - totalResidents)}
-  {@const militiaResidents = Math.min(totalResidents, militiaPopulation(city))}
-  {@const taxpayerResidents = totalResidents - militiaResidents}
+  {@const taxpayerResidents = taxpayerPopulation(city)}
+  {@const militiaResidents = totalResidents - taxpayerResidents}
   {@const recruitableResidents = Math.min(taxpayerResidents, trainablePopulation(city))}
   {@const coreResidents = taxpayerResidents - recruitableResidents}
   <div class="border border-[#465a5f] bg-black/[0.08] px-3 py-2.5">
@@ -2722,9 +2735,6 @@
           {/if}
 
           {#if !selectedArmy && sel.city && selectedSettlementCenter && showCityManagement && cityManagementView === 'city'}
-            {@const cityResidents = residents(sel.city)}
-            {@const cityHousing = housingCapacity(sel.city)}
-            {@const cityCore = corePopulation(sel.city)}
             <section class="inspector-section">
               <div class="mb-2 flex items-center justify-between gap-3">
                 <span class="inspector-label">City ledger</span>
@@ -2755,17 +2765,20 @@
                 {@const minMilitia = policy?.minMilitiaPercent ?? 5}
                 {@const maxMilitia = policy?.maxMilitiaPercent ?? 45}
                 {@const maxTax = policy?.maxTaxRatePercent ?? 100}
-                {@const previewTargetMilitia = (cityHousing * militiaDraft) / 100}
-                {@const previewMilitia = militiaDraft === sel.city.militiaPercent ? sel.city.militiaPopulation : Math.min(previewTargetMilitia, Math.max(cityResidents - cityCore, 0))}
-                {@const previewRecruitable = Math.max(0, Math.floor(cityResidents - cityCore - previewTargetMilitia))}
-                {@const previewTaxable = Math.max(0, Math.floor(cityResidents - previewMilitia))}
+                {@const militiaPolicyDirty = militiaDraft !== sel.city.militiaPercent}
+                {@const taxPolicyDirty = taxDraft !== sel.city.taxRatePercent}
+                {@const policyDirty = militiaPolicyDirty || taxPolicyDirty}
+                {@const previewTargetMilitia = (sel.city.populationCap * militiaDraft) / 100}
+                {@const previewMilitia = militiaPolicyDirty ? Math.min(previewTargetMilitia, Math.max(sel.city.population - sel.city.corePopulation, 0)) : sel.city.militiaPopulation}
+                {@const previewRecruitable = Math.max(0, Math.floor(sel.city.population - sel.city.corePopulation - previewTargetMilitia))}
+                {@const previewTaxableRaw = Math.max(0, sel.city.population - previewMilitia)}
+                {@const previewTaxable = Math.floor(previewTaxableRaw)}
                 {@const taxGoldPerResident = ratePerHour(policy?.taxGoldPerPopulation)}
-                {@const previewTaxIncome = Math.round((previewTaxable * taxGoldPerResident * taxDraft) / 100)}
+                {@const previewTaxIncome = Math.round((previewTaxableRaw * taxGoldPerResident * taxDraft) / 100)}
                 {@const untaxedGrowth = ratePerHour(sel.city.populationGrowthBeforeTax)}
                 {@const maxTaxGrowthPenalty = policy?.maxTaxGrowthPenaltyPercent ?? 150}
                 {@const taxGrowthMultiplier = maxTax > 0 ? 1 - (taxDraft / maxTax) * (maxTaxGrowthPenalty / 100) : 1}
-                {@const previewGrowth = sel.city.starving ? untaxedGrowth : untaxedGrowth * taxGrowthMultiplier}
-                {@const policyDirty = militiaDraft !== sel.city.militiaPercent || taxDraft !== sel.city.taxRatePercent}
+                {@const previewGrowth = taxPolicyDirty && !sel.city.starving ? untaxedGrowth * taxGrowthMultiplier : ratePerHour(sel.city.populationGrowth)}
                 <div class="mt-2.5 border-t border-[#465a5f] pt-2">{@render populationUse(sel.city)}</div>
                 <div class="mt-2.5 border border-[#465a5f] bg-black/[0.08]">
                   <div class="flex items-center justify-between border-b border-white/[0.07] px-2.5 py-2">
@@ -2783,7 +2796,30 @@
                     <label class="block">
                       <span class="flex items-center justify-between gap-3 text-[10px]">
                         <span class="font-semibold text-[#bdc8c7]">Militia target</span>
-                        <strong class="tabular-nums text-blue-200">{militiaDraft}% · {Math.floor(previewTargetMilitia).toLocaleString()} target</strong>
+                        <span class="flex items-center gap-1 tabular-nums text-blue-200">
+                          <input
+                            class="numeric-entry"
+                            aria-label="Militia target percentage"
+                            type="number"
+                            min={minMilitia}
+                            max={maxMilitia}
+                            step="1"
+                            bind:value={militiaDraft}
+                            on:input={() => (policyDraftDirty = true)}
+                          />
+                          <span>% ·</span>
+                          <input
+                            class="numeric-entry numeric-entry-target"
+                            aria-label="Militia target resident count"
+                            type="number"
+                            min={Math.ceil((sel.city.populationCap * minMilitia) / 100)}
+                            max={Math.floor((sel.city.populationCap * maxMilitia) / 100)}
+                            step="1"
+                            value={Math.floor(previewTargetMilitia)}
+                            on:change={(event) => setMilitiaDraftFromTarget(event, sel!.city!.populationCap, minMilitia, maxMilitia)}
+                          />
+                          <span>target</span>
+                        </span>
                       </span>
                       <input
                         class="mt-1.5 block w-full accent-[#78a9b5]"
@@ -2801,7 +2837,22 @@
                     <label class="block border-t border-white/[0.06] pt-2.5">
                       <span class="flex items-center justify-between gap-3 text-[10px]">
                         <span class="font-semibold text-[#bdc8c7]">Tax rate</span>
-                        <span class="flex items-center gap-2"><strong class="tabular-nums text-amber-200">{taxDraft}%</strong>{@render popChip(previewGrowth)}</span>
+                        <span class="flex items-center gap-1.5">
+                          <span class="flex items-center gap-1 tabular-nums text-amber-200">
+                            <input
+                              class="numeric-entry numeric-entry-tax"
+                              aria-label="Tax rate percentage"
+                              type="number"
+                              min="0"
+                              max={maxTax}
+                              step="1"
+                              bind:value={taxDraft}
+                              on:input={() => (policyDraftDirty = true)}
+                            />
+                            <span>%</span>
+                          </span>
+                          {@render popChip(previewGrowth)}
+                        </span>
                       </span>
                       <input class="mt-1.5 block w-full accent-[#d5b95b]" type="range" min="0" max={maxTax} step="1" bind:value={taxDraft} on:input={() => (policyDraftDirty = true)} />
                       <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]">Higher tax earns more gold but increasingly suppresses growth; extreme rates can drive residents away.</span>
@@ -3089,7 +3140,10 @@
                   <label class="mt-3 block border border-white/[0.08] bg-black/10 px-3 py-2.5">
                     <span class="flex items-center justify-between gap-3 text-[10px]">
                       <span class="font-semibold text-[#bdc8c7]">Number to train</span>
-                      <strong class="text-sm tabular-nums text-blue-200">{batchCount} / {trainingCapacity}</strong>
+                      <span class="flex items-center gap-1 text-sm tabular-nums text-blue-200">
+                        <input class="numeric-entry numeric-entry-count" aria-label="Number of troops to train" type="number" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
+                        <span>/ {trainingCapacity}</span>
+                      </span>
                     </span>
                     <input class="mt-2 block w-full accent-[#78a9b5]" type="range" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
                     <span class="mt-1 flex justify-between text-[8px] tabular-nums text-[#687679]"><span>1</span><span>Batch capacity {trainingCapacity}</span></span>
