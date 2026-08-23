@@ -211,7 +211,17 @@
   const bName = (t: BuildingType) => BN[t] ?? 'Unknown';
   const cName = (t: CityType) => (t === CityType.CITY ? 'City' : t === CityType.TOWN ? 'Town' : 'Settlement');
   const barracksCapacity = (building: Building) => Math.max(0, building.level * 5);
-  const trainablePopulation = (city?: City) => (city ? Math.max(0, Math.floor(city.population * 0.35 - city.militaryPopulation)) : 0);
+  const MILITARY_POPULATION_FRACTION = 0.35;
+  const residents = (city: City) => Math.max(0, Math.floor(city.population));
+  const housingCapacity = (city: City) => Math.max(0, Math.floor(city.populationCap));
+  const mobilizedPopulation = (city: City) => Math.max(0, Math.floor(city.militaryPopulation));
+  const civilianPopulation = (city: City) => Math.max(0, Math.floor(city.population - city.militaryPopulation));
+  const militaryPopulationLimit = (city: City) => Math.max(0, Math.floor(city.population * MILITARY_POPULATION_FRACTION));
+  const trainablePopulation = (city?: City) => (city ? Math.max(0, militaryPopulationLimit(city) - mobilizedPopulation(city)) : 0);
+  const troopPopulationCost = (type: TroopType, count: number) => (TROOP_STATS[type as keyof typeof TROOP_STATS]?.population ?? 0) * count;
+  const queuePopulationCost = (orders: TrainingOrder[]) => orders.reduce((total, order) => total + troopPopulationCost(order.type, order.count), 0);
+  const armyPersonnel = (army: Army) => army.troops.reduce((total, stack) => total + troopPopulationCost(stack.type, stack.count ?? 0), 0);
+  const armyFoodUpkeep = (army: Army) => army.troops.reduce((total, stack) => total + (TROOP_STATS[stack.type as keyof typeof TROOP_STATS]?.foodPerHour ?? 0) * (stack.count ?? 0), 0);
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
   $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
@@ -637,7 +647,8 @@
       } else {
         lastTrainingOverviewPoll = 0;
       }
-      const trainingNotice = `${count} ${troopName(recruitType, count)} added to training · ${fmtCountdown(count * stat.trainSeconds * 1000)}`;
+      const populationCost = count * stat.population;
+      const trainingNotice = `${count} ${troopName(recruitType, count)} queued · ${populationCost} ${populationCost === 1 ? 'resident' : 'residents'} mobilized · ${fmtCountdown(count * stat.trainSeconds * 1000)}`;
       notice = trainingNotice;
       if (trainingNoticeTimer) clearTimeout(trainingNoticeTimer);
       trainingNoticeTimer = setTimeout(() => {
@@ -1865,7 +1876,7 @@
             <div class="text-sm font-bold text-[#e9e4cc]">{managementTab === 'armies' ? 'Armies' : managementTab === 'cities' ? 'Cities' : 'Training'}</div>
             <div class="mt-0.5 text-[10px] text-[#858578]">
               {managementTab === 'armies'
-                ? `${ownedArmyTroops.toLocaleString()} troops · ${ownedOrderCount} active`
+                ? `${ownedArmyTroops.toLocaleString()} units · ${ownedOrderCount} active`
                 : managementTab === 'cities'
                   ? `${ownedCities.length} settlements under your rule`
                   : queuedTrainingCount
@@ -1931,11 +1942,13 @@
               <div class="flex items-center gap-2">
                 <span class="h-1.5 w-1.5 {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400'}"></span>
                 <span class="min-w-0 flex-1 truncate text-xs font-semibold text-[#dce1dc]">{city.name}</span>
-                <span class="text-[10px] tabular-nums text-[#89928b]">{Math.floor(city.population).toLocaleString()} pop</span>
+                <span class="text-[10px] tabular-nums text-[#89928b]">{residents(city).toLocaleString()} residents</span>
               </div>
-              <div class="mt-2 grid grid-cols-2 gap-2 border-t border-white/[0.06] pt-2 text-[10px] tabular-nums">
+              <div class="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 border-t border-white/[0.06] pt-2 text-[10px] tabular-nums">
                 <span class="text-amber-200/80">{Math.round(prod.gold).toLocaleString()} gold/hr</span>
                 <span class={foodNet < 0 ? 'text-red-400' : 'text-emerald-300/80'}>{fmtPerHour(foodNet)} food/hr</span>
+                <span class="text-blue-200/80">{trainablePopulation(city).toLocaleString()} recruitable</span>
+                <span class="text-[#929c96]">{mobilizedPopulation(city).toLocaleString()} mobilized</span>
               </div>
             </button>
           {/each}
@@ -1946,6 +1959,7 @@
           </div>
           {#each ownedBarracks as barracks}
             {@const queue = currentTrainingQueue(trainingQueues.get(barracks.buildingId?.value ?? '') ?? [])}
+            {@const committedPopulation = queuePopulationCost(queue)}
             {@const active = queue[0]}
             {@const startsAt = timestampMs(active?.startedAt)}
             {@const completesAt = timestampMs(active?.completesAt)}
@@ -1973,6 +1987,10 @@
                   {#if queue.length > 1}
                     <div class="mt-1.5 text-[9px] tabular-nums text-[#707971]">+{queue.length - 1} {queue.length === 2 ? 'batch' : 'batches'} waiting</div>
                   {/if}
+                  <div class="mt-1 text-[9px] tabular-nums text-blue-200/60">
+                    {committedPopulation.toLocaleString()}
+                    {committedPopulation === 1 ? 'resident' : 'residents'} already mobilized
+                  </div>
                 </div>
               {:else}
                 <div class="mt-2 border-t border-white/[0.06] pt-2 text-[10px] text-[#68716a]">Ready · select to train troops</div>
@@ -2111,19 +2129,27 @@
           {#if selectedArmy}
             {@const selectedArmyOwned = selectedArmy.owner?.value === $userId}
             {@const selectedArmySize = armySize(selectedArmy)}
+            {@const selectedArmyPersonnel = armyPersonnel(selectedArmy)}
+            {@const selectedArmyUpkeep = armyFoodUpkeep(selectedArmy)}
             {@const selectedStack = sel.armies?.filter((army) => army.owner?.value === $userId) ?? []}
             {@const selectedTroops = selectedArmy.troops.filter((stack) => (stack.count ?? 1) > 0)}
             <section class="inspector-section">
-              <div class="grid grid-cols-[auto_repeat(3,minmax(0,1fr))] items-center gap-3">
+              <div class="grid grid-cols-[auto_repeat(4,minmax(0,1fr))] items-center gap-3">
                 {#if selectedArmy.compositionVisibility !== ArmyCompositionVisibility.HIDDEN && selectedTroops[0]}
                   {@render troopGlyph(selectedTroops[0].type)}
                 {:else}
                   <span class="unit-token text-lg">?</span>
                 {/if}
                 <div>
-                  <div class="inspector-stat-label">Strength</div>
+                  <div class="inspector-stat-label">Units</div>
                   <div class="inspector-stat-value">
                     {selectedArmy.compositionVisibility === ArmyCompositionVisibility.EXACT ? selectedArmySize.toLocaleString() : 'Unknown'}
+                  </div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Personnel</div>
+                  <div class="inspector-stat-value">
+                    {selectedArmy.compositionVisibility === ArmyCompositionVisibility.EXACT ? selectedArmyPersonnel.toLocaleString() : 'Unknown'}
                   </div>
                 </div>
                 <div>
@@ -2144,7 +2170,12 @@
                 </div>
               {/if}
               <div class="mt-2.5 border-t border-[#465a5f] pt-2.5">
-                <div class="inspector-label mb-1.5">Ranks</div>
+                <div class="mb-1.5 flex items-center justify-between gap-3">
+                  <div class="inspector-label">Ranks</div>
+                  {#if selectedArmy.compositionVisibility === ArmyCompositionVisibility.EXACT}
+                    <div class="text-[9px] tabular-nums text-red-300/70">-{selectedArmyUpkeep.toLocaleString()} food/hr upkeep</div>
+                  {/if}
+                </div>
                 {#if selectedArmy.compositionVisibility === ArmyCompositionVisibility.HIDDEN}
                   <div class="text-[11px] text-[#747d76]">Composition has not been identified.</div>
                 {:else}
@@ -2220,7 +2251,7 @@
                       {/each}
                     </div>
                     <button class="game-action game-action-primary mt-3 w-full" disabled={busy || splitTotal <= 0 || splitTotal >= selectedArmySize} on:click={() => splitArmy(selectedArmy)}>
-                      Create {splitTotal > 0 ? `${splitTotal}-troop` : ''} detachment
+                      Create {splitTotal > 0 ? `${splitTotal}-unit` : ''} detachment
                     </button>
                     <div class="mt-2 text-[10px] leading-relaxed text-[#747d76]">The new army starts idle on this tile. This army keeps its current order.</div>
                   </div>
@@ -2231,6 +2262,13 @@
           {/if}
 
           {#if !selectedArmy && sel.city}
+            {@const cityResidents = residents(sel.city)}
+            {@const cityHousing = housingCapacity(sel.city)}
+            {@const cityCivilians = civilianPopulation(sel.city)}
+            {@const cityMobilized = mobilizedPopulation(sel.city)}
+            {@const cityMilitaryLimit = militaryPopulationLimit(sel.city)}
+            {@const cityRecruitable = trainablePopulation(sel.city)}
+            {@const militaryCapacityUsed = cityMilitaryLimit > 0 ? Math.min(100, (cityMobilized / cityMilitaryLimit) * 100) : 0}
             <section class="inspector-section">
               <div class="mb-2 flex items-center justify-between gap-3">
                 <span class="inspector-label">City ledger</span>
@@ -2245,27 +2283,54 @@
 
               <div class="grid grid-cols-3 gap-x-4 gap-y-2">
                 <div>
-                  <div class="inspector-stat-label">Population</div>
-                  <div class="inspector-stat-value">{sel.city.population.toFixed(0)} <span class="text-[#636d65]">/ {sel.city.populationCap.toFixed(0)}</span></div>
+                  <div class="inspector-stat-label">Residents</div>
+                  <div class="inspector-stat-value">{cityResidents.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div class="inspector-stat-label">Garrisoned</div>
-                  <div class="inspector-stat-value">{sel.city.militaryPopulation.toFixed(0)}</div>
+                  <div class="inspector-stat-label">Housing</div>
+                  <div class="inspector-stat-value">{cityHousing.toLocaleString()}</div>
                 </div>
                 <div>
                   <div class="inspector-stat-label">Growth</div>
                   <div class="mt-1 text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</div>
                 </div>
-                {#if sel.city.starving}
-                  <div>
-                    <div class="inspector-stat-label">Status</div>
-                    <div class="mt-1 flex items-center gap-1.5 text-xs font-medium text-red-400"><span class="h-1.5 w-1.5 animate-pulse bg-red-400"></span>Starving</div>
-                  </div>
-                {/if}
               </div>
+
+              {#if sel.city.starving}
+                <div class="mt-2 flex items-center gap-1.5 border border-red-300/15 bg-red-300/[0.05] px-2 py-1.5 text-[10px] text-red-300">
+                  <span class="h-1.5 w-1.5 animate-pulse bg-red-400"></span>
+                  Population is declining from insufficient local food.
+                </div>
+              {/if}
 
               <!-- Food economy is owner-only intel; non-owners receive these unset -->
               {#if sel.city.owner?.value === $userId}
+                <div class="mt-2.5 border-t border-[#465a5f] pt-2">
+                  <div class="mb-1.5 flex items-center justify-between gap-3">
+                    <span class="inspector-label">Population use</span>
+                    <span class="text-[9px] tabular-nums text-[#758486]">35% military limit · {cityMilitaryLimit.toLocaleString()} max</span>
+                  </div>
+                  <div class="grid grid-cols-3 gap-x-4">
+                    <div>
+                      <div class="inspector-stat-label">Civilian</div>
+                      <div class="inspector-stat-value">{cityCivilians.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div class="inspector-stat-label">Mobilized</div>
+                      <div class="inspector-stat-value text-blue-200">{cityMobilized.toLocaleString()}</div>
+                    </div>
+                    <div>
+                      <div class="inspector-stat-label">Recruitable now</div>
+                      <div class="inspector-stat-value text-emerald-200">{cityRecruitable.toLocaleString()}</div>
+                    </div>
+                  </div>
+                  <div class="mt-2 h-1 overflow-hidden bg-white/[0.07]">
+                    <div class="h-full bg-blue-300/70 transition-[width] duration-300" style={`width: ${militaryCapacityUsed}%`}></div>
+                  </div>
+                  <div class="mt-1 text-[9px] leading-relaxed text-[#7f8e8f]">
+                    Training moves residents from civilian to mobilized immediately. Mobilized includes queued recruits and deployed troops; total residents do not decrease.
+                  </div>
+                </div>
                 {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
                 <div class="mt-2.5 border-t border-[#465a5f] pt-2">
                   <div class="inspector-row">
@@ -2292,7 +2357,7 @@
               <div class="mb-2 flex items-center justify-between">
                 <span class="inspector-label">Forces present</span>
                 <span class="text-xs font-medium tabular-nums text-[#9aa39c]">
-                  {stackCompositionExact ? `${sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops` : 'Strength unknown'}
+                  {stackCompositionExact ? `${sel.armies.reduce((sum, army) => sum + armySize(army), 0)} units` : 'Composition unknown'}
                 </span>
               </div>
               <div class="space-y-1.5">
@@ -2349,6 +2414,7 @@
             {@const batchCount = Number.isFinite(recruitCount) ? Math.floor(recruitCount) : 1}
             {@const trainingCost = batchCount * recruitStat.gold}
             {@const trainingPopulation = batchCount * recruitStat.population}
+            {@const populationAfterTraining = Math.max(0, availablePopulation - trainingPopulation)}
             {@const trainingBatchSeconds = batchCount * recruitStat.trainSeconds}
             {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && selectedTrainingOrders.length > 0}
             {@const canTrain =
@@ -2442,6 +2508,7 @@
               <section class="inspector-section">
                 {#if trainingOrdersAvailable && selectedTrainingOrders.length > 0}
                   {@const activeOrder = selectedTrainingOrders[0]}
+                  {@const queuedPopulation = queuePopulationCost(selectedTrainingOrders)}
                   {@const activeStartsAt = timestampMs(activeOrder.startedAt)}
                   {@const activeCompletesAt = timestampMs(activeOrder.completesAt)}
                   {@const activeProgress =
@@ -2462,6 +2529,10 @@
                         {selectedTrainingOrders.length === 2 ? 'batch' : 'batches'} waiting
                       </div>
                     {/if}
+                    <div class="mt-1 text-[9px] tabular-nums text-blue-200/70">
+                      {queuedPopulation.toLocaleString()}
+                      {queuedPopulation === 1 ? 'resident' : 'residents'} already mobilized in this queue
+                    </div>
                   </div>
                 {/if}
                 <div class="mb-2 flex items-center justify-between gap-3">
@@ -2479,7 +2550,10 @@
                     >
                       {@render troopGlyph(type)}
                       <span class="mt-1 block w-full truncate text-[9px] font-bold">{option.name}</span>
-                      <span class="mt-0.5 block text-[8px] tabular-nums text-[#859799]">{option.gold} gold</span>
+                      <span class="mt-0.5 block text-[8px] tabular-nums text-[#859799]">
+                        {option.gold}g · {option.population}
+                        {option.population === 1 ? 'recruit' : 'recruits'}
+                      </span>
                     </button>
                   {/each}
                 </div>
@@ -2506,24 +2580,36 @@
                     >
                   </div>
                 </div>
+                <div class="mt-2 border border-blue-200/10 bg-blue-200/[0.035] px-2 py-1.5 text-[9px] leading-relaxed text-[#849698]">
+                  Residents are mobilized as soon as the order is queued. They remain part of the city population, but no longer count as civilians.
+                </div>
                 <div class="mt-2 border-t border-[#465a5f] pt-1.5">
                   <div class="inspector-row">
-                    <span>Treasury</span>
+                    <span>Gold cost</span>
                     <span class={BigInt(trainingCost) <= $gold ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
                   </div>
                   <div class="inspector-row">
-                    <span>Recruits</span>
-                    <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}
-                      >{trainingPopulation} <span class="text-[#6f7770]">/ {availablePopulation} available</span></span
-                    >
+                    <span>Residents mobilized</span>
+                    <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}>{trainingPopulation.toLocaleString()}</span>
+                  </div>
+                  <div class="inspector-row">
+                    <span>Recruitable after</span>
+                    {#if trainingPopulation <= availablePopulation}
+                      <span class="text-emerald-200">
+                        <span class="text-[#78817a]">{availablePopulation.toLocaleString()} →</span>
+                        {populationAfterTraining.toLocaleString()}
+                      </span>
+                    {:else}
+                      <span class="text-red-300">{availablePopulation.toLocaleString()} available · {(trainingPopulation - availablePopulation).toLocaleString()} short</span>
+                    {/if}
                   </div>
                   <div class="inspector-row">
                     <span>Ready in</span>
                     <span>{recruitStat.trainSeconds}s each · {fmtCountdown(trainingBatchSeconds * 1000)} batch</span>
                   </div>
                   <div class="inspector-row">
-                    <span>Rations</span>
-                    <span class="text-emerald-200/80">{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
+                    <span>Army upkeep</span>
+                    <span class="text-red-300/80">-{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
                   </div>
                 </div>
               </section>
