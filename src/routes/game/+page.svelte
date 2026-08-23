@@ -112,6 +112,7 @@
   let policyDraftCityId: string | null = null;
   let militiaDraft = 10;
   let taxDraft = 10;
+  let policyDraftDirty = false;
   let policySaving = false;
 
   // Resource details stay compact; entity management lives in the right rail.
@@ -293,10 +294,14 @@
   $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
   $: selectedTrainingOrders = selectedBarracksId ? currentTrainingQueue(trainingQueues.get(selectedBarracksId) ?? []) : [];
   $: selectedPolicyCityId = sel?.city?.owner?.value === $userId ? (sel?.city?.cityId?.value ?? null) : null;
-  $: if (selectedPolicyCityId !== policyDraftCityId) {
+  $: if (selectedPolicyCityId && selectedPolicyCityId !== policyDraftCityId) {
     policyDraftCityId = selectedPolicyCityId;
     militiaDraft = sel?.city?.militiaPercent ?? $gameConfig.populationPolicy?.defaultMilitiaPercent ?? 10;
     taxDraft = sel?.city?.taxRatePercent ?? $gameConfig.populationPolicy?.defaultTaxRatePercent ?? 10;
+    policyDraftDirty = false;
+  } else if (selectedPolicyCityId && !policyDraftDirty) {
+    militiaDraft = sel?.city?.militiaPercent ?? militiaDraft;
+    taxDraft = sel?.city?.taxRatePercent ?? taxDraft;
   }
   $: if (ownedBarracks.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
     loadTrainingOverview();
@@ -643,6 +648,7 @@
         cities.update((all) => all.map((candidate) => (candidate.cityId?.value === cityId ? response.city! : candidate)));
         if (sel) sel = { ...sel, city: response.city };
       }
+      policyDraftDirty = false;
       notice = 'City policy updated';
     } catch (e: unknown) {
       err = errorText(e, 'Policy update failed');
@@ -1049,8 +1055,9 @@
     }
   };
 
-  const setSplitCount = (type: TroopType, value: number, available: number) => {
-    splitCounts = { ...splitCounts, [type]: Math.max(0, Math.min(available, Math.floor(value || 0))) };
+  const selectSplitComposition = (type: TroopType, count: number) => {
+    showSplit = true;
+    splitCounts = { [type]: count };
   };
 
   const splitArmy = async (army: Army) => {
@@ -2211,9 +2218,9 @@
   <div
     class={showCityManagement && sel?.city && !selectedArmy
       ? 'pointer-events-auto absolute inset-0 z-10 flex items-center justify-center bg-black/40 p-3 sm:p-8'
-      : `pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1120px] -translate-x-1/2 sm:bottom-4 ${
-          managementOpen ? 'lg:left-4 lg:right-[22rem] lg:w-auto lg:max-w-none lg:translate-x-0' : ''
-        }`}
+      : `pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[800px] -translate-x-1/2 sm:bottom-4 ${
+          !selectedArmy && !sel?.armies?.length && !showBuild ? 'sm:max-w-[460px]' : ''
+        } ${managementOpen ? 'lg:left-4 lg:right-[22rem] lg:mx-auto lg:w-[calc(100%-23rem)] lg:translate-x-0' : ''}`}
   >
     {#if sel}
       {@const selectedVisibility = visibilityAt(sel.x, sel.y)}
@@ -2362,7 +2369,7 @@
 
         <div class="inspector-body">
           {#if sel.building && !selectedArmy && !showCityManagement}
-            <div class="inspector-actions">
+            <div class="inspector-actions inspector-actions-compact">
               <button class="game-action game-action-primary" on:click={openSelectedManagement}>
                 {selectedSettlementCenter ? `${sel.building.type === BuildingType.TOWN_CENTER ? 'Town' : 'City'} management` : `Manage ${bName(sel.building.type)}`}
               </button>
@@ -2432,15 +2439,56 @@
                 {:else}
                   <div class="flex flex-wrap gap-1.5">
                     {#each selectedTroops as stack}
-                      <span class="unit-chip">
+                      <button
+                        class="unit-chip text-left {splitCounts[stack.type] ? 'unit-chip-selected' : ''}"
+                        disabled={!selectedArmyOwned || !!selectedArmy.battleId || selectedTroops.length <= 1}
+                        aria-pressed={splitCounts[stack.type] ? 'true' : 'false'}
+                        title={selectedArmyOwned && !selectedArmy.battleId && selectedTroops.length > 1 ? `Detach all ${troopName(stack.type, stack.count)}` : undefined}
+                        on:click={() => selectSplitComposition(stack.type, stack.count ?? 0)}
+                      >
                         {@render troopGlyph(stack.type)}
                         <span class="min-w-0 leading-tight">
                           <strong class="block text-[12px] font-bold tabular-nums text-[#f0edda]">{stack.count ?? '?'}</strong>
                           <span class="block truncate text-[9px] text-[#9d9c8d]">{troopName(stack.type, stack.count)}</span>
                         </span>
-                      </span>
+                      </button>
                     {/each}
                   </div>
+                  {#if selectedArmyOwned && selectedTroops.length > 1 && !selectedArmy.battleId}
+                    {#if showSplit}
+                      {@const splitStack = selectedTroops.find((stack) => (splitCounts[stack.type] ?? 0) > 0)}
+                      <div class="mt-2.5 flex items-center gap-3 border border-blue-200/20 bg-blue-200/[0.055] px-2.5 py-2">
+                        <div class="min-w-0 flex-1">
+                          {#if splitStack}
+                            <strong class="block truncate text-[11px] text-blue-100">
+                              {splitStack.count}
+                              {troopName(splitStack.type, splitStack.count)} selected
+                            </strong>
+                            <span class="mt-0.5 block text-[9px] text-[#849497]">They will form a separate idle army on this tile. Choose another rank to change the selection.</span>
+                          {:else}
+                            <strong class="block text-[11px] text-blue-100">Choose one rank to detach</strong>
+                            <span class="mt-0.5 block text-[9px] text-[#849497]">Only one complete troop composition can form the new army.</span>
+                          {/if}
+                        </div>
+                        <button
+                          class="game-action game-action-secondary !w-auto shrink-0"
+                          on:click={() => {
+                            showSplit = false;
+                            splitCounts = {};
+                          }}>Cancel</button
+                        >
+                        <button
+                          class="game-action game-action-primary !w-auto shrink-0"
+                          disabled={busy || !splitStack || splitTotal <= 0 || splitTotal >= selectedArmySize}
+                          on:click={() => splitArmy(selectedArmy)}
+                        >
+                          {busy ? 'Detaching…' : splitStack ? `Detach ${splitStack.count}` : 'Detach'}
+                        </button>
+                      </div>
+                    {:else}
+                      <div class="mt-1.5 text-[9px] text-[#718184]">Select a rank to detach it as a separate army.</div>
+                    {/if}
+                  {/if}
                 {/if}
               </div>
             </section>
@@ -2473,39 +2521,17 @@
                   </button>
                   <div class="merge-note">{selectedStack.length} formations → this army</div>
                 {/if}
-                <button
-                  class="game-action game-action-secondary"
-                  disabled={busy || !!selectedArmy.battleId || selectedArmySize <= 1}
-                  on:click={() => {
-                    showSplit = !showSplit;
-                    splitCounts = {};
-                  }}
-                >
-                  Split army
-                </button>
-                {#if showSplit && !selectedArmy.battleId}
-                  <div class="mt-2 border border-[#42555a] bg-[#233235] p-3">
-                    <div class="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9ba49d]">New army composition</div>
-                    <div class="space-y-2">
-                      {#each selectedArmy.troops.filter((stack) => (stack.count ?? 0) > 0) as stack}
-                        <label class="flex items-center justify-between gap-3 text-[11px] text-[#aeb5b0]">
-                          <span>{troopName(stack.type, stack.count)} <span class="text-[#68716a]">({stack.count} available)</span></span>
-                          <input
-                            class="w-20 border border-white/[0.12] bg-black/20 px-2 py-1 text-right tabular-nums text-[#e0e2d8] outline-none focus:border-blue-300/50"
-                            type="number"
-                            min="0"
-                            max={stack.count ?? 0}
-                            value={splitCounts[stack.type] ?? 0}
-                            on:input={(event) => setSplitCount(stack.type, Number(event.currentTarget.value), stack.count ?? 0)}
-                          />
-                        </label>
-                      {/each}
-                    </div>
-                    <button class="game-action game-action-primary mt-3 w-full" disabled={busy || splitTotal <= 0 || splitTotal >= selectedArmySize} on:click={() => splitArmy(selectedArmy)}>
-                      Create {splitTotal > 0 ? `${splitTotal}-unit` : ''} detachment
-                    </button>
-                    <div class="mt-2 text-[10px] leading-relaxed text-[#747d76]">The new army starts idle on this tile. This army keeps its current order.</div>
-                  </div>
+                {#if selectedTroops.length > 1 && !selectedArmy.battleId}
+                  <button
+                    class="game-action game-action-secondary"
+                    disabled={busy}
+                    on:click={() => {
+                      showSplit = !showSplit;
+                      splitCounts = {};
+                    }}
+                  >
+                    {showSplit ? 'Cancel detach' : 'Detach troops'}
+                  </button>
                 {/if}
                 <div class="mt-0.5 border-t border-[#42555a] pt-1.5 text-center text-[9px] leading-relaxed text-[#7f9294]">Select the army, then right-click its destination.</div>
               </div>
@@ -2569,6 +2595,10 @@
                 {@const previewTaxable = Math.max(0, Math.floor(cityResidents - previewMilitia))}
                 {@const taxGoldPerResident = ratePerHour(policy?.taxGoldPerPopulation)}
                 {@const previewTaxIncome = Math.round((previewTaxable * taxGoldPerResident * taxDraft) / 100)}
+                {@const untaxedGrowth = ratePerHour(sel.city.populationGrowthBeforeTax)}
+                {@const maxTaxGrowthPenalty = policy?.maxTaxGrowthPenaltyPercent ?? 150}
+                {@const taxGrowthMultiplier = maxTax > 0 ? 1 - (taxDraft / maxTax) * (maxTaxGrowthPenalty / 100) : 1}
+                {@const previewGrowth = sel.city.starving ? untaxedGrowth : untaxedGrowth * taxGrowthMultiplier}
                 {@const policyDirty = militiaDraft !== sel.city.militiaPercent || taxDraft !== sel.city.taxRatePercent}
                 <div class="mt-2.5 border-t border-[#465a5f] pt-2">
                   <div class="mb-1.5 flex items-center justify-between gap-3">
@@ -2616,9 +2646,17 @@
                     <label class="block">
                       <span class="flex items-center justify-between gap-3 text-[10px]">
                         <span class="font-semibold text-[#bdc8c7]">Militia target</span>
-                        <strong class="tabular-nums text-blue-200">{militiaDraft}% · {Math.floor(previewMilitia).toLocaleString()} present</strong>
+                        <strong class="tabular-nums text-blue-200">{militiaDraft}% · {Math.floor(previewTargetMilitia).toLocaleString()} target</strong>
                       </span>
-                      <input class="mt-1.5 block w-full accent-[#78a9b5]" type="range" min={minMilitia} max={maxMilitia} step="1" bind:value={militiaDraft} />
+                      <input
+                        class="mt-1.5 block w-full accent-[#78a9b5]"
+                        type="range"
+                        min={minMilitia}
+                        max={maxMilitia}
+                        step="1"
+                        bind:value={militiaDraft}
+                        on:input={() => (policyDraftDirty = true)}
+                      />
                       <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]"
                         >Local defenders outside the protected core. They consume food, do not pay tax, and refill through future growth.</span
                       >
@@ -2626,10 +2664,10 @@
                     <label class="block border-t border-white/[0.06] pt-2.5">
                       <span class="flex items-center justify-between gap-3 text-[10px]">
                         <span class="font-semibold text-[#bdc8c7]">Tax rate</span>
-                        <strong class="tabular-nums text-amber-200">{taxDraft}%</strong>
+                        <span class="flex items-center gap-2"><strong class="tabular-nums text-amber-200">{taxDraft}%</strong>{@render popChip(previewGrowth)}</span>
                       </span>
-                      <input class="mt-1.5 block w-full accent-[#d5b95b]" type="range" min="0" max={maxTax} step="1" bind:value={taxDraft} />
-                      <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]">Higher tax earns more gold and slows positive growth by the same percentage.</span>
+                      <input class="mt-1.5 block w-full accent-[#d5b95b]" type="range" min="0" max={maxTax} step="1" bind:value={taxDraft} on:input={() => (policyDraftDirty = true)} />
+                      <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]">Higher tax earns more gold but increasingly suppresses growth; extreme rates can drive residents away.</span>
                     </label>
                     <div class="grid grid-cols-3 gap-2 border-t border-white/[0.06] pt-2.5 text-center">
                       <div>
@@ -3040,7 +3078,7 @@
                 >
               </div>
             {:else}
-              <div class="inspector-actions">
+              <div class="inspector-actions inspector-actions-compact">
                 <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 17h14M5 17V8l5-4 5 4v9M8 17v-5h4v5" /></svg>
                   Construct a building

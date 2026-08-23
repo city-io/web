@@ -50,4 +50,8 @@ message City {
   Rate net_food_flow = 11;
   int32 tax_rate_percent = 19;
   Rate tax_income = 20;
+  // Current population change before tax policy is applied. This owner-only
+  // baseline lets clients preview policy changes without guessing the city
+  // simulation's food and logistic-growth inputs.
+  Rate population_growth_before_tax = 21;
 }

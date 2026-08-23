@@ -43,6 +43,9 @@ message PopulationPolicyConfig {
   // Gold per taxable resident at a 100% tax rate.
   cityio.entity.v1.Rate tax_gold_per_population = 8;
   int32 min_militia_percent = 9;
+  // Percentage of untaxed growth removed at the maximum tax rate. Values over
+  // 100 allow sufficiently high tax to cause population decline.
+  int32 max_tax_growth_penalty_percent = 10;
 }
 
 message GetGameConfigResponse {
