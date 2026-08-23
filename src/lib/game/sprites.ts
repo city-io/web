@@ -1,4 +1,4 @@
-import { Assets, Sprite, Texture, type Spritesheet } from 'pixi.js';
+import { Sprite, Texture } from 'pixi.js';
 import { HW, HH, TH } from './iso';
 import { tileHash, varyColor } from './colors';
 
@@ -8,9 +8,8 @@ export type StructureKind = 'house' | 'farm' | 'mine' | 'barracks' | 'city_cente
 
 const PAD = 2;
 const W = 2 * HW + PAD * 2;
-const ATLAS_FRAME_WIDTH = 68;
-const ATLAS_FRAME_HEIGHT = 72;
-const ATLAS_BASE_Y = 48;
+const GROUND_HEIGHT = TH + PAD * 2;
+const GROUND_CENTER_Y = PAD + HH;
 
 const TERRAIN_HEADROOM: Record<TerrainKind, number> = {
   grassland: 0,
@@ -37,14 +36,14 @@ const TERRAIN_BASE: Record<TerrainKind, number> = {
 };
 
 const TERRAIN_VARIANTS: Record<TerrainKind, number> = {
-  grassland: 5,
-  plains: 5,
-  forest: 5,
-  hills: 4,
-  mountains: 4,
-  desert: 5,
-  marsh: 5,
-  water: 5,
+  grassland: 12,
+  plains: 12,
+  forest: 10,
+  hills: 8,
+  mountains: 8,
+  desert: 10,
+  marsh: 10,
+  water: 12,
   fog: 1
 };
 
@@ -97,102 +96,78 @@ function drawGrass(ctx: CanvasRenderingContext2D, cx: number, cy: number, seed: 
   ctx.save();
   clipDiamond(ctx, cx, cy);
   const rng = mulberry32(seed + 11);
-  const count = sparse ? 13 : 26;
+  const count = sparse ? 8 : 11;
   for (let i = 0; i < count; i++) {
-    const x = cx + (rng() - 0.5) * 52;
-    const y = cy + (rng() - 0.5) * 20;
-    ctx.strokeStyle = sparse ? `rgba(91,82,31,${0.25 + rng() * 0.25})` : `rgba(30,91,29,${0.25 + rng() * 0.35})`;
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(Math.round(x), Math.round(y));
-    ctx.lineTo(Math.round(x + (rng() > 0.5 ? 1 : -1)), Math.round(y - 2 - rng() * 2));
-    ctx.stroke();
+    const x = Math.round(cx + (rng() - 0.5) * 52);
+    const y = Math.round(cy + (rng() - 0.5) * 19);
+    ctx.fillStyle = sparse ? 'rgba(103,86,39,0.48)' : rng() > 0.45 ? 'rgba(38,104,36,0.46)' : 'rgba(118,151,67,0.42)';
+    ctx.fillRect(x, y, 1, 2);
+    if (!sparse && rng() > 0.72) ctx.fillRect(x - 1, y + 1, 3, 1);
   }
   ctx.restore();
 }
 
-function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, scale: number, color: number) {
-  ctx.fillStyle = 'rgba(35,31,18,0.85)';
-  ctx.fillRect(Math.round(x - scale), Math.round(y), Math.max(1, Math.round(scale * 2)), Math.max(2, Math.round(scale * 4)));
+function drawTree(ctx: CanvasRenderingContext2D, x: number, y: number, size: number, color: number) {
+  const trunkWidth = size > 1 ? 2 : 1;
+  ctx.fillStyle = '#3b2d1b';
+  ctx.fillRect(x - Math.floor(trunkWidth / 2), y - 2, trunkWidth, 5);
   ctx.fillStyle = css(color);
-  ctx.beginPath();
-  ctx.moveTo(x, y - scale * 10);
-  ctx.lineTo(x + scale * 5, y + scale);
-  ctx.lineTo(x - scale * 5, y + scale);
-  ctx.closePath();
-  ctx.fill();
-  ctx.fillStyle = 'rgba(180,205,105,0.28)';
-  ctx.beginPath();
-  ctx.moveTo(x - scale, y - scale * 9);
-  ctx.lineTo(x + scale * 2, y - scale * 2);
-  ctx.lineTo(x - scale * 3, y - scale * 2);
-  ctx.closePath();
-  ctx.fill();
+  ctx.fillRect(x - size, y - 8, size * 2 + 1, 3);
+  ctx.fillRect(x - size - 1, y - 5, size * 2 + 3, 3);
+  ctx.fillRect(x - size, y - 2, size * 2 + 1, 2);
+  ctx.fillStyle = 'rgba(157,184,88,0.45)';
+  ctx.fillRect(x - size, y - 8, size, 1);
+  ctx.fillRect(x - size - 1, y - 5, size + 1, 1);
 }
 
 function drawForest(ctx: CanvasRenderingContext2D, cx: number, cy: number, seed: number) {
   const rng = mulberry32(seed + 101);
-  const trees = Array.from({ length: 8 }, () => ({
-    x: cx + (rng() - 0.5) * 40,
-    y: cy - 1 + (rng() - 0.5) * 14,
-    scale: 0.65 + rng() * 0.35,
+  const trees = Array.from({ length: 7 }, () => ({
+    x: Math.round(cx + (rng() - 0.5) * 42),
+    y: Math.round(cy - 1 + (rng() - 0.5) * 13),
+    size: rng() > 0.68 ? 3 : 2,
     color: rng() > 0.35 ? 0x285f2d : 0x376f34
   })).sort((a, b) => a.y - b.y);
-  for (const tree of trees) drawTree(ctx, tree.x, tree.y, tree.scale, tree.color);
+  for (const tree of trees) drawTree(ctx, tree.x, tree.y, tree.size, tree.color);
 }
 
 function drawHills(ctx: CanvasRenderingContext2D, cx: number, cy: number, seed: number) {
   const rng = mulberry32(seed + 211);
-  for (const [dx, dy, width, height] of [
-    [-13, 3, 18, 8],
-    [5, 3, 22, 10]
+  for (const [dx, dy, halfWidth, height] of [
+    [-13, 4, 9, 7],
+    [5, 4, 12, 9]
   ] as const) {
-    ctx.fillStyle = rng() > 0.5 ? '#77734a' : '#6d7650';
-    ctx.beginPath();
-    ctx.moveTo(cx + dx - width / 2, cy + dy + 4);
-    ctx.lineTo(cx + dx, cy + dy - height);
-    ctx.lineTo(cx + dx + width / 2, cy + dy + 4);
-    ctx.closePath();
-    ctx.fill();
-    ctx.strokeStyle = 'rgba(224,213,155,0.42)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.moveTo(cx + dx - width / 2, cy + dy + 4);
-    ctx.lineTo(cx + dx, cy + dy - height);
-    ctx.stroke();
+    const base = rng() > 0.5 ? 0x737348 : 0x687449;
+    for (let line = 0; line < height; line++) {
+      const width = Math.max(2, Math.round((line / height) * halfWidth));
+      const y = Math.round(cy + dy - height + line);
+      ctx.fillStyle = css(line < height / 2 ? mixColor(base, 0xb5a968, 0.22) : base);
+      ctx.fillRect(Math.round(cx + dx - width), y, width * 2 + 1, 1);
+    }
+    ctx.fillStyle = 'rgba(211,199,130,0.5)';
+    ctx.fillRect(Math.round(cx + dx - 2), Math.round(cy + dy - height + 2), 2, 2);
   }
 }
 
 function drawMountains(ctx: CanvasRenderingContext2D, cx: number, cy: number, seed: number) {
   const rng = mulberry32(seed + 307);
-  for (const [dx, width, height] of [
-    [-12, 24, 25],
-    [9, 29, 31]
+  for (const [dx, halfWidth, height] of [
+    [-12, 11, 23],
+    [9, 14, 29]
   ] as const) {
-    const peakY = cy + 7 - height;
-    ctx.fillStyle = rng() > 0.5 ? '#8d8d7c' : '#7d806f';
-    ctx.beginPath();
-    ctx.moveTo(cx + dx - width / 2, cy + 8);
-    ctx.lineTo(cx + dx, peakY);
-    ctx.lineTo(cx + dx + width / 2, cy + 8);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = 'rgba(48,50,43,0.32)';
-    ctx.beginPath();
-    ctx.moveTo(cx + dx, peakY);
-    ctx.lineTo(cx + dx + width / 2, cy + 8);
-    ctx.lineTo(cx + dx + 3, cy + 2);
-    ctx.closePath();
-    ctx.fill();
-    ctx.fillStyle = '#dedbc9';
-    ctx.beginPath();
-    ctx.moveTo(cx + dx, peakY);
-    ctx.lineTo(cx + dx + 5, peakY + 8);
-    ctx.lineTo(cx + dx + 1, peakY + 6);
-    ctx.lineTo(cx + dx - 4, peakY + 10);
-    ctx.lineTo(cx + dx - 6, peakY + 7);
-    ctx.closePath();
-    ctx.fill();
+    const base = rng() > 0.5 ? 0x878777 : 0x797d70;
+    for (let line = 0; line < height; line++) {
+      const width = Math.max(1, Math.round((line / height) * halfWidth));
+      const y = Math.round(cy + 7 - height + line);
+      ctx.fillStyle = css(base);
+      ctx.fillRect(Math.round(cx + dx - width), y, width + 1, 1);
+      ctx.fillStyle = '#55594f';
+      ctx.fillRect(Math.round(cx + dx + 1), y, width, 1);
+      if (line < 7) {
+        ctx.fillStyle = line % 3 === 0 ? '#f0eee0' : '#d7d7c9';
+        ctx.fillRect(Math.round(cx + dx - Math.min(width, 3)), y, Math.min(width * 2 + 1, 6), 1);
+      }
+    }
   }
 }
 
@@ -200,14 +175,13 @@ function drawDesert(ctx: CanvasRenderingContext2D, cx: number, cy: number, seed:
   ctx.save();
   clipDiamond(ctx, cx, cy);
   const rng = mulberry32(seed + 401);
-  for (let i = 0; i < 4; i++) {
-    const x = cx - 22 + i * 14 + rng() * 4;
-    const y = cy - 5 + rng() * 12;
-    ctx.strokeStyle = 'rgba(105,67,28,0.42)';
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    ctx.arc(x, y, 8, Math.PI * 1.1, Math.PI * 1.8);
-    ctx.stroke();
+  ctx.fillStyle = 'rgba(120,76,31,0.48)';
+  for (let i = 0; i < 6; i++) {
+    const x = Math.round(cx - 25 + rng() * 45);
+    const y = Math.round(cy - 7 + rng() * 14);
+    const length = 3 + Math.floor(rng() * 6);
+    ctx.fillRect(x, y, length, 1);
+    if (rng() > 0.55) ctx.fillRect(x + 2, y - 1, Math.max(2, length - 3), 1);
   }
   ctx.restore();
 }
@@ -216,20 +190,19 @@ function drawMarsh(ctx: CanvasRenderingContext2D, cx: number, cy: number, seed: 
   ctx.save();
   clipDiamond(ctx, cx, cy);
   const rng = mulberry32(seed + 503);
-  ctx.fillStyle = 'rgba(37,78,78,0.55)';
+  ctx.fillStyle = 'rgba(34,79,81,0.58)';
   for (let i = 0; i < 5; i++) {
-    ctx.beginPath();
-    ctx.ellipse(cx + (rng() - 0.5) * 42, cy + (rng() - 0.5) * 15, 4 + rng() * 5, 1.5 + rng() * 2, 0, 0, Math.PI * 2);
-    ctx.fill();
+    const x = Math.round(cx + (rng() - 0.5) * 42);
+    const y = Math.round(cy + (rng() - 0.5) * 14);
+    const width = 4 + Math.floor(rng() * 6);
+    ctx.fillRect(x, y, width, 2);
+    ctx.fillRect(x + 2, y - 1, Math.max(2, width - 4), 1);
   }
-  ctx.strokeStyle = 'rgba(36,64,29,0.8)';
+  ctx.fillStyle = 'rgba(35,66,29,0.85)';
   for (let i = 0; i < 11; i++) {
-    const x = cx + (rng() - 0.5) * 48;
-    const y = cy + (rng() - 0.5) * 18;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + (rng() - 0.5) * 2, y - 4 - rng() * 4);
-    ctx.stroke();
+    const x = Math.round(cx + (rng() - 0.5) * 48);
+    const y = Math.round(cy + (rng() - 0.5) * 18);
+    ctx.fillRect(x, y - 3 - Math.floor(rng() * 3), 1, 4 + Math.floor(rng() * 3));
   }
   ctx.restore();
 }
@@ -238,15 +211,12 @@ function drawWater(ctx: CanvasRenderingContext2D, cx: number, cy: number, seed: 
   ctx.save();
   clipDiamond(ctx, cx, cy);
   const rng = mulberry32(seed + 601);
-  ctx.strokeStyle = 'rgba(142,193,219,0.48)';
-  ctx.lineWidth = 1;
+  ctx.fillStyle = 'rgba(142,193,219,0.48)';
   for (let i = 0; i < 6; i++) {
-    const x = cx - 24 + rng() * 42;
-    const y = cy - 8 + rng() * 16;
-    ctx.beginPath();
-    ctx.moveTo(x, y);
-    ctx.lineTo(x + 7, y + 1);
-    ctx.stroke();
+    const x = Math.round(cx - 24 + rng() * 42);
+    const y = Math.round(cy - 8 + rng() * 16);
+    ctx.fillRect(x, y, 5 + Math.floor(rng() * 4), 1);
+    if (rng() > 0.72) ctx.fillRect(x + 2, y + 1, 3, 1);
   }
   ctx.restore();
 }
@@ -473,29 +443,19 @@ function renderStructure(kind: StructureKind): HTMLCanvasElement {
   return canvas;
 }
 
-let sheet: Spritesheet | null = null;
 const terrainCache = new Map<string, Texture>();
 const transitionCache = new Map<string, Texture>();
 const structureCache = new Map<string, Texture>();
 
-export async function initSprites(): Promise<void> {
-  try {
-    const response = await fetch('/sprites/tiles.json', { method: 'HEAD' });
-    if (response.ok) {
-      sheet = (await Assets.load('/sprites/tiles.json')) as Spritesheet;
-      sheet.textureSource.scaleMode = 'nearest';
-    }
-  } catch {
-    // The procedural atlas is the built-in fallback.
-  }
+export function initSprites(): Promise<void> {
+  return Promise.resolve();
 }
 
 function terrainTexture(kind: TerrainKind, variant: number): Texture {
   const key = `${kind}:${variant}`;
   const cached = terrainCache.get(key);
   if (cached) return cached;
-  const frame = sheet?.textures[`terrain_${kind}_${variant}`] ?? sheet?.textures[`terrain_${kind}`];
-  const texture = frame ?? Texture.from(renderTerrain(kind, variant));
+  const texture = Texture.from(renderTerrain(kind, variant));
   texture.source.scaleMode = 'nearest';
   terrainCache.set(key, texture);
   return texture;
@@ -504,8 +464,7 @@ function terrainTexture(kind: TerrainKind, variant: number): Texture {
 function structureTexture(kind: StructureKind): Texture {
   const cached = structureCache.get(kind);
   if (cached) return cached;
-  const frame = sheet?.textures[`structure_${kind}`] ?? sheet?.textures[kind];
-  const texture = frame ?? Texture.from(renderStructure(kind));
+  const texture = Texture.from(renderStructure(kind));
   texture.source.scaleMode = 'nearest';
   structureCache.set(kind, texture);
   return texture;
@@ -516,8 +475,7 @@ export function getTerrainSprite(kind: TerrainKind, col: number, row: number): S
   const texture = terrainTexture(kind, variant);
   const sprite = new Sprite(texture);
   const headroom = TERRAIN_HEADROOM[kind];
-  const atlasFrame = sheet?.textures[`terrain_${kind}_${variant}`] ?? sheet?.textures[`terrain_${kind}`];
-  sprite.anchor.set(0.5, texture === atlasFrame ? ATLAS_BASE_Y / ATLAS_FRAME_HEIGHT : (PAD + headroom + HH) / (TH + headroom + PAD * 2));
+  sprite.anchor.set(0.5, (PAD + headroom + HH) / (TH + headroom + PAD * 2));
   return sprite;
 }
 
@@ -553,22 +511,18 @@ function drawTerrainEdge(ctx: CanvasRenderingContext2D, edge: number, kind: Terr
   const inwardX = -Math.sign(midpointX);
   const inwardY = -Math.sign(midpointY);
   const isCoast = kind === 'water' || neighbor === 'water';
-  const sameTerrain = kind === neighbor;
-  const depth = sameTerrain ? 2 : isCoast ? 5 : 4;
+  const depth = isCoast ? 5 : 3;
 
   for (let step = 2; step < 31; step++) {
     const t = step / 32;
-    const edgeX = ATLAS_FRAME_WIDTH / 2 + x1 + (x2 - x1) * t;
-    const edgeY = ATLAS_BASE_Y + y1 + (y2 - y1) * t;
+    const edgeX = W / 2 + x1 + (x2 - x1) * t;
+    const edgeY = GROUND_CENTER_Y + y1 + (y2 - y1) * t;
     for (let offset = 0; offset < depth; offset++) {
       if (offset > 1 && (step + offset + variant + edge) % 3 === 0) continue;
 
       let color: number;
       let alpha = 0.78;
-      if (sameTerrain) {
-        color = TERRAIN_BASE[kind];
-        alpha = offset === 0 ? 0.9 : 0.58;
-      } else if (kind === 'water') {
+      if (kind === 'water') {
         color = offset === 0 && step % 4 < 2 ? 0xa8d3d2 : mixColor(TERRAIN_BASE.water, 0x6da3bc, 0.55);
         alpha = offset === 0 ? 0.9 : 0.72;
       } else if (neighbor === 'water') {
@@ -586,18 +540,18 @@ function drawTerrainEdge(ctx: CanvasRenderingContext2D, edge: number, kind: Terr
 }
 
 function transitionTexture(kind: TerrainKind, neighbors: TerrainNeighbors, variant: number): Texture | null {
-  if (kind === 'fog' || neighbors.every((neighbor) => neighbor === null || neighbor === 'fog')) return null;
+  if (kind === 'fog' || neighbors.every((neighbor) => neighbor === null || neighbor === 'fog' || neighbor === kind)) return null;
   const key = `${kind}:${variant}:${neighbors.map((neighbor) => neighbor ?? '-').join(',')}`;
   const cached = transitionCache.get(key);
   if (cached) return cached;
 
   const canvas = document.createElement('canvas');
-  canvas.width = ATLAS_FRAME_WIDTH;
-  canvas.height = ATLAS_FRAME_HEIGHT;
+  canvas.width = W;
+  canvas.height = GROUND_HEIGHT;
   const ctx = canvas.getContext('2d')!;
   for (let edge = 0; edge < neighbors.length; edge++) {
     const neighbor = neighbors[edge];
-    if (neighbor && neighbor !== 'fog') drawTerrainEdge(ctx, edge, kind, neighbor, variant);
+    if (neighbor && neighbor !== 'fog' && neighbor !== kind) drawTerrainEdge(ctx, edge, kind, neighbor, variant);
   }
   const texture = Texture.from(canvas);
   texture.source.scaleMode = 'nearest';
@@ -610,7 +564,7 @@ export function getTerrainTransitionSprite(kind: TerrainKind, neighbors: Terrain
   const texture = transitionTexture(kind, neighbors, variant);
   if (!texture) return null;
   const sprite = new Sprite(texture);
-  sprite.anchor.set(0.5, ATLAS_BASE_Y / ATLAS_FRAME_HEIGHT);
+  sprite.anchor.set(0.5);
   return sprite;
 }
 
