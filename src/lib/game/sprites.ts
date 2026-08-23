@@ -272,10 +272,16 @@ function pitchedRoof(ctx: CanvasRenderingContext2D, cx: number, topY: number, ha
   ctx.fill();
 }
 
+function drawStructureShadow(ctx: CanvasRenderingContext2D, cx: number, cy: number, halfWidth: number) {
+  ctx.fillStyle = 'rgba(18,26,17,0.2)';
+  ctx.fillRect(cx - halfWidth + 4, cy, halfWidth * 2 - 8, 1);
+  ctx.fillStyle = 'rgba(18,26,17,0.13)';
+  for (let x = -halfWidth + 2; x < halfWidth - 1; x += 4) ctx.fillRect(cx + x, cy + 1, 2, 1);
+}
+
 function drawHouse(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.24)';
-  ctx.fillRect(cx - 11, cy + 2, 23, 4);
+  drawStructureShadow(ctx, cx, cy, 11);
   ctx.fillStyle = '#c2a074';
   ctx.fillRect(cx - 9, baseY - 11, 18, 13);
   ctx.fillStyle = '#9b7656';
@@ -289,8 +295,7 @@ function drawHouse(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
 
 function drawBarracks(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.24)';
-  ctx.fillRect(cx - 14, cy + 2, 28, 4);
+  drawStructureShadow(ctx, cx, cy, 14);
   ctx.fillStyle = '#7a5540';
   ctx.fillRect(cx - 12, baseY - 13, 24, 15);
   ctx.fillStyle = '#614333';
@@ -315,8 +320,7 @@ function drawBarracks(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
 
 function drawTownCenter(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.25)';
-  ctx.fillRect(cx - 16, cy + 2, 32, 5);
+  drawStructureShadow(ctx, cx, cy, 16);
   ctx.fillStyle = '#b8a883';
   ctx.fillRect(cx - 13, baseY - 12, 26, 14);
   ctx.fillStyle = '#8a7a5a';
@@ -334,8 +338,7 @@ function drawTownCenter(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
 
 function drawCityCenter(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
-  ctx.fillStyle = 'rgba(0,0,0,0.28)';
-  ctx.fillRect(cx - 19, cy + 2, 38, 5);
+  drawStructureShadow(ctx, cx, cy, 19);
   ctx.fillStyle = '#a89e88';
   ctx.fillRect(cx - 17, baseY - 12, 34, 14);
   ctx.fillStyle = '#8e8675';
