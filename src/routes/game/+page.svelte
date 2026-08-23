@@ -79,6 +79,8 @@
   let moveHover: { x: number; y: number } | null = null;
   let moveRoute: ArmyPathStep[] | null = null;
   let moveRouteCost = 0;
+  let moveOrderActive = false;
+  let moveDestinationObserved = false;
   let moveGfx: Graphics | null = null;
   let trainingOrders: TrainingOrder[] = [];
   let trainingOrdersBarracksId: string | null = null;
@@ -298,6 +300,17 @@
       const x = tracked.coords.x;
       const y = tracked.coords.y;
       sel = { x, y, ...tileData.get(tileKey(x, y)) };
+      if (moveOrderActive && moveArmyId === tracked.armyId?.value && moveTarget) {
+        if (x === moveTarget.x && y === moveTarget.y) {
+          cancelMoveMode();
+        } else if (tracked.destination) {
+          moveDestinationObserved = true;
+          moveTarget = { x: tracked.destination.x, y: tracked.destination.y };
+          moveHover = moveTarget;
+        } else if (moveDestinationObserved) {
+          cancelMoveMode();
+        }
+      }
     } else if (trackedArmyId) {
       trackedArmyId = null;
       selectedArmyId = null;
@@ -664,6 +677,8 @@
     moveHover = null;
     moveRoute = null;
     moveRouteCost = 0;
+    moveOrderActive = false;
+    moveDestinationObserved = false;
     clearMovePreview();
   };
 
@@ -686,6 +701,13 @@
     showBuild = false;
     if (center) centerCam(x, y);
     drawSel(x, y);
+    if (army.destination) {
+      moveArmyId = id;
+      moveTarget = { x: army.destination.x, y: army.destination.y };
+      moveHover = moveTarget;
+      moveOrderActive = true;
+      moveDestinationObserved = true;
+    }
     scheduleRender();
   };
 
@@ -715,8 +737,17 @@
     notice = '';
     try {
       await armyClient.moveArmy({ armyId: army.armyId, destination });
-      notice = moveRoute.length === 0 ? 'Army ordered to hold its current position.' : `Marching to tile ${destination.x}, ${destination.y}.`;
-      cancelMoveMode();
+      if (moveRoute.length === 0) {
+        notice = 'Army ordered to hold its current position.';
+        cancelMoveMode();
+      } else {
+        notice = `Marching to tile ${destination.x}, ${destination.y}.`;
+        moveTarget = { ...destination };
+        moveHover = moveTarget;
+        moveOrderActive = true;
+        moveDestinationObserved = false;
+        drawMovePreview(destination);
+      }
     } catch (e: unknown) {
       err = errorText(e, 'Movement order failed');
     } finally {
@@ -1535,17 +1566,25 @@
           <div class="flex flex-wrap items-center gap-3 border-b border-blue-300/20 bg-blue-300/[0.07] px-4 py-2.5">
             <div class="min-w-0 flex-1">
               <div class="text-xs font-semibold {previewTarget && !moveRoute ? 'text-red-200' : 'text-blue-200'}">
-                {busy ? 'Issuing movement order…' : previewTarget ? (moveRoute ? `Route to ${previewTarget.x}, ${previewTarget.y}` : 'That tile is unreachable') : 'Move army'}
+                {busy
+                  ? 'Issuing movement order…'
+                  : moveOrderActive && previewTarget
+                    ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
+                    : previewTarget
+                      ? moveRoute
+                        ? `Route to ${previewTarget.x}, ${previewTarget.y}`
+                        : 'That tile is unreachable'
+                      : 'Move army'}
               </div>
               <div class="mt-0.5 text-[11px] text-[#9ba9b1]">
                 {previewTarget
                   ? moveRoute
-                    ? `${steps} ${steps === 1 ? 'tile' : 'tiles'} · about ${fmtCountdown(moveRouteCost * 1000)} across this terrain`
+                    ? `${steps} ${steps === 1 ? 'tile' : 'tiles'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteCost * 1000)} across this terrain`
                     : 'Land armies cannot cross water or cut through a blocked corner.'
                   : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
               </div>
             </div>
-            <span class="text-[10px] text-[#7e8981]">Esc cancels</span>
+            <span class="text-[10px] text-[#7e8981]">{moveOrderActive ? 'Esc hides route' : 'Esc cancels'}</span>
           </div>
         {/if}
 
@@ -1582,7 +1621,7 @@
             </section>
             {#if selectedArmyOwned}
               <div class="inspector-actions">
-                <button class="game-action game-action-primary" disabled={busy || moveArmyId === selectedArmyId} on:click={() => prepareMove(selectedArmy)}>
+                <button class="game-action game-action-primary" disabled={busy || (moveArmyId === selectedArmyId && !moveOrderActive)} on:click={() => prepareMove(selectedArmy)}>
                   {selectedArmy.destination ? 'Redirect army' : 'Move army'}
                 </button>
                 {#if selectedArmy.destination}
