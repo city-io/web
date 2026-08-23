@@ -70,6 +70,10 @@
 }
 
 @layer components {
+  .game-ui {
+    font-family: Tahoma, Verdana, Arial, sans-serif;
+  }
+
   .panel {
     @apply rounded-xl border border-white/[0.09] bg-[#151a17]/95 shadow-[0_18px_50px_rgba(0,0,0,0.24)] backdrop-blur-md;
   }
@@ -113,56 +117,121 @@
   }
 
   .hud-surface {
-    @apply rounded-md border border-white/[0.1] bg-[#101511]/95 shadow-[0_10px_28px_rgba(0,0,0,0.28)] backdrop-blur-md;
+    border: 1px solid #63747a;
+    border-radius: 2px;
+    background: rgba(30, 42, 45, 0.98);
+    box-shadow:
+      inset 0 1px rgba(222, 240, 238, 0.13),
+      inset 0 -1px rgba(0, 0, 0, 0.55),
+      0 6px 16px rgba(0, 0, 0, 0.3);
   }
 
   .game-popover {
-    border: 1px solid #4b4c40;
+    border: 1px solid #5c7076;
     border-radius: 2px;
-    background: rgba(25, 27, 22, 0.98);
-    box-shadow: 0 14px 36px rgba(0, 0, 0, 0.34);
+    background: rgba(24, 35, 38, 0.99);
+    box-shadow:
+      inset 0 1px rgba(222, 240, 238, 0.09),
+      0 14px 36px rgba(0, 0, 0, 0.34);
+  }
+
+  .resource-counter {
+    @apply flex h-10 items-center gap-2 px-2.5;
+  }
+
+  .resource-medallion {
+    @apply flex h-7 w-7 shrink-0 items-center justify-center;
+    border: 1px solid #52666c;
+    background: #172428;
+    box-shadow:
+      inset 0 1px rgba(222, 240, 238, 0.09),
+      0 1px 2px rgba(0, 0, 0, 0.45);
+  }
+
+  .resource-medallion svg {
+    @apply h-5 w-5;
+  }
+
+  .resource-rate {
+    @apply text-[9px] font-semibold tabular-nums;
+  }
+
+  .hud-tool {
+    @apply relative flex h-9 w-10 items-center justify-center border-l border-[#52666c] text-[#b9c8c9] transition-colors;
+  }
+
+  .hud-tool:hover,
+  .hud-tool-active {
+    @apply bg-[#54717a]/45 text-white;
+  }
+
+  .hud-tool > svg {
+    @apply h-5 w-5;
+  }
+
+  .hud-count {
+    @apply absolute right-0.5 top-0.5 flex min-w-3.5 items-center justify-center bg-[#142126] px-1 text-[8px] font-bold tabular-nums text-[#d8e6e4];
+    border: 1px solid #61777d;
+    line-height: 12px;
+  }
+
+  .hud-tooltip {
+    @apply pointer-events-none absolute right-0 top-full mt-2 whitespace-nowrap px-2.5 py-1.5 text-[10px] text-[#dce5e4] opacity-0 transition-opacity;
+    border: 1px solid #5c7076;
+    background: #182326;
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.32);
+  }
+
+  .hud-tool:hover .hud-tooltip,
+  .hud-tool:focus-visible .hud-tooltip {
+    @apply opacity-100;
   }
 
   .inspector-panel {
-    border: 1px solid #555344;
+    border: 1px solid #687b80;
     border-radius: 2px;
     overflow: hidden;
-    background: rgba(35, 36, 30, 0.98);
+    background: rgba(27, 38, 40, 0.99);
     box-shadow:
-      0 18px 48px rgba(0, 0, 0, 0.38),
-      inset 0 1px rgba(255, 245, 207, 0.08);
+      0 16px 42px rgba(0, 0, 0, 0.42),
+      inset 0 1px rgba(222, 240, 238, 0.12),
+      inset 0 -1px rgba(0, 0, 0, 0.7);
   }
 
   .inspector-header {
-    @apply border-b border-[#555344] bg-[#3b3c32] px-4 py-2.5;
-    box-shadow: inset 0 1px rgba(255, 245, 207, 0.12);
+    @apply border-b border-[#5b6e73] bg-[#34474b] px-3 py-2;
+    box-shadow: inset 0 1px rgba(222, 240, 238, 0.12);
   }
 
   .inspector-body {
     display: flex;
     align-items: stretch;
+    max-height: min(270px, 38vh);
   }
 
   .inspector-section {
     min-width: 0;
     flex: 1 1 0;
-    @apply border-r border-[#4a4b3e] px-4 py-3 last:border-r-0;
+    overflow-y: auto;
+    scrollbar-color: #5e7378 #1c292c;
+    scrollbar-width: thin;
+    @apply border-r border-[#465a5f] px-3 py-2.5 last:border-r-0;
   }
 
   .inspector-label {
-    @apply text-[12px] font-medium text-[#a7aa99];
+    @apply text-[10px] font-semibold uppercase tracking-[0.08em] text-[#aababb];
   }
 
   .inspector-stat-label {
-    @apply text-[11px] text-[#8f9385];
+    @apply text-[9px] font-semibold uppercase tracking-[0.06em] text-[#829597];
   }
 
   .inspector-stat-value {
-    @apply mt-1 text-sm font-semibold tabular-nums text-[#eeeee5];
+    @apply mt-0.5 text-[13px] font-semibold tabular-nums text-[#edf2ef];
   }
 
   .inspector-row {
-    @apply flex items-baseline justify-between gap-5 py-1 text-[12px] tabular-nums text-[#d0d1c6];
+    @apply flex items-baseline justify-between gap-4 py-0.5 text-[11px] tabular-nums text-[#d0d1c6];
   }
 
   .inspector-row > :first-child {
@@ -174,25 +243,27 @@
   }
 
   .inspector-actions {
-    flex: 0 0 166px;
-    @apply flex flex-col justify-start gap-2 bg-[#1c1e18] p-3;
-  }
-
-  .inspector-actions::before {
-    content: 'Commands';
-    @apply mb-1 text-[12px] font-medium text-[#a7aa99];
+    flex: 0 0 154px;
+    @apply flex flex-col justify-center gap-1.5 border-l border-[#465a5f] bg-[#1c292c] p-2.5;
   }
 
   .game-action {
-    @apply w-full border px-3 py-2 text-[12px] font-semibold transition-colors disabled:opacity-30;
+    @apply flex w-full items-center justify-center gap-2 border px-2.5 py-2 text-[11px] font-semibold transition-colors disabled:opacity-30;
+    box-shadow:
+      inset 0 1px rgba(255, 255, 230, 0.08),
+      inset 0 -1px rgba(0, 0, 0, 0.35);
+  }
+
+  .game-action > svg {
+    @apply h-3.5 w-3.5 shrink-0;
   }
 
   .game-action-primary {
-    @apply border-[#67775f] bg-[#394937] text-[#f0f2e8] hover:bg-[#465a43];
+    @apply border-[#6c858b] bg-[#46636a] text-[#f2f7f5] hover:bg-[#567780];
   }
 
   .game-action-secondary {
-    @apply border-[#555b52] bg-[#292d27] text-[#cbd0c8] hover:bg-[#343a32] hover:text-white;
+    @apply border-[#53686d] bg-[#28383b] text-[#d0dcdb] hover:bg-[#34494d] hover:text-white;
   }
 
   .game-action-danger {
@@ -201,6 +272,60 @@
 
   .inspector-empty {
     flex: 1 1 auto;
+  }
+
+  .unit-token {
+    @apply relative flex h-9 w-9 shrink-0 items-center justify-center text-[#d8e5e2];
+    border: 1px solid #62767b;
+    background: #293b3f;
+    box-shadow:
+      inset 0 1px rgba(222, 240, 238, 0.12),
+      inset 0 -1px rgba(0, 0, 0, 0.55);
+  }
+
+  .unit-token > svg {
+    @apply h-7 w-7;
+  }
+
+  .unit-tier {
+    @apply absolute -bottom-px -right-px min-w-3.5 bg-[#132024] px-0.5 text-center text-[7px] font-bold leading-3 text-[#f0d86d];
+    border-left: 1px solid #62767b;
+    border-top: 1px solid #62767b;
+  }
+
+  .unit-chip {
+    @apply flex min-w-[8.5rem] items-center gap-2 border border-[#465a5f] bg-[#233235] p-1.5;
+  }
+
+  .structure-token {
+    @apply relative flex h-11 w-11 shrink-0 items-center justify-center text-[#d8e5e2];
+    border: 1px solid #62767b;
+    background: #293b3f;
+    box-shadow: inset 0 1px rgba(222, 240, 238, 0.12);
+  }
+
+  .structure-token > svg {
+    @apply h-9 w-9;
+  }
+
+  .structure-level {
+    @apply absolute -bottom-px -right-px min-w-4 bg-[#132024] px-1 text-center text-[8px] font-bold text-[#f0d86d];
+    border-left: 1px solid #62767b;
+    border-top: 1px solid #62767b;
+    line-height: 14px;
+  }
+
+  .selection-crest {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center border border-[#60757a] bg-[#223236] text-[#d9e6e3];
+    box-shadow: inset 0 1px rgba(222, 240, 238, 0.1);
+  }
+
+  .selection-crest svg {
+    @apply h-5 w-5;
+  }
+
+  .merge-note {
+    @apply text-center text-[9px] leading-snug text-[#829294];
   }
 
   .cursor-action-custom {
@@ -225,17 +350,36 @@
 
   @media (max-width: 639px) {
     .inspector-body {
-      display: grid;
-      grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+      display: block;
+      max-height: 52vh;
+      overflow-y: auto;
     }
 
     .inspector-section {
-      @apply border-b border-r border-[#4a4b3e];
+      overflow: visible;
+      @apply border-b border-r-0 border-[#4a4b3e];
     }
 
     .inspector-actions {
-      grid-column: 1 / -1;
-      @apply flex-row border-t border-[#4a4b3e];
+      @apply sticky bottom-0 flex-row border-l-0 border-t border-[#4a4b3e];
+    }
+  }
+
+  @media (max-width: 480px) {
+    .resource-counter {
+      @apply gap-1 px-1.5;
+    }
+
+    .resource-medallion {
+      @apply h-6 w-6;
+    }
+
+    .resource-rate {
+      @apply hidden;
+    }
+
+    .hud-tool {
+      @apply w-9;
     }
   }
 }
