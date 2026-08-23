@@ -5,6 +5,24 @@
 @layer base {
   :root {
     color-scheme: dark;
+    --cursor-default: url('/cursors/default.svg') 3 2, none;
+    --cursor-action: url('/cursors/action.svg') 3 2, none;
+    --cursor-text: url('/cursors/text.svg') 12 12, none;
+    --cursor-pan: url('/cursors/pan.svg') 16 16, none;
+    --cursor-drag: url('/cursors/drag.svg') 16 16, none;
+    --cursor-move: url('/cursors/move.svg') 16 16, none;
+    --cursor-confirm: url('/cursors/confirm.svg') 16 16, none;
+    --cursor-disabled: url('/cursors/disabled.svg') 12 12, none;
+  }
+
+  html {
+    cursor: var(--cursor-default);
+  }
+
+  *,
+  *::before,
+  *::after {
+    cursor: inherit;
   }
 
   body {
@@ -15,6 +33,35 @@
   button,
   input {
     font: inherit;
+  }
+
+  a,
+  button,
+  select,
+  summary,
+  [role='button'] {
+    cursor: var(--cursor-action);
+  }
+
+  input,
+  textarea,
+  [contenteditable='true'] {
+    cursor: var(--cursor-text);
+  }
+
+  input[type='button'],
+  input[type='submit'],
+  input[type='reset'],
+  input[type='checkbox'],
+  input[type='radio'] {
+    cursor: var(--cursor-action);
+  }
+
+  button:disabled,
+  input:disabled,
+  select:disabled,
+  [aria-disabled='true'] {
+    cursor: var(--cursor-disabled);
   }
 
   ::selection {
@@ -41,7 +88,7 @@
     @apply bg-white/[0.04];
   }
   .btn:disabled {
-    @apply cursor-not-allowed opacity-40;
+    @apply opacity-40;
   }
 
   .btn-primary {
@@ -137,7 +184,7 @@
   }
 
   .game-action {
-    @apply w-full border px-3 py-2 text-[12px] font-semibold transition-colors disabled:cursor-not-allowed disabled:opacity-30;
+    @apply w-full border px-3 py-2 text-[12px] font-semibold transition-colors disabled:opacity-30;
   }
 
   .game-action-primary {
@@ -154,6 +201,26 @@
 
   .inspector-empty {
     flex: 1 1 auto;
+  }
+
+  .cursor-action-custom {
+    cursor: var(--cursor-action);
+  }
+
+  .cursor-map-pan {
+    cursor: var(--cursor-pan);
+  }
+
+  .cursor-map-drag {
+    cursor: var(--cursor-drag);
+  }
+
+  .cursor-army-move {
+    cursor: var(--cursor-move);
+  }
+
+  .cursor-army-confirm {
+    cursor: var(--cursor-confirm);
   }
 
   @media (max-width: 639px) {

@@ -125,5 +125,6 @@
 </script>
 
 <div class="overflow-hidden rounded-lg border border-white/[0.1] bg-[#101512]/90 p-1 shadow-[0_12px_36px_rgba(0,0,0,0.22)] backdrop-blur-md">
-  <canvas bind:this={canvas} width={SIZE} height={SIZE} class="block cursor-pointer rounded" style="image-rendering: pixelated; width: {SIZE}px; height: {SIZE}px" on:click={handleClick}></canvas>
+  <canvas bind:this={canvas} width={SIZE} height={SIZE} class="cursor-action-custom block rounded" style="image-rendering: pixelated; width: {SIZE}px; height: {SIZE}px" on:click={handleClick}
+  ></canvas>
 </div>

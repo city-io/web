@@ -1492,7 +1492,7 @@
 
 <div class="relative h-screen w-screen overflow-hidden bg-[#0e110f]">
   <!-- Canvas -->
-  <div bind:this={el} class="absolute inset-0 {moveArmyId ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}"></div>
+  <div bind:this={el} class="absolute inset-0 {drag ? 'cursor-map-drag' : moveConfirmationPending ? 'cursor-army-confirm' : moveArmyId ? 'cursor-army-move' : 'cursor-map-pan'}"></div>
 
   <!-- Separate HUD clusters keep the map from feeling boxed in by one navbar. -->
   <div class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2 sm:inset-x-4 sm:top-4">
