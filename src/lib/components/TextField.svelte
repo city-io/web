@@ -23,13 +23,13 @@
       type={effectiveType}
       {placeholder}
       {autocomplete}
-      class="field {type === 'password' ? 'pr-10' : ''} {invalid ? 'border-red-700 focus:border-red-600 focus:ring-red-600/40' : ''}"
+      class="field {type === 'password' ? 'pr-10' : ''} {invalid ? 'border-red-400/70 focus:border-red-400 focus:ring-red-400/15' : ''}"
       bind:value
     />
     {#if type === 'password'}
       <button
         type="button"
-        class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-stone-400 transition-colors hover:text-bronze-300"
+        class="absolute inset-y-0 right-0 flex w-10 items-center justify-center text-[#747d76] transition-colors hover:text-white"
         aria-label={show ? 'Hide password' : 'Show password'}
         on:click={() => (show = !show)}
       >

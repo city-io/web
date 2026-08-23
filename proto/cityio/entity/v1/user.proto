@@ -3,6 +3,7 @@ syntax = "proto3";
 package cityio.entity.v1;
 
 import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/ids.proto";
 
 // User is a player account. The password is never exposed over the wire.
 message User {

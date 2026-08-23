@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { buildings, cities, mapCenter, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { armies, buildings, cities, mapCenter, username, gold, food, userId, gameConfig } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
@@ -11,7 +11,8 @@
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
-  import { BuildingType, CityType } from '$lib/gen/cityio/entity/v1/common_pb';
+  import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
+  import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
   import type { Duration } from '@bufbuild/protobuf/wkt';
   import { buildingClient, cityClient } from '$lib/api/client';
@@ -50,13 +51,13 @@
 
   // tiles
   let loaded = new Map<string, Container>();
-  let tileData = new Map<string, { city?: City; building?: Building }>();
+  let tileData = new Map<string, { city?: City; building?: Building; armies?: Army[] }>();
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
   let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let selGfx: Graphics | null = null;
 
   // ── UI state ────────────────────────────────────────────
-  let sel: { x: number; y: number; city?: City; building?: Building } | null = null;
+  let sel: { x: number; y: number; city?: City; building?: Building; armies?: Army[] } | null = null;
   let myCities: City[] = [];
   let buildType: BuildingType = BuildingType.HOUSE;
   const placeTypes = [BuildingType.HOUSE, BuildingType.FARM, BuildingType.MINE, BuildingType.BARRACKS];
@@ -64,9 +65,11 @@
   let err = '';
   let showBuild = false;
 
-  // Resource-rate dropdown: open on hover (CSS) or pinned open on click.
+  // Compact top-bar menus keep secondary information off the map until needed.
   let ratesOpen = false;
   let ratesEl: HTMLDivElement;
+  let citiesOpen = false;
+  let citiesEl: HTMLDivElement;
 
   // Keyboard navigation
   let showHelp = false;
@@ -93,8 +96,16 @@
     [BuildingType.FARM]: 'Farm',
     [BuildingType.MINE]: 'Mine'
   };
+  const TN: Record<number, string> = {
+    [TroopType.SOLDIER]: 'Soldiers',
+    [TroopType.ARCHER]: 'Archers',
+    [TroopType.CAVALRY]: 'Cavalry',
+    [TroopType.ARTILLERY]: 'Artillery'
+  };
   const bName = (t: BuildingType) => BN[t] ?? 'Unknown';
   const cName = (t: CityType) => (t === CityType.CITY ? 'City' : t === CityType.TOWN ? 'Town' : 'Settlement');
+  const troopName = (t: TroopType) => TN[t] ?? 'Troops';
+  const armySize = (army: Army) => army.troops.reduce((sum, stack) => sum + stack.count, 0);
 
   // ── building config helpers ─────────────────────────────
   const getBuildingConfig = (t: BuildingType): BuildingConfig | undefined => $gameConfig.buildings.find((b) => b.type === t);
@@ -181,7 +192,7 @@
       rebuildTiles();
     });
   };
-  $: if ($cities || $buildings) {
+  $: if ($cities || $buildings || $armies) {
     buildLookup();
     // Immediately hide construction overlays for finished/removed constructions
     for (const [k, entry] of constructionGfx) {
@@ -215,6 +226,12 @@
       if (!b.coords) continue;
       const k = tileKey(b.coords.x, b.coords.y);
       tileData.set(k, { ...tileData.get(k), building: b });
+    }
+    for (const army of $armies) {
+      if (!army.coords) continue;
+      const k = tileKey(army.coords.x, army.coords.y);
+      const current = tileData.get(k);
+      tileData.set(k, { ...current, armies: [...(current?.armies ?? []), army] });
     }
   };
 
@@ -533,6 +550,33 @@
     const spr = getTileSprite(kind, col, row);
     tc.addChild(spr);
 
+    // Armies are lightweight overlays so the existing terrain/building art is
+    // unchanged. A blue marker is owned, red is foreign; a small pennant means
+    // at least one army on the tile is marching.
+    if (!inFog && td?.armies?.length) {
+      const marker = new Graphics();
+      const owned = td.armies.every((army) => army.owner?.value === $userId);
+      const color = owned ? 0x60a5fa : 0xf87171;
+      marker.circle(15, -8, 7);
+      marker.fill({ color: 0x101512, alpha: 0.92 });
+      marker.circle(15, -8, 7);
+      marker.stroke({ color, width: td.armies.length > 1 ? 3 : 2, alpha: 0.95 });
+      marker.moveTo(15, -15);
+      marker.lineTo(15, -25);
+      marker.stroke({ color, width: 1.5, alpha: 0.95 });
+      marker.poly([15, -25, 23, -22, 15, -19]);
+      marker.fill({ color, alpha: 0.95 });
+      if (td.armies.some((army) => army.destination)) {
+        marker.moveTo(9, 2);
+        marker.lineTo(18, 2);
+        marker.lineTo(15, -1);
+        marker.moveTo(18, 2);
+        marker.lineTo(15, 5);
+        marker.stroke({ color, width: 1.5, alpha: 0.9 });
+      }
+      tc.addChild(marker);
+    }
+
     // Construction-in-progress overlay
     if (!inFog && td?.building?.constructionStart && td?.building?.constructionEnd) {
       const startMs = Number(td.building.constructionStart.seconds) * 1000;
@@ -843,8 +887,14 @@
   <title>Game - city.io</title>
 </svelte:head>
 
-<!-- Keyboard shortcuts; close the pinned rate dropdown when clicking outside it -->
-<svelte:window on:keydown={onKeydown} on:click={(e) => ratesOpen && ratesEl && !ratesEl.contains(e.target as Node) && (ratesOpen = false)} />
+<!-- Keyboard shortcuts; close pinned menus when clicking outside them -->
+<svelte:window
+  on:keydown={onKeydown}
+  on:click={(e) => {
+    if (ratesOpen && ratesEl && !ratesEl.contains(e.target as Node)) ratesOpen = false;
+    if (citiesOpen && citiesEl && !citiesEl.contains(e.target as Node)) citiesOpen = false;
+  }}
+/>
 
 <!-- Population change chip: people icon + direction, so it's clearly tied to
      population. Growing = green ▲, declining = red ▼, steady = gray. -->
@@ -863,128 +913,109 @@
   </span>
 {/snippet}
 
-<div class="relative h-screen w-screen overflow-hidden bg-stone-900">
+<div class="relative h-screen w-screen overflow-hidden bg-[#0e110f]">
   <!-- Canvas -->
   <div bind:this={el} class="absolute inset-0 cursor-grab active:cursor-grabbing"></div>
 
-  <!-- Top bar -->
-  <div class="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-between px-4 py-3">
-    <!-- Username -->
-    <div class="panel pointer-events-auto flex items-center gap-2.5 px-4 py-2">
-      <div class="h-2 w-2 rounded-full bg-emerald-400 shadow-[0_0_6px_rgba(52,211,153,0.4)]"></div>
-      <span class="text-sm font-semibold tracking-wide text-stone-50">{$username}</span>
-    </div>
+  <!-- A single compact toolbar replaces the separate floating dashboard cards. -->
+  <div class="pointer-events-none absolute inset-x-3 top-3 z-10">
+    <div class="hud-bar pointer-events-auto mx-auto flex min-h-12 max-w-5xl items-center gap-1 px-2">
+      <div class="flex min-w-0 items-center gap-2 px-2">
+        <span class="hidden text-sm font-semibold tracking-[-0.03em] text-white sm:inline">city<span class="text-[#9fc39d]">.</span>io</span>
+        <span class="hidden h-4 w-px bg-white/10 sm:block"></span>
+        <span class="h-1.5 w-1.5 shrink-0 rounded-full bg-emerald-400"></span>
+        <span class="max-w-28 truncate text-xs font-medium text-[#c5ccc6]">{$username}</span>
+      </div>
 
-    <!-- Resources (hover for per-hour rates, click to pin) -->
-    <div class="group pointer-events-auto relative" bind:this={ratesEl}>
-      <button type="button" class="panel flex items-center gap-4 px-3.5 py-2" on:click={() => (ratesOpen = !ratesOpen)}>
-        <span class="text-xs text-stone-300">Gold <span class="font-semibold tabular-nums text-bronze-300">{$gold.toLocaleString()}</span></span>
-        <span class="text-xs text-stone-300">Food <span class="font-semibold tabular-nums text-emerald-300">{$food.toLocaleString()}</span></span>
-        <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-stone-400 transition-transform duration-150 group-hover:rotate-180 {ratesOpen ? 'rotate-180' : ''}">
-          <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-        </svg>
-      </button>
-      <!-- Rate dropdown — pt provides a hover bridge so the gap doesn't close it.
-           Pinned (ratesOpen) stays visible but click-through so it never blocks
-           other UI; only hovering gives it pointer events for the bridge. -->
-      <div
-        class="pointer-events-none absolute right-0 top-full w-52 pt-1.5 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 {ratesOpen
-          ? 'opacity-100'
-          : ''}"
-      >
-        <div class="panel p-2.5">
-          <div class="panel-title mb-1.5 text-[9px]">Production / hr</div>
-          <div class="flex items-center justify-between gap-3 text-[11px]">
-            <span class="flex items-center gap-1.5 text-gray-400">
-              <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5 text-amber-300"><circle cx="12" cy="12" r="9" /></svg>Gold
-            </span>
-            <span class="tabular-nums text-amber-300">{fmtPerHour(goldPerHour)}/hr</span>
-          </div>
-          <div class="mt-1.5 flex items-center justify-between gap-3 text-[11px]">
-            <span class="flex items-center gap-1.5 text-gray-400">
-              <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3 text-emerald-300"
-                ><path d="M3 14.5c0-4 3.5-6.5 9-6.5s9 2.5 9 6.5a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 14.5z" /><path d="M8.5 11c-.5 1.4-.5 2.8 0 4.2" /><path d="M12 10.6c-.5 1.5-.5 3 0 4.6" /><path
-                  d="M15.5 11c-.5 1.4-.5 2.8 0 4.2"
-                /></svg
-              >Food
-            </span>
-            <span class="font-semibold tabular-nums {netFoodPerHour < 0 ? 'text-red-400' : 'text-emerald-300'}">{fmtPerHour(netFoodPerHour)}/hr</span>
-          </div>
-          <div class="mt-1 space-y-0.5 border-t border-white/[0.06] pl-4 pt-1 text-[10px] tabular-nums text-gray-500">
-            <div class="flex items-center justify-between gap-3">
-              <span>produced</span><span class="text-emerald-400/80">{fmtPerHour(foodProdPerHour)}/hr</span>
-            </div>
-            <div class="flex items-center justify-between gap-3">
-              <span>upkeep</span><span class="text-red-400/70">{fmtPerHour(-foodUpkeepPerHour)}/hr</span>
+      <div class="ml-auto flex items-center gap-0.5">
+        <!-- Resources (hover for per-hour rates, click to pin) -->
+        <div class="group relative" bind:this={ratesEl}>
+          <button type="button" class="hud-control flex items-center gap-3" on:click={() => (ratesOpen = !ratesOpen)} aria-expanded={ratesOpen}>
+            <span><span class="hidden text-[#778078] sm:inline">Gold </span><span class="font-medium tabular-nums text-amber-200">{$gold.toLocaleString()}</span></span>
+            <span><span class="hidden text-[#778078] sm:inline">Food </span><span class="font-medium tabular-nums text-emerald-300">{$food.toLocaleString()}</span></span>
+            <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-[#747d76] transition-transform duration-150 {ratesOpen ? 'rotate-180' : ''}">
+              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+            </svg>
+          </button>
+          <div
+            class="pointer-events-none absolute right-0 top-full w-52 pt-2 opacity-0 transition-opacity duration-150 group-hover:pointer-events-auto group-hover:opacity-100 {ratesOpen
+              ? 'opacity-100'
+              : ''}"
+          >
+            <div class="panel p-3">
+              <div class="panel-title mb-2">Production per hour</div>
+              <div class="flex items-center justify-between gap-3 text-xs">
+                <span class="text-[#8d968f]">Gold</span>
+                <span class="tabular-nums text-amber-200">{fmtPerHour(goldPerHour)}</span>
+              </div>
+              <div class="mt-2 flex items-center justify-between gap-3 text-xs">
+                <span class="text-[#8d968f]">Food</span>
+                <span class="font-medium tabular-nums {netFoodPerHour < 0 ? 'text-red-400' : 'text-emerald-300'}">{fmtPerHour(netFoodPerHour)}</span>
+              </div>
+              <div class="mt-2 space-y-1 border-t border-white/[0.07] pt-2 text-[10px] tabular-nums text-[#717a73]">
+                <div class="flex items-center justify-between gap-3"><span>Produced</span><span>{fmtPerHour(foodProdPerHour)}</span></div>
+                <div class="flex items-center justify-between gap-3"><span>Upkeep</span><span>{fmtPerHour(-foodUpkeepPerHour)}</span></div>
+              </div>
             </div>
           </div>
         </div>
+
+        {#if myCities.length > 0}
+          <div class="relative" bind:this={citiesEl}>
+            <button type="button" class="hud-control flex items-center gap-1.5" on:click={() => (citiesOpen = !citiesOpen)} aria-expanded={citiesOpen}>
+              <span>{myCities.length} {myCities.length === 1 ? 'city' : 'cities'}</span>
+              <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-[#747d76] transition-transform duration-150 {citiesOpen ? 'rotate-180' : ''}">
+                <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+              </svg>
+            </button>
+            {#if citiesOpen}
+              <div class="panel absolute right-0 top-[calc(100%+0.5rem)] w-64 overflow-hidden p-1.5">
+                <div class="panel-title px-2 pb-1.5 pt-1">Your cities</div>
+                {#each myCities as rawCity}
+                  {@const city = liveCity(rawCity)}
+                  {@const prod = cityProd(city)}
+                  {@const foodNet = ratePerHour(city.netFoodFlow)}
+                  {@const popGrowth = ratePerHour(city.populationGrowth)}
+                  <button
+                    class="group w-full rounded-lg px-2 py-2 text-left transition-colors hover:bg-white/[0.06]"
+                    on:click={() => {
+                      centerOnCity(city);
+                      citiesOpen = false;
+                    }}
+                  >
+                    <div class="flex items-center gap-2">
+                      <span class="h-1.5 w-1.5 rounded-full {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400'}"></span>
+                      <span class="min-w-0 flex-1 truncate text-xs font-medium text-[#d5dad6]">{city.name}</span>
+                      {#if city.starving}<span class="text-[9px] font-medium uppercase tracking-wide text-red-400">Starving</span>{/if}
+                    </div>
+                    <div class="mt-1 flex items-center gap-3 pl-3.5 text-[10px] tabular-nums text-[#79827b]">
+                      <span class="text-amber-200/80">{Math.round(prod.gold).toLocaleString()} gold/hr</span>
+                      <span class={foodNet < 0 ? 'text-red-400' : 'text-emerald-300/80'}>{fmtPerHour(foodNet)} food/hr</span>
+                      {@render popChip(popGrowth)}
+                    </div>
+                  </button>
+                {/each}
+              </div>
+            {/if}
+          </div>
+        {/if}
+
+        <span class="mx-1 h-4 w-px bg-white/[0.08]"></span>
+        <button class="hud-control" on:click={logout}><span class="hidden sm:inline">Sign out</span><span class="sm:hidden" aria-hidden="true">Exit</span></button>
       </div>
     </div>
-
-    <!-- Logout -->
-    <button class="btn pointer-events-auto px-3 py-1.5 text-xs" on:click={logout}>Sign Out</button>
   </div>
 
-  <!-- Right panel -->
-  <div class="pointer-events-none absolute bottom-4 right-4 top-16 flex w-60 flex-col gap-2.5">
-    {#if myCities.length > 0}
-      <div class="panel pointer-events-auto p-3">
-        <div class="panel-title mb-2">Your Cities</div>
-        {#each myCities as rawCity}
-          {@const city = liveCity(rawCity)}
-          {@const prod = cityProd(city)}
-          {@const foodNet = ratePerHour(city.netFoodFlow)}
-          {@const popGrowth = ratePerHour(city.populationGrowth)}
-          <button class="group flex w-full flex-col gap-1 rounded-xl px-2 py-1.5 text-left transition-colors duration-150 hover:bg-white/[0.06]" on:click={() => centerOnCity(city)}>
-            <div class="flex w-full items-center gap-2">
-              <div class="h-1.5 w-1.5 shrink-0 rounded-full {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400/60'}"></div>
-              <span class="truncate text-xs font-medium text-gray-300 group-hover:text-gray-100">{city.name}</span>
-              {#if city.starving}
-                <span class="shrink-0 text-[9px] font-semibold uppercase tracking-wide text-red-400">Starving</span>
-              {/if}
-              <span class="ml-auto shrink-0" title={cName(city.type)}>
-                {#if city.type === CityType.CITY}
-                  <!-- crown: capital -->
-                  <svg viewBox="0 0 24 24" fill="currentColor" class="h-3.5 w-3.5 text-amber-400/80"><path d="M2 8l4.5 3.5L12 4l5.5 7.5L22 8l-2 11H4L2 8z" /></svg>
-                {:else if city.type === CityType.TOWN}
-                  <!-- buildings: town -->
-                  <svg viewBox="0 0 24 24" fill="currentColor" class="h-3 w-3 text-gray-500"
-                    ><path d="M3 21V8l6-3v4l6-3v5h6v10H3zm4-2h2v-2H7v2zm0-4h2v-2H7v2zm6 4h2v-2h-2v2zm0-4h2v-2h-2v2zm6 4h2v-2h-2v2z" /></svg
-                  >
-                {:else}
-                  <span class="block h-1.5 w-1.5 rounded-full bg-gray-600"></span>
-                {/if}
-              </span>
-            </div>
-            <div class="flex flex-wrap items-center gap-x-3 gap-y-1 pl-3.5 text-[10px] tabular-nums">
-              <span class="flex items-center gap-1 whitespace-nowrap text-amber-300/90" title="Gold production / hr">
-                <svg viewBox="0 0 24 24" fill="currentColor" class="h-2.5 w-2.5"><circle cx="12" cy="12" r="9" /></svg>
-                {Math.round(prod.gold).toLocaleString()}/hr
-              </span>
-              <span class="flex items-center gap-1 whitespace-nowrap {foodNet < 0 ? 'font-semibold text-red-400' : 'text-emerald-300/90'}" title="Net food / hr (production − upkeep)">
-                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" class="h-3 w-3"
-                  ><path d="M3 14.5c0-4 3.5-6.5 9-6.5s9 2.5 9 6.5a1.5 1.5 0 01-1.5 1.5h-15A1.5 1.5 0 013 14.5z" /><path d="M8.5 11c-.5 1.4-.5 2.8 0 4.2" /><path d="M12 10.6c-.5 1.5-.5 3 0 4.6" /><path
-                    d="M15.5 11c-.5 1.4-.5 2.8 0 4.2"
-                  /></svg
-                >
-                {fmtPerHour(foodNet)}/hr
-              </span>
-              {@render popChip(popGrowth)}
-            </div>
-          </button>
-        {/each}
-      </div>
-    {/if}
-
+  <!-- The inspector only appears for an active selection, leaving the map open. -->
+  <div class="pointer-events-none absolute bottom-4 right-3 top-[4.5rem] flex w-[17rem] max-w-[calc(100vw-1.5rem)] flex-col">
     {#if sel}
-      <div class="panel pointer-events-auto space-y-3 p-3" transition:fly={{ x: 16, duration: 200 }}>
+      <div class="panel pointer-events-auto max-h-full overflow-y-auto" transition:fly={{ x: 16, duration: 200 }}>
         <!-- Header -->
-        <div class="flex items-center justify-between">
-          <span class="rounded-md bg-white/[0.06] px-2 py-0.5 font-mono text-[10px] text-gray-500">{sel.x}, {sel.y}</span>
+        <div class="flex items-center justify-between border-b border-white/[0.07] px-4 py-3">
+          <span class="text-[10px] font-medium uppercase tracking-[0.12em] text-[#7e8780]">Tile {sel.x}, {sel.y}</span>
           <button
             aria-label="Close"
-            class="flex h-5 w-5 items-center justify-center rounded-lg text-gray-600 transition-colors duration-150 hover:bg-white/[0.06] hover:text-gray-300"
+            class="flex h-6 w-6 items-center justify-center rounded-md text-[#6f7871] transition-colors duration-150 hover:bg-white/[0.06] hover:text-white"
             on:click={deselect}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
@@ -994,12 +1025,12 @@
         </div>
 
         {#if err}
-          <div class="rounded-md bg-red-500/10 px-3 py-2 text-[11px] text-red-400">{err}</div>
+          <div class="mx-4 mt-3 border-l-2 border-red-400 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-400">{err}</div>
         {/if}
 
-        <!-- City info card (always shown when city exists) -->
+        <!-- City information is one flat section, not a card within a card. -->
         {#if sel.city}
-          <div class="rounded-md bg-white/[0.04] p-3">
+          <div class="border-b border-white/[0.07] px-4 py-3.5">
             <div class="flex items-center justify-between">
               <span class="text-sm font-semibold text-emerald-200">{sel.city.name}</span>
               {#if sel.city.owner?.value === $userId}
@@ -1014,6 +1045,8 @@
               <span class="whitespace-nowrap">{cName(sel.city.type)}</span>
               <span class="text-gray-700">&middot;</span>
               <span class="whitespace-nowrap">Pop {sel.city.population.toFixed(0)}<span class="text-gray-600">/{sel.city.populationCap.toFixed(0)}</span></span>
+              <span class="text-gray-700">&middot;</span>
+              <span class="whitespace-nowrap">Military {sel.city.militaryPopulation.toFixed(0)}</span>
               <span class="text-gray-700">&middot;</span>
               {@render popChip(ratePerHour(sel.city.populationGrowth))}
               {#if sel.city.starving}
@@ -1044,12 +1077,37 @@
           </div>
         {/if}
 
-        <!-- Building info card -->
+        {#if sel.armies?.length}
+          <div class="border-b border-white/[0.07] px-4 py-3.5">
+            <div class="mb-2 flex items-center justify-between">
+              <span class="text-sm font-semibold text-[#d9deda]">{sel.armies.length === 1 ? 'Army' : 'Armies'}</span>
+              <span class="text-[10px] tabular-nums text-[#7f8981]">{sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops</span>
+            </div>
+            <div class="space-y-2">
+              {#each sel.armies as army, index}
+                <div class={index > 0 ? 'border-t border-white/[0.06] pt-2' : ''}>
+                  <div class="flex items-center justify-between gap-2 text-[10px]">
+                    <span class={army.owner?.value === $userId ? 'font-medium text-blue-400' : 'font-medium text-red-400'}>{army.owner?.value === $userId ? 'Yours' : 'Foreign'}</span>
+                    <span class="text-[#7f8981]">{army.destination ? `Marching to ${army.destination.x}, ${army.destination.y}` : 'Holding position'}</span>
+                  </div>
+                  <p class="mt-1 text-[11px] leading-relaxed text-[#aab2ac]">
+                    {army.troops
+                      .filter((stack) => stack.count > 0)
+                      .map((stack) => `${stack.count} ${troopName(stack.type)}`)
+                      .join(', ') || 'No troops'}
+                  </p>
+                </div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+
+        <!-- Building information -->
         {#if sel.building}
           {@const isBuilding = sel.building.level === 0}
           {@const stats = isBuilding ? null : getLevelStats(sel.building.type, sel.building.level)}
           {@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
-          <div class="rounded-md bg-white/[0.04] p-3">
+          <div class="border-b border-white/[0.07] px-4 py-3.5">
             <div class="flex items-center justify-between">
               <span class="text-sm font-semibold text-amber-200">{bName(sel.building.type)}</span>
               {#if !isBuilding}
@@ -1132,7 +1190,7 @@
           </div>
           {#if sel.city?.owner?.value === $userId}
             {@const upgrading = !!(sel.building.constructionStart && sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
-            <div class="flex gap-2">
+            <div class="flex gap-2 px-4 py-3">
               <button
                 class="flex-1 rounded-md bg-sky-500/15 py-2 text-[11px] font-semibold text-sky-300 transition-colors hover:bg-sky-500/25 disabled:opacity-30"
                 disabled={busy || upgrading}
@@ -1147,60 +1205,62 @@
           {/if}
         {:else if sel.city?.owner?.value === $userId}
           <!-- Build toggle (own city, no building on tile) -->
-          <button
-            class="w-full rounded-md py-2 text-xs font-semibold transition-colors
-							{showBuild ? 'bg-gray-500/15 text-gray-300 hover:bg-gray-500/25' : 'bg-emerald-600/25 text-emerald-200 hover:bg-emerald-600/35'}"
-            on:click={() => (showBuild = !showBuild)}>{showBuild ? 'Cancel' : 'Build'}</button
-          >
-          {#if showBuild}
-            <div>
-              <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Build Structure</div>
-              <div class="grid grid-cols-2 gap-1.5">
-                {#each placeTypes as bt}
-                  <button
-                    class="rounded-xl px-1.5 py-1.5 text-[11px] font-medium transition-all duration-150
-											{buildType === bt ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25' : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08] hover:text-gray-300'}"
-                    on:click={() => (buildType = bt)}>{bName(bt)}</button
-                  >
-                {/each}
-              </div>
-            </div>
-            {@const buildStats = getLevelStats(buildType, 1)}
-            {#if buildStats}
-              <div class="space-y-1 rounded-md bg-white/[0.04] p-2.5">
-                <div class="text-[10px] font-semibold text-gray-300">{bName(buildType)}</div>
-                <div class="flex items-baseline justify-between gap-3 text-[10px]">
-                  <span class="shrink-0 text-gray-500">Cost</span>
-                  <span class="text-right tabular-nums text-amber-300">{buildStats.cost.map(fmtRes).join(', ')}</span>
-                </div>
-                <div class="flex items-baseline justify-between gap-3 text-[10px]">
-                  <span class="shrink-0 text-gray-500">Build time</span>
-                  <span class="text-right tabular-nums text-gray-400">{fmtTime(buildStats.constructionTime)}</span>
-                </div>
-                {#if buildStats.production.length > 0}
-                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
-                    <span class="shrink-0 text-gray-500">Produces</span>
-                    <span class="text-right tabular-nums text-emerald-400">{buildStats.production.map(fmtProd).join(', ')}</span>
-                  </div>
-                {/if}
-                {#if buildStats.population > 0}
-                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
-                    <span class="shrink-0 text-gray-500">Population</span>
-                    <span class="text-right tabular-nums text-blue-400">+{buildStats.population}</span>
-                  </div>
-                {/if}
-              </div>
-            {/if}
+          <div class="space-y-3 p-4">
             <button
-              class="w-full rounded-md bg-emerald-600/25 py-2 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-600/35 disabled:opacity-30"
-              disabled={busy}
-              on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Build failed')}
-              >{busy ? '...' : 'Place Building'}</button
+              class="w-full rounded-md py-2 text-xs font-semibold transition-colors
+							{showBuild ? 'bg-gray-500/15 text-gray-300 hover:bg-gray-500/25' : 'bg-emerald-600/25 text-emerald-200 hover:bg-emerald-600/35'}"
+              on:click={() => (showBuild = !showBuild)}>{showBuild ? 'Cancel' : 'Build'}</button
             >
-          {/if}
-        {:else if !sel.city}
+            {#if showBuild}
+              <div>
+                <div class="mb-1.5 text-[10px] font-semibold uppercase tracking-wider text-gray-500">Build Structure</div>
+                <div class="grid grid-cols-2 gap-1.5">
+                  {#each placeTypes as bt}
+                    <button
+                      class="rounded-lg px-1.5 py-1.5 text-[11px] font-medium transition-all duration-150
+											{buildType === bt ? 'bg-emerald-500/15 text-emerald-300 ring-1 ring-emerald-500/25' : 'bg-white/[0.04] text-gray-400 hover:bg-white/[0.08] hover:text-gray-300'}"
+                      on:click={() => (buildType = bt)}>{bName(bt)}</button
+                    >
+                  {/each}
+                </div>
+              </div>
+              {@const buildStats = getLevelStats(buildType, 1)}
+              {#if buildStats}
+                <div class="space-y-1 border-t border-white/[0.07] pt-3">
+                  <div class="text-[10px] font-semibold text-gray-300">{bName(buildType)}</div>
+                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                    <span class="shrink-0 text-gray-500">Cost</span>
+                    <span class="text-right tabular-nums text-amber-300">{buildStats.cost.map(fmtRes).join(', ')}</span>
+                  </div>
+                  <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                    <span class="shrink-0 text-gray-500">Build time</span>
+                    <span class="text-right tabular-nums text-gray-400">{fmtTime(buildStats.constructionTime)}</span>
+                  </div>
+                  {#if buildStats.production.length > 0}
+                    <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                      <span class="shrink-0 text-gray-500">Produces</span>
+                      <span class="text-right tabular-nums text-emerald-400">{buildStats.production.map(fmtProd).join(', ')}</span>
+                    </div>
+                  {/if}
+                  {#if buildStats.population > 0}
+                    <div class="flex items-baseline justify-between gap-3 text-[10px]">
+                      <span class="shrink-0 text-gray-500">Population</span>
+                      <span class="text-right tabular-nums text-blue-400">+{buildStats.population}</span>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
+              <button
+                class="w-full rounded-md bg-emerald-600/25 py-2 text-xs font-semibold text-emerald-200 transition-colors hover:bg-emerald-600/35 disabled:opacity-30"
+                disabled={busy}
+                on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Build failed')}
+                >{busy ? '...' : 'Place Building'}</button
+              >
+            {/if}
+          </div>
+        {:else if !sel.city && !sel.armies?.length}
           <!-- Empty tile message -->
-          <div class="py-3 text-center text-xs text-gray-600">
+          <div class="px-4 py-6 text-center text-xs text-gray-600">
             {myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius ? 'Beyond visibility range' : 'No structures on this tile'}
           </div>
         {/if}
@@ -1211,9 +1271,7 @@
   <!-- Bottom hint -->
   {#if !sel}
     <div class="pointer-events-none absolute bottom-6 left-1/2 -translate-x-1/2" transition:fade={{ duration: 200 }}>
-      <div class="panel px-4 py-1.5">
-        <span class="text-xs font-medium text-stone-300">Select a tile to inspect</span>
-      </div>
+      <span class="rounded-full bg-black/40 px-3 py-1.5 text-[11px] font-medium text-white/60 backdrop-blur-sm">Select a tile to inspect</span>
     </div>
   {/if}
 
@@ -1224,7 +1282,7 @@
 
   <!-- Keyboard shortcuts toggle -->
   <button
-    class="btn pointer-events-auto absolute bottom-4 left-[186px] flex h-8 w-8 items-center justify-center !p-0 text-sm font-bold"
+    class="hud-bar pointer-events-auto absolute bottom-4 left-[186px] flex h-8 w-8 items-center justify-center text-xs font-medium text-white/70 transition-colors hover:text-white"
     title="Keyboard shortcuts (?)"
     on:click={() => (showHelp = !showHelp)}>?</button
   >

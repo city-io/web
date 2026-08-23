@@ -2,9 +2,9 @@ syntax = "proto3";
 
 package cityio.service.v1;
 
-import "cityio/entity/v1/common.proto";
-import "cityio/entity/v1/user.proto";
 import "cityio/entity/v1/bag.proto";
+import "cityio/entity/v1/ids.proto";
+import "cityio/entity/v1/user.proto";
 
 message RegisterRequest {
   string email = 1;
@@ -39,9 +39,12 @@ message DeleteUserResponse {}
 
 message StreamStateRequest {}
 
-// StreamStateResponse wraps an EntityBag pushed to a client whenever state changes.
+// StreamStateResponse carries an initial entity snapshot followed by entity
+// upserts and deletion tombstones as state changes.
 message StreamStateResponse {
   cityio.entity.v1.EntityBag entities = 1;
+  repeated cityio.entity.v1.BuildingId deleted_building_ids = 2;
+  repeated cityio.entity.v1.ArmyId deleted_army_ids = 3;
 }
 
 // UserService manages player accounts and the per-user resource stream.

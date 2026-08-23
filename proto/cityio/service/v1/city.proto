@@ -2,9 +2,10 @@ syntax = "proto3";
 
 package cityio.service.v1;
 
-import "cityio/entity/v1/common.proto";
-import "cityio/entity/v1/city.proto";
 import "cityio/entity/v1/bag.proto";
+import "cityio/entity/v1/city.proto";
+import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/ids.proto";
 
 message GetCityRequest {
   cityio.entity.v1.CityId city_id = 1;

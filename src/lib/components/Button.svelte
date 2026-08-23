@@ -1,5 +1,4 @@
 <script lang="ts">
-  // Beveled stone button. variant switches the face color; keeps Civ2 chrome.
   export let variant: 'default' | 'primary' | 'danger' = 'default';
   export let type: 'button' | 'submit' = 'button';
   export let disabled = false;

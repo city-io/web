@@ -1,5 +1,4 @@
 @import '@fontsource-variable/inter';
-@import '@fontsource/press-start-2p';
 
 @import 'tailwindcss/base';
 @import 'tailwindcss/components';
@@ -7,68 +6,72 @@
 
 @layer base {
   :root {
-    --stone-edge-light: rgba(255, 241, 214, 0.35);
-    --stone-edge-dark: rgba(0, 0, 0, 0.55);
+    color-scheme: dark;
   }
 
   body {
-    @apply bg-stone-900 font-sans text-stone-100;
-    /* Subtle woven-stone texture behind everything (Civ2 backdrop feel). */
-    background-image: radial-gradient(rgba(255, 241, 214, 0.03) 1px, transparent 1px), radial-gradient(rgba(0, 0, 0, 0.35) 1px, transparent 1px);
-    background-size:
-      6px 6px,
-      6px 6px;
-    background-position:
-      0 0,
-      3px 3px;
+    @apply bg-[#0e110f] font-sans text-[#edf0ed] antialiased;
+    margin: 0;
+  }
+
+  button,
+  input {
+    font: inherit;
+  }
+
+  ::selection {
+    background: rgba(167, 205, 166, 0.25);
   }
 }
 
 @layer components {
-  /* Raised beveled stone panel — the core Civ2 HUD surface. */
   .panel {
-    @apply rounded-panel border border-stone-950/70 bg-stone-700 shadow-bevel;
-    background-image: linear-gradient(180deg, rgba(255, 241, 214, 0.08) 0%, rgba(0, 0, 0, 0.14) 100%);
+    @apply rounded-xl border border-white/[0.09] bg-[#151a17]/95 shadow-[0_18px_50px_rgba(0,0,0,0.24)] backdrop-blur-md;
   }
 
   .panel-title {
-    @apply font-display text-[10px] uppercase tracking-widest text-bronze-300;
-    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.6);
+    @apply text-[10px] font-semibold uppercase tracking-[0.14em] text-[#8e9891];
   }
 
-  /* Beveled stone button with a bronze face. */
   .btn {
-    @apply rounded-panel border border-stone-950/70 bg-stone-600 px-4 py-2 text-sm font-semibold text-stone-50 shadow-bevel transition-[filter] duration-100;
-    text-shadow: 1px 1px 0 rgba(0, 0, 0, 0.5);
+    @apply rounded-lg border border-white/[0.1] bg-white/[0.06] px-4 py-2 text-sm font-medium text-[#e8ece9] transition-colors duration-150;
   }
   .btn:hover {
-    filter: brightness(1.12);
+    @apply border-white/[0.16] bg-white/[0.1];
   }
   .btn:active {
-    @apply shadow-bevel-inset;
-    filter: brightness(0.95);
+    @apply bg-white/[0.04];
   }
   .btn:disabled {
-    @apply cursor-not-allowed opacity-50;
-    filter: none;
+    @apply cursor-not-allowed opacity-40;
   }
 
   .btn-primary {
-    @apply border-bronze-700 bg-bronze-500 text-stone-900;
+    @apply border-[#dfe9dc] bg-[#dfe9dc] text-[#172019];
+  }
+  .btn-primary:hover {
+    @apply border-white bg-white;
   }
   .btn-danger {
-    @apply border-red-950 bg-red-800 text-red-50;
+    @apply border-red-400/20 bg-red-400/10 text-red-300;
   }
 
-  /* Recessed input field. */
   .field {
-    @apply w-full rounded-panel border border-stone-950/70 bg-stone-800 px-3 py-2.5 text-sm text-stone-50 shadow-bevel-inset outline-none transition-colors placeholder:text-stone-400;
+    @apply w-full rounded-lg border border-white/[0.12] bg-[#0e1210] px-3.5 py-3 text-[15px] text-white outline-none transition-[border-color,box-shadow] placeholder:text-[#687069];
   }
   .field:focus {
-    @apply border-bronze-500 bg-stone-800/90 ring-1 ring-bronze-500/50;
+    @apply border-[#a7caa5] ring-2 ring-[#a7caa5]/15;
   }
 
   .field-label {
-    @apply mb-1.5 block text-xs font-semibold uppercase tracking-wide text-stone-300;
+    @apply mb-2 block text-[13px] font-medium text-[#c5cbc6];
+  }
+
+  .hud-bar {
+    @apply rounded-xl border border-white/[0.08] bg-[#101512]/90 shadow-[0_12px_36px_rgba(0,0,0,0.2)] backdrop-blur-md;
+  }
+
+  .hud-control {
+    @apply rounded-lg border border-transparent px-2.5 py-1.5 text-xs text-[#aeb6b0] transition-colors hover:border-white/[0.08] hover:bg-white/[0.06] hover:text-white;
   }
 }

@@ -1,6 +1,19 @@
 <script lang="ts">
   import { mapClient, userClient, configClient } from '$lib/api/client';
-  import { token, buildings as buildingsStore, capital, cities as citiesStore, food, foodIncomePerHour, foodUpkeepPerHour, gameConfig, gold, mapCenter, userId } from '$lib/stores';
+  import {
+    token,
+    armies as armiesStore,
+    buildings as buildingsStore,
+    capital,
+    cities as citiesStore,
+    food,
+    foodIncomePerHour,
+    foodUpkeepPerHour,
+    gameConfig,
+    gold,
+    mapCenter,
+    userId
+  } from '$lib/stores';
   import { ratePerHour } from '$lib/game/rates';
   import { isTokenValid, handleUnauthenticated } from '$lib/session';
   import { Code, ConnectError } from '@connectrpc/connect';
@@ -44,6 +57,7 @@
       const response = await mapClient.getMap({});
       citiesStore.set(response.entities?.cities ?? []);
       buildingsStore.set(response.entities?.buildings ?? []);
+      armiesStore.set(response.entities?.armies ?? []);
 
       // Find user's capital
       const allCities = response.entities?.cities ?? [];
@@ -70,51 +84,71 @@
       try {
         for await (const state of userClient.streamState({}, { signal })) {
           const bag = state.entities;
-          if (!bag) continue;
+          if (bag) {
+            // User resource updates
+            const u = bag.users[0];
+            if (u) {
+              gold.set(u.gold);
+              food.set(u.food);
+              foodIncomePerHour.set(ratePerHour(u.foodIncome));
+              foodUpkeepPerHour.set(ratePerHour(u.foodUpkeep));
+            }
 
-          // User resource updates
-          const u = bag.users?.[0];
-          if (u) {
-            gold.set(u.gold);
-            food.set(u.food);
-            foodIncomePerHour.set(ratePerHour(u.foodIncome));
-            foodUpkeepPerHour.set(ratePerHour(u.foodUpkeep));
+            // City delta updates (upsert by ID)
+            if (bag.cities.length) {
+              citiesStore.update((prev) => {
+                const updated = [...prev];
+                for (const c of bag.cities) {
+                  const id = c.cityId?.value;
+                  if (!id) continue;
+                  const idx = updated.findIndex((x) => x.cityId?.value === id);
+                  if (idx >= 0) updated[idx] = c;
+                  else updated.push(c);
+                }
+                return updated;
+              });
+            }
+
+            // Building delta updates (upsert by ID)
+            if (bag.buildings.length) {
+              buildingsStore.update((prev) => {
+                const updated = [...prev];
+                for (const b of bag.buildings) {
+                  const id = b.buildingId?.value;
+                  if (!id) continue;
+                  const idx = updated.findIndex((x) => x.buildingId?.value === id);
+                  if (idx >= 0) updated[idx] = b;
+                  else updated.push(b);
+                }
+                return updated;
+              });
+            }
+
+            // Army delta updates (upsert by ID)
+            if (bag.armies.length) {
+              armiesStore.update((prev) => {
+                const updated = [...prev];
+                for (const army of bag.armies) {
+                  const id = army.armyId?.value;
+                  if (!id) continue;
+                  const idx = updated.findIndex((x) => x.armyId?.value === id);
+                  if (idx >= 0) updated[idx] = army;
+                  else updated.push(army);
+                }
+                return updated;
+              });
+            }
           }
 
-          // City delta updates (upsert by ID)
-          if (bag.cities?.length) {
-            citiesStore.update((prev) => {
-              const updated = [...prev];
-              for (const c of bag.cities) {
-                const id = c.cityId?.value;
-                if (!id) continue;
-                const idx = updated.findIndex((x) => x.cityId?.value === id);
-                if (idx >= 0) updated[idx] = c;
-                else updated.push(c);
-              }
-              return updated;
-            });
-          }
-
-          // Building delta updates (upsert by ID)
-          if (bag.buildings?.length) {
-            buildingsStore.update((prev) => {
-              const updated = [...prev];
-              for (const b of bag.buildings) {
-                const id = b.buildingId?.value;
-                if (!id) continue;
-                const idx = updated.findIndex((x) => x.buildingId?.value === id);
-                if (idx >= 0) updated[idx] = b;
-                else updated.push(b);
-              }
-              return updated;
-            });
-          }
-
-          // Building deletions
-          if (bag.deletedBuildingIds?.length) {
-            const ids = new Set(bag.deletedBuildingIds.map((id) => id.value).filter(Boolean));
+          // Tombstones live on StreamStateResponse and can arrive without a bag.
+          if (state.deletedBuildingIds.length) {
+            const ids = new Set(state.deletedBuildingIds.map((id) => id.value).filter(Boolean));
             buildingsStore.update((prev) => prev.filter((b) => !ids.has(b.buildingId?.value ?? '')));
+          }
+
+          if (state.deletedArmyIds.length) {
+            const ids = new Set(state.deletedArmyIds.map((id) => id.value).filter(Boolean));
+            armiesStore.update((prev) => prev.filter((army) => !ids.has(army.armyId?.value ?? '')));
           }
         }
       } catch (err: unknown) {

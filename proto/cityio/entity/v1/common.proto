@@ -2,18 +2,6 @@ syntax = "proto3";
 
 package cityio.entity.v1;
 
-message UserId {
-  string value = 1;
-}
-
-message CityId {
-  string value = 1;
-}
-
-message BuildingId {
-  string value = 1;
-}
-
 // CityType distinguishes player capitals from neutral towns.
 enum CityType {
   CITY_TYPE_UNSPECIFIED = 0;
@@ -30,6 +18,15 @@ enum BuildingType {
   BUILDING_TYPE_HOUSE = 4;
   BUILDING_TYPE_FARM = 5;
   BUILDING_TYPE_MINE = 6;
+}
+
+// TroopType identifies a kind of troop.
+enum TroopType {
+  TROOP_TYPE_UNSPECIFIED = 0;
+  TROOP_TYPE_SOLDIER = 1;
+  TROOP_TYPE_ARCHER = 2;
+  TROOP_TYPE_CAVALRY = 3;
+  TROOP_TYPE_ARTILLERY = 4;
 }
 
 // Coordinates is a position on the game map.

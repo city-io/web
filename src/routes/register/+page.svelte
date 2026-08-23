@@ -4,7 +4,6 @@
   import { token as tokenStore, userId as userIdStore } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import Brand from '$lib/components/Brand.svelte';
-  import Panel from '$lib/components/Panel.svelte';
   import Button from '$lib/components/Button.svelte';
   import TextField from '$lib/components/TextField.svelte';
 
@@ -43,50 +42,51 @@
   <title>Register - city.io</title>
 </svelte:head>
 
-<main class="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10">
-  <div class="relative w-full max-w-sm">
+<main class="relative flex min-h-screen flex-col bg-[#0e110f] px-6">
+  <header class="mx-auto flex h-20 w-full max-w-6xl items-center border-b border-white/[0.07]">
+    <button aria-label="Go to home" on:click={() => goto('/')}>
+      <Brand size="sm" />
+    </button>
+  </header>
+
+  <section class="mx-auto flex w-full max-w-sm flex-1 flex-col justify-center py-12">
     <div class="mb-8">
-      <Brand tagline="Create your account and found your first city." />
+      <p class="mb-3 text-xs font-medium uppercase tracking-[0.16em] text-[#79827c]">Account</p>
+      <h2 class="text-[32px] font-semibold tracking-[-0.04em] text-white">Create an account</h2>
+      <p class="mt-2 text-sm text-[#8f9891]">Start a new city in a few seconds.</p>
     </div>
 
-    <Panel title="Create account">
-      {#if errorMessage}
-        <div class="mb-4 flex items-start gap-2 rounded-panel border border-red-900/60 bg-red-900/40 px-3 py-2.5 text-[13px] text-red-200 shadow-bevel-inset" role="alert">
-          <svg viewBox="0 0 20 20" fill="currentColor" class="mt-0.5 h-4 w-4 shrink-0 text-red-300">
-            <path fill-rule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zM9 9a1 1 0 012 0v4a1 1 0 11-2 0V9zm1-4a1 1 0 100 2 1 1 0 000-2z" clip-rule="evenodd" />
-          </svg>
-          <span>{errorMessage}</span>
-        </div>
-      {/if}
+    {#if errorMessage}
+      <div class="mb-5 border-l-2 border-red-400 bg-red-400/[0.08] px-3 py-2.5 text-[13px] text-red-300" role="alert">{errorMessage}</div>
+    {/if}
 
-      <form class="space-y-4" on:submit|preventDefault={handleRegister}>
-        <TextField id="username" label="Username" type="text" autocomplete="username" placeholder="commander" bind:value={username} />
-        <TextField id="email" label="Email" type="email" autocomplete="email" placeholder="you@example.com" bind:value={email} />
-        <TextField id="password" label="Password" type="password" autocomplete="new-password" placeholder="••••••••••••" bind:value={password} />
-        <TextField
-          id="confirmPassword"
-          label="Confirm password"
-          type="password"
-          autocomplete="new-password"
-          placeholder="••••••••••••"
-          invalid={!!confirmPassword && confirmPassword !== password}
-          bind:value={confirmPassword}
-        >
-          <p slot="hint" class="mt-1.5 text-[11px] text-red-300">
-            {#if confirmPassword && confirmPassword !== password}Passwords don't match{/if}
-          </p>
-        </TextField>
+    <form class="space-y-4" on:submit|preventDefault={handleRegister}>
+      <TextField id="username" label="Username" type="text" autocomplete="username" placeholder="Choose a username" bind:value={username} />
+      <TextField id="email" label="Email" type="email" autocomplete="email" placeholder="you@example.com" bind:value={email} />
+      <TextField id="password" label="Password" type="password" autocomplete="new-password" placeholder="Create a password" bind:value={password} />
+      <TextField
+        id="confirmPassword"
+        label="Confirm password"
+        type="password"
+        autocomplete="new-password"
+        placeholder="Repeat your password"
+        invalid={!!confirmPassword && confirmPassword !== password}
+        bind:value={confirmPassword}
+      >
+        <p slot="hint" class="mt-1.5 text-[11px] text-red-300">
+          {#if confirmPassword && confirmPassword !== password}Passwords don't match{/if}
+        </p>
+      </TextField>
 
-        <Button type="submit" variant="primary" class="w-full" disabled={isLoading} loading={isLoading}>
-          Create account
-          <span slot="loading">Creating account…</span>
-        </Button>
-      </form>
-    </Panel>
+      <Button type="submit" variant="primary" class="mt-2 w-full py-3" disabled={isLoading} loading={isLoading}>
+        Create account
+        <span slot="loading">Creating account…</span>
+      </Button>
+    </form>
 
-    <p class="mt-6 text-center text-sm text-stone-300">
+    <p class="mt-7 text-sm text-[#8f9891]">
       Already have an account?
-      <button class="font-semibold text-bronze-300 transition-colors hover:text-bronze-400" on:click={() => goto('/login')}>Sign in</button>
+      <button class="ml-1 font-medium text-[#dce5da] underline decoration-white/20 underline-offset-4 transition-colors hover:text-white" on:click={() => goto('/login')}>Sign in</button>
     </p>
-  </div>
+  </section>
 </main>
