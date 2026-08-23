@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { armies, buildings, cities, mapCenter, tiles, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { armies, armyMarches, buildings, cities, mapCenter, tiles, tileVisibility, username, gold, food, userId, gameConfig } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
@@ -7,24 +7,29 @@
   import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
   import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
-  import { TROOP_STATS, TROOP_TYPES, armyPathCost, armySize, armyTitle, createArmyMarker, findArmyPath, troopName, type ArmyPathStep } from '$lib/game/troops';
+  import { TROOP_STATS, TROOP_TYPES, armySize, armyTitle, createArmyMarker, troopName, type ArmyPathStep } from '$lib/game/troops';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
-  import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
+  import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
+  import { ArmyMarchDisclosure, type ArmyMarch } from '$lib/gen/cityio/entity/v1/army_march_pb';
   import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
   import { TerrainType, type Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
+  import { TileVisibilityState } from '$lib/gen/cityio/service/v1/state_pb';
   import type { TrainingOrder } from '$lib/gen/cityio/service/v1/army_pb';
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
   import type { Duration, Timestamp } from '@bufbuild/protobuf/wkt';
   import { Code, ConnectError } from '@connectrpc/connect';
-  import { armyClient, buildingClient, cityClient } from '$lib/api/client';
+  import { armyClient, buildingClient } from '$lib/api/client';
 
   // ── constants ──────────────────────────────────────────
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
+  // Set this above zero if movement orders should have a deliberate client-side submit delay.
+  const MOVE_ORDER_SUBMIT_DELAY_MS = 0;
+  type MovePreviewResult = 'loaded' | 'failed' | 'superseded';
 
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
@@ -63,7 +68,6 @@
 
   // ── UI state ────────────────────────────────────────────
   let sel: { x: number; y: number; tile?: Tile; city?: City; building?: Building; armies?: Army[] } | null = null;
-  let myCities: City[] = [];
   let buildType: BuildingType = BuildingType.HOUSE;
   const placeTypes = [BuildingType.HOUSE, BuildingType.FARM, BuildingType.MINE, BuildingType.BARRACKS];
   let busy = false;
@@ -78,23 +82,40 @@
   let moveTarget: { x: number; y: number } | null = null;
   let moveHover: { x: number; y: number } | null = null;
   let moveRoute: ArmyPathStep[] | null = null;
-  let moveRouteCost = 0;
+  let moveRouteComplete = true;
+  let moveRouteLoading = false;
+  let moveRouteError = '';
+  let moveRouteDurationMs = 0;
+  let movePreviewDestination: { x: number; y: number } | null = null;
   let moveOrderActive = false;
   let moveDestinationObserved = false;
   let moveGfx: Graphics | null = null;
+  let moveConfirmationGfx: Graphics | null = null;
+  let moveConfirmationPending = false;
+  let moveConfirmationPreview: Promise<MovePreviewResult> | null = null;
+  let movePreviewRequest = 0;
   let trainingOrders: TrainingOrder[] = [];
   let trainingOrdersBarracksId: string | null = null;
   let trainingOrdersAvailable = true;
   let trainingOrdersLoading = false;
   let lastTrainingPoll = 0;
+  let trainingQueues = new Map<string, TrainingOrder[]>();
+  let trainingOverviewLoading = false;
+  let lastTrainingOverviewPoll = 0;
 
-  // Compact top-bar menus keep secondary information off the map until needed.
+  // Resource details stay compact; entity management lives in the right rail.
   let ratesOpen = false;
   let ratesEl: HTMLDivElement;
-  let citiesOpen = false;
-  let citiesEl: HTMLDivElement;
-  let armiesOpen = false;
-  let armiesEl: HTMLDivElement;
+  let managementOpen = true;
+  let managementTab: 'armies' | 'cities' | 'training' = 'armies';
+  const toggleManagementTab = (tab: typeof managementTab) => {
+    if (managementOpen && managementTab === tab) {
+      managementOpen = false;
+      return;
+    }
+    managementTab = tab;
+    managementOpen = true;
+  };
 
   // Keyboard navigation
   let showHelp = false;
@@ -189,11 +210,21 @@
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
   $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
+  $: marchById = new Map($armyMarches.map((march) => [march.armyMarchId?.value, march]));
+  const marchForArmy = (army?: Army): ArmyMarch | undefined => (army?.marchId?.value ? marchById.get(army.marchId.value) : undefined);
+  $: selectedMarch = marchForArmy(selectedArmy);
   $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => (a.armyId?.value ?? '').localeCompare(b.armyId?.value ?? ''));
   $: ownedArmyTroops = ownedArmies.reduce((total, army) => total + armySize(army), 0);
+  $: ownedMarchCount = ownedArmies.filter((army) => marchForArmy(army)).length;
+  $: ownedCityIds = new Set($cities.filter((city) => city.owner?.value === $userId).map((city) => city.cityId?.value));
+  $: ownedBarracks = $buildings.filter((building) => building.type === BuildingType.BARRACKS && ownedCityIds.has(building.cityId?.value));
+  $: queuedTrainingCount = [...trainingQueues.values()].reduce((total, queue) => total + queue.length, 0);
   $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
   $: if (selectedBarracksId && trainingOrdersAvailable && (trainingOrdersBarracksId !== selectedBarracksId || now - lastTrainingPoll >= 3000)) {
     loadTrainingOrders(selectedBarracksId);
+  }
+  $: if (managementOpen && managementTab === 'training' && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
+    loadTrainingOverview();
   }
 
   // ── building config helpers ─────────────────────────────
@@ -233,11 +264,6 @@
   $: foodProdPerHour = ownedCities.reduce((s, c) => s + ratePerHour(c.foodProduction), 0);
   $: foodUpkeepPerHour = ownedCities.reduce((s, c) => s + ratePerHour(c.foodUpkeep), 0);
   $: netFoodPerHour = foodProdPerHour - foodUpkeepPerHour;
-
-  // Live city state (food rates / starving) is pushed into the $cities store per
-  // tick, while myCities is a one-shot snapshot — look up the fresh copy by id.
-  $: liveCityById = new Map($cities.map((c) => [c.cityId?.value, c]));
-  const liveCity = (c: City): City => liveCityById.get(c.cityId?.value) ?? c;
 
   // Per-city resource production per hour, summed from each building's current
   // level in the config. Recomputes when buildings or config change. Buildings
@@ -283,7 +309,7 @@
       rebuildTiles();
     });
   };
-  $: if ($tiles || $cities || $buildings || $armies) {
+  $: if ($tiles || $tileVisibility || $cities || $buildings || $armies || $armyMarches) {
     buildLookup();
     // Immediately hide construction overlays for finished/removed constructions
     for (const [k, entry] of constructionGfx) {
@@ -301,12 +327,14 @@
       const y = tracked.coords.y;
       sel = { x, y, ...tileData.get(tileKey(x, y)) };
       if (moveOrderActive && moveArmyId === tracked.armyId?.value && moveTarget) {
+        const march = marchForArmy(tracked);
         if (x === moveTarget.x && y === moveTarget.y) {
           cancelMoveMode();
-        } else if (tracked.destination) {
+        } else if (march?.destination) {
           moveDestinationObserved = true;
-          moveTarget = { x: tracked.destination.x, y: tracked.destination.y };
+          moveTarget = { x: march.destination.x, y: march.destination.y };
           moveHover = moveTarget;
+          void drawMovePreview(moveTarget, march);
         } else if (moveDestinationObserved) {
           cancelMoveMode();
         }
@@ -328,13 +356,10 @@
   const buildLookup = () => {
     tileData.clear();
     for (const [key, tile] of $tiles) tileData.set(key, { tile });
-    for (const c of $cities) {
-      if (!c.start) continue;
-      for (let dx = 0; dx < c.size; dx++)
-        for (let dy = 0; dy < c.size; dy++) {
-          const k = tileKey(c.start.x + dx, c.start.y + dy);
-          tileData.set(k, { ...tileData.get(k), city: c });
-        }
+    const cityById = new Map($cities.map((city) => [city.cityId?.value, city]));
+    for (const [key, data] of tileData) {
+      const city = cityById.get(data.tile?.cityId?.value);
+      if (city) tileData.set(key, { ...data, city });
     }
     for (const b of $buildings) {
       if (!b.coords) continue;
@@ -350,25 +375,13 @@
   };
 
   // ── visibility (fog of war) ─────────────────────────────
-  const getVisDist = (col: number, row: number): number => {
-    let min = Infinity;
-    for (const city of myCities) {
-      if (!city.start) continue;
-      const sx = city.start.x,
-        sy = city.start.y,
-        s = city.size;
-      const dx = Math.max(sx - col, col - (sx + s - 1), 0);
-      const dy = Math.max(sy - row, row - (sy + s - 1), 0);
-      min = Math.min(min, Math.max(dx, dy));
-    }
-    for (const army of $armies) {
-      if (army.owner?.value !== $userId || !army.coords) continue;
-      min = Math.min(min, Math.max(Math.abs(army.coords.x - col), Math.abs(army.coords.y - row)));
-    }
-    return min;
+  const visibilityAt = (col: number, row: number): TileVisibilityState => $tileVisibility.get(tileKey(col, row)) ?? TileVisibilityState.UNEXPLORED;
+  const routeStepExplored = (step: ArmyPathStep): boolean => {
+    const visibility = visibilityAt(step.x, step.y);
+    return visibility === TileVisibilityState.EXPLORED || visibility === TileVisibilityState.VISIBLE;
   };
-
-  const hasVisionSources = () => myCities.length > 0 || $armies.some((army) => army.owner?.value === $userId && army.coords);
+  const routeSegmentExplored = (from: ArmyPathStep, to: ArmyPathStep): boolean => Math.max(Math.abs(to.x - from.x), Math.abs(to.y - from.y)) === 1 && routeStepExplored(to);
+  const routeIncludesUnknown = (origin: ArmyPathStep, route: ArmyPathStep[]): boolean => route.some((step, index) => !routeSegmentExplored(index === 0 ? origin : route[index - 1], step));
 
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
@@ -426,6 +439,20 @@
     notice = '';
     showBuild = false;
     drawSel(col, row);
+  };
+
+  const focusBuilding = (building: Building) => {
+    if (!building.coords) return;
+    const { x, y } = building.coords;
+    centerCam(x, y);
+    sel = { x, y, ...tileData.get(tileKey(x, y)) };
+    trackedArmyId = null;
+    selectedArmyId = null;
+    cancelMoveMode();
+    err = '';
+    notice = '';
+    showBuild = false;
+    drawSel(x, y);
   };
 
   // Pan the camera by a pixel delta (shared by trackpad scroll + keyboard).
@@ -504,16 +531,7 @@
     }
     loadVisible();
     if (sel) drawSel(sel.x, sel.y);
-    if (moveArmyId) drawMovePreview(moveTarget ?? moveHover);
-  };
-
-  const loadCities = async () => {
-    try {
-      myCities = (await cityClient.listCities({})).entities?.cities ?? [];
-      rebuildTiles();
-    } catch {
-      /* */
-    }
+    if (moveArmyId) drawMovePreview(moveTarget ?? moveHover, moveOrderActive ? marchForArmy(movingArmy) : undefined);
   };
 
   const errorText = (e: unknown, fallback: string): string => {
@@ -544,6 +562,7 @@
     lastTrainingPoll = Date.now();
     try {
       const response = await armyClient.listTrainingOrders({ barracksId: { value: barracksId } });
+      trainingQueues = new Map(trainingQueues).set(barracksId, response.orders);
       if (selectedBarracksId === barracksId) trainingOrders = response.orders;
     } catch (e: unknown) {
       if (e instanceof ConnectError && e.code === Code.Unimplemented) {
@@ -554,6 +573,25 @@
       }
     } finally {
       trainingOrdersLoading = false;
+    }
+  };
+
+  const loadTrainingOverview = async () => {
+    if (trainingOverviewLoading) return;
+    trainingOverviewLoading = true;
+    lastTrainingOverviewPoll = Date.now();
+    try {
+      const entries = await Promise.all(
+        ownedBarracks.flatMap((barracks) => {
+          const id = barracks.buildingId?.value;
+          return id ? [armyClient.listTrainingOrders({ barracksId: { value: id } }).then((response) => [id, response.orders] as const)] : [];
+        })
+      );
+      trainingQueues = new Map(entries);
+    } catch (e: unknown) {
+      if (e instanceof ConnectError && e.code === Code.Unimplemented) trainingOrdersAvailable = false;
+    } finally {
+      trainingOverviewLoading = false;
     }
   };
 
@@ -573,6 +611,7 @@
         const orderId = response.order.trainingOrderId?.value;
         trainingOrders = [...trainingOrders.filter((order) => order.trainingOrderId?.value !== orderId), response.order];
         trainingOrdersBarracksId = barracks.buildingId?.value ?? null;
+        if (trainingOrdersBarracksId) trainingQueues = new Map(trainingQueues).set(trainingOrdersBarracksId, trainingOrders);
       } else if (trainingOrdersAvailable && barracks.buildingId?.value) {
         void loadTrainingOrders(barracks.buildingId.value, true);
       }
@@ -613,32 +652,100 @@
     moveGfx = null;
   };
 
-  const drawMovePreview = (destination: { x: number; y: number } | null) => {
-    clearMovePreview();
-    const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
-    moveRoute = null;
-    moveRouteCost = 0;
-    if (!cont || !army?.coords || !destination) return;
+  const clearMoveConfirmation = () => {
+    if (!moveConfirmationGfx) return;
+    cont?.removeChild(moveConfirmationGfx);
+    moveConfirmationGfx.destroy();
+    moveConfirmationGfx = null;
+  };
 
-    moveRoute = findArmyPath($tiles, army.coords, destination);
-    moveRouteCost = moveRoute ? armyPathCost($tiles, moveRoute) : 0;
+  const drawMoveConfirmation = (destination: { x: number; y: number }) => {
+    clearMoveConfirmation();
+    if (!cont) return;
+    const target = tileToScreen(destination.x, destination.y);
+    const indicator = new Graphics();
+    indicator.position.set(target.sx, target.sy);
+    indicator.poly(DIAMOND_VERTS);
+    indicator.fill({ color: 0xef4444, alpha: 0.2 });
+    indicator.poly(DIAMOND_VERTS);
+    indicator.stroke({ color: 0xf87171, width: 3, alpha: 1 });
+    indicator.zIndex = 9e6 + 1;
+    cont.addChild(indicator);
+    moveConfirmationGfx = indicator;
+  };
+
+  const drawMovePreview = async (destination: { x: number; y: number } | null, streamedMarch?: ArmyMarch): Promise<MovePreviewResult> => {
+    const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
+    moveRouteError = '';
+    if (!cont || !army?.armyId || !army.coords || !destination) return 'failed';
+
+    const refreshing = movePreviewDestination?.x === destination.x && movePreviewDestination.y === destination.y && moveRoute !== null;
+    if (!refreshing) {
+      clearMovePreview();
+      moveRoute = null;
+      moveRouteComplete = true;
+      moveRouteDurationMs = 0;
+      movePreviewDestination = null;
+    }
+
+    const request = ++movePreviewRequest;
+    moveRouteLoading = !refreshing;
+    let steps = streamedMarch?.remainingRoute;
+    let estimatedDuration = streamedMarch?.estimatedRemainingDuration;
+    if (!streamedMarch) {
+      try {
+        const preview = await armyClient.previewArmyRoute({ armyId: army.armyId, destination });
+        steps = preview.steps;
+        estimatedDuration = preview.estimatedDuration;
+      } catch (e: unknown) {
+        if (request === movePreviewRequest) {
+          moveRouteLoading = false;
+          if (!refreshing) moveRouteError = errorText(e, 'The route preview could not be loaded');
+        }
+        return refreshing ? 'loaded' : 'failed';
+      }
+    }
+    if (request !== movePreviewRequest || moveArmyId !== army.armyId.value) return 'superseded';
+    moveRouteLoading = false;
+    moveRouteError = '';
+    moveRoute = (steps ?? []).flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y }] : []));
+    const routeEnd = moveRoute.at(-1);
+    moveRouteComplete = (army.coords.x === destination.x && army.coords.y === destination.y) || (routeEnd?.x === destination.x && routeEnd?.y === destination.y);
+    moveRouteDurationMs = durationSeconds(estimatedDuration) * 1000;
     const points = [army.coords, ...(moveRoute ?? [])].map((step) => tileToScreen(step.x, step.y));
 
     const route = new Graphics();
     if (moveRoute) {
-      for (const point of points.slice(1, -1)) {
+      for (let index = 1; index < points.length - 1; index++) {
+        const point = points[index];
+        const known = routeStepExplored(moveRoute[index - 1]);
         route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
-        route.fill({ color: 0x6ca7dc, alpha: 0.11 });
+        route.fill({ color: known ? 0x6ca7dc : 0x9aa4a0, alpha: known ? 0.11 : 0.07 });
         route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
-        route.stroke({ color: 0x9cc9ee, width: 0.75, alpha: 0.32 });
+        route.stroke({ color: known ? 0x9cc9ee : 0xc2c9c5, width: 0.75, alpha: known ? 0.32 : 0.2 });
       }
-      const strokeRoute = (color: number, width: number, alpha: number) => {
-        route.moveTo(points[0].sx, points[0].sy);
-        for (const point of points.slice(1)) route.lineTo(point.sx, point.sy);
-        route.stroke({ color, width, alpha });
-      };
-      strokeRoute(0x111611, 7, 0.85);
-      strokeRoute(0x7eb5ec, 3, 1);
+      for (let index = 1; index < points.length; index++) {
+        const from = points[index - 1];
+        const to = points[index];
+        const fromStep = index === 1 ? army.coords : moveRoute[index - 2];
+        const toStep = moveRoute[index - 1];
+        const explored = routeSegmentExplored(fromStep, toStep);
+        route.moveTo(from.sx, from.sy);
+        route.lineTo(to.sx, to.sy);
+        route.stroke({ color: 0x111611, width: 7, alpha: 0.85 });
+        if (explored) {
+          route.moveTo(from.sx, from.sy);
+          route.lineTo(to.sx, to.sy);
+          route.stroke({ color: 0x7eb5ec, width: 3, alpha: 1 });
+        } else {
+          const distance = Math.hypot(to.sx - from.sx, to.sy - from.sy);
+          for (let offset = 4; offset < distance; offset += 7) {
+            const ratio = offset / distance;
+            route.circle(from.sx + (to.sx - from.sx) * ratio, from.sy + (to.sy - from.sy) * ratio, 1.5);
+            route.fill({ color: 0xb6c0bc, alpha: 0.9 });
+          }
+        }
+      }
       route.circle(points[0].sx, points[0].sy, 5);
       route.fill({ color: 0x17202a, alpha: 0.95 });
       route.circle(points[0].sx, points[0].sy, 5);
@@ -664,22 +771,32 @@
     }
     const target = tileToScreen(destination.x, destination.y);
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
-    route.fill({ color: moveRoute ? 0xf0d65a : 0xd96257, alpha: 0.13 });
+    route.fill({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, alpha: 0.13 });
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
-    route.stroke({ color: moveRoute ? 0xf0d65a : 0xd96257, width: 2, alpha: 0.95 });
+    route.stroke({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, width: 2, alpha: 0.95 });
     route.zIndex = 9e6;
+    clearMovePreview();
     cont.addChild(route);
     moveGfx = route;
+    movePreviewDestination = { ...destination };
+    return 'loaded';
   };
 
   const clearMoveTarget = () => {
     moveTarget = null;
     moveHover = null;
     moveRoute = null;
-    moveRouteCost = 0;
+    moveRouteComplete = true;
+    moveRouteLoading = false;
+    moveRouteDurationMs = 0;
+    movePreviewDestination = null;
     moveOrderActive = false;
     moveDestinationObserved = false;
+    moveConfirmationPending = false;
+    moveConfirmationPreview = null;
+    movePreviewRequest++;
     clearMovePreview();
+    clearMoveConfirmation();
   };
 
   const cancelMoveMode = () => {
@@ -701,12 +818,14 @@
     showBuild = false;
     if (center) centerCam(x, y);
     drawSel(x, y);
-    if (army.destination) {
+    const march = marchForArmy(army);
+    if (march?.destination) {
       moveArmyId = id;
-      moveTarget = { x: army.destination.x, y: army.destination.y };
+      moveTarget = { x: march.destination.x, y: march.destination.y };
       moveHover = moveTarget;
       moveOrderActive = true;
       moveDestinationObserved = true;
+      void drawMovePreview(moveTarget, march);
     }
     scheduleRender();
   };
@@ -731,22 +850,29 @@
 
   const issueMove = async (destination: { x: number; y: number }) => {
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
-    if (!army?.armyId || !army.coords || !moveRoute || busy) return;
+    if (!army?.armyId || !army.coords || busy) return;
+    moveConfirmationPending = false;
+    moveConfirmationPreview = null;
+    clearMoveConfirmation();
     busy = true;
     err = '';
     notice = '';
     try {
+      await new Promise((resolve) => setTimeout(resolve, MOVE_ORDER_SUBMIT_DELAY_MS));
       await armyClient.moveArmy({ armyId: army.armyId, destination });
-      if (moveRoute.length === 0) {
+      if (destination.x === army.coords.x && destination.y === army.coords.y) {
         notice = 'Army ordered to hold its current position.';
         cancelMoveMode();
       } else {
-        notice = `Marching to tile ${destination.x}, ${destination.y}.`;
+        notice = moveRoute
+          ? moveRouteComplete
+            ? `Marching to tile ${destination.x}, ${destination.y}.`
+            : `Marching as close as known land permits to ${destination.x}, ${destination.y}.`
+          : `Movement order issued for tile ${destination.x}, ${destination.y}.`;
         moveTarget = { ...destination };
         moveHover = moveTarget;
         moveOrderActive = true;
         moveDestinationObserved = false;
-        drawMovePreview(destination);
       }
     } catch (e: unknown) {
       err = errorText(e, 'Movement order failed');
@@ -776,7 +902,6 @@
   onMount(() => {
     buildLookup();
     initSprites().then(() => initPixi());
-    loadCities();
     const onR = () => resize();
     window.addEventListener('resize', onR);
     return () => {
@@ -944,26 +1069,33 @@
     cont.addChild(tc);
     loaded.set(k, tc);
 
-    const dist = hasVisionSources() ? getVisDist(col, row) : 0;
-    const inFog = dist > $gameConfig.visionRadius;
-
-    const kind = inFog ? 'fog' : terrainKind(terrainAt(col, row));
+    const visibility = visibilityAt(col, row);
+    const visible = visibility === TileVisibilityState.VISIBLE;
+    const explored = visibility === TileVisibilityState.EXPLORED;
+    const kind = visibility === TileVisibilityState.UNEXPLORED ? 'fog' : terrainKind(terrainAt(col, row));
     tc.addChild(getTerrainSprite(kind, col, row));
-    if (!inFog) {
+    if (visibility !== TileVisibilityState.UNEXPLORED) {
       const neighbors = EDGE_TO_NEIGHBOR.map(([dc, dr]) => {
         const neighborCol = col + dc;
         const neighborRow = row + dr;
         if (neighborCol < 0 || neighborRow < 0 || neighborCol >= worldWidth || neighborRow >= worldHeight) return null;
-        if (hasVisionSources() && getVisDist(neighborCol, neighborRow) > $gameConfig.visionRadius) return 'fog';
+        if (visibilityAt(neighborCol, neighborRow) === TileVisibilityState.UNEXPLORED) return 'fog';
         return terrainKind(terrainAt(neighborCol, neighborRow));
       }) as unknown as TerrainNeighbors;
       const transition = getTerrainTransitionSprite(kind, neighbors, col, row);
       if (transition) tc.addChild(transition);
     }
-    if (!inFog && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
-    if (!inFog && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
+    if (explored) {
+      const memoryFog = new Graphics();
+      memoryFog.poly(DIAMOND_VERTS);
+      memoryFog.fill({ color: 0x101613, alpha: 0.52 });
+      memoryFog.zIndex = 9e5;
+      tc.addChild(memoryFog);
+    }
+    if (visible && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
+    if (visible && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
 
-    const visibleArmies = inFog ? td?.armies?.filter((army) => army.owner?.value === $userId) : td?.armies;
+    const visibleArmies = visible ? td?.armies : undefined;
     if (visibleArmies?.length) {
       const army = visibleArmies.find((candidate) => candidate.armyId?.value === selectedArmyId) ?? [...visibleArmies].sort((a, b) => armySize(b) - armySize(a))[0];
       const marker = createArmyMarker(army, $userId, army.armyId?.value === selectedArmyId);
@@ -978,7 +1110,7 @@
     }
 
     // Construction-in-progress overlay
-    if (!inFog && td?.building?.constructionStart && td?.building?.constructionEnd) {
+    if (visible && td?.building?.constructionStart && td?.building?.constructionEnd) {
       const startMs = Number(td.building.constructionStart.seconds) * 1000;
       const endMs = Number(td.building.constructionEnd.seconds) * 1000;
       if (endMs > Date.now()) {
@@ -989,7 +1121,7 @@
       }
     }
 
-    if (!inFog) {
+    if (visible) {
       let hasOverlay = false;
       const g = new Graphics();
 
@@ -1205,7 +1337,7 @@
     zoomAt(mx, my, Math.max(1 / maxStep, Math.min(maxStep, rawFactor)));
   };
 
-  const onContextMenu = (e: MouseEvent) => {
+  const onContextMenu = async (e: MouseEvent) => {
     e.preventDefault();
     const army = selectedArmyId ? $armies.find((candidate) => candidate.armyId?.value === selectedArmyId) : undefined;
     if (!army?.armyId?.value || !army.coords || army.owner?.value !== $userId) return;
@@ -1213,17 +1345,34 @@
     const rect = app.canvas.getBoundingClientRect();
     const tile = screenToTile((e.clientX - rect.left - cont.x) / cont.scale.x, (e.clientY - rect.top - cont.y) / cont.scale.y);
     if (tile.x < 0 || tile.y < 0 || tile.x >= worldWidth || tile.y >= worldHeight) return;
+
+    if (moveConfirmationPending) {
+      if (moveTarget?.x !== tile.x || moveTarget.y !== tile.y) {
+        cancelMoveMode();
+        notice = 'Movement order cancelled.';
+        return;
+      }
+      const pendingPreview = moveConfirmationPreview;
+      if (pendingPreview) await pendingPreview;
+      if (!moveConfirmationPending || moveTarget?.x !== tile.x || moveTarget.y !== tile.y) return;
+      await issueMove(tile);
+      return;
+    }
+
     moveArmyId = army.armyId.value;
     moveTarget = tile;
     moveHover = tile;
+    moveOrderActive = false;
+    moveConfirmationPending = true;
     err = '';
     notice = '';
-    drawMovePreview(tile);
-    if (!moveRoute) {
-      err = 'That destination cannot be reached by a land army.';
-      return;
-    }
-    void issueMove(tile);
+    drawMoveConfirmation(tile);
+    const preview = drawMovePreview(tile);
+    moveConfirmationPreview = preview;
+    const previewResult = await preview;
+    if (moveConfirmationPreview === preview) moveConfirmationPreview = null;
+    if (!moveConfirmationPending || moveTarget?.x !== tile.x || moveTarget.y !== tile.y) return;
+    if (previewResult === 'failed') notice = `${moveRouteError || 'Route preview unavailable'}. Right-click the tile again to let the server validate it.`;
   };
 
   const logout = () => {
@@ -1321,8 +1470,6 @@
   on:keydown={onKeydown}
   on:click={(e) => {
     if (ratesOpen && ratesEl && !ratesEl.contains(e.target as Node)) ratesOpen = false;
-    if (citiesOpen && citiesEl && !citiesEl.contains(e.target as Node)) citiesOpen = false;
-    if (armiesOpen && armiesEl && !armiesEl.contains(e.target as Node)) armiesOpen = false;
   }}
 />
 
@@ -1345,13 +1492,25 @@
 
 <div class="relative h-screen w-screen overflow-hidden bg-[#0e110f]">
   <!-- Canvas -->
-  <div bind:this={el} class="absolute inset-0 {moveArmyId ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}"></div>
+  <div bind:this={el} class="absolute inset-0 {drag ? 'cursor-map-drag' : moveConfirmationPending ? 'cursor-army-confirm' : moveArmyId ? 'cursor-army-move' : 'cursor-map-pan'}"></div>
 
   <!-- Separate HUD clusters keep the map from feeling boxed in by one navbar. -->
   <div class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2 sm:inset-x-4 sm:top-4">
-    <div class="hud-surface pointer-events-auto hidden h-12 min-w-10 items-center gap-2.5 px-3 sm:flex">
-      <span class="h-2 w-2 shrink-0 rounded-sm bg-emerald-400"></span>
-      <span class="hidden max-w-32 truncate text-xs font-medium text-[#d5dbd6] sm:block">{$username}</span>
+    <div class="hud-surface pointer-events-auto flex h-12 min-w-10 items-center">
+      <div class="flex min-w-0 items-center gap-2.5 px-3">
+        <span class="h-2 w-2 shrink-0 rounded-sm bg-emerald-400"></span>
+        <span class="hidden max-w-32 truncate text-xs font-medium text-[#d5dbd6] sm:block">{$username}</span>
+      </div>
+      <button
+        class="flex h-12 w-10 items-center justify-center border-l border-white/[0.08] text-[#778078] transition-colors hover:text-white"
+        title="Sign out"
+        aria-label="Sign out"
+        on:click={logout}
+      >
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4"
+          ><path d="M8 4H5.5A1.5 1.5 0 004 5.5v9A1.5 1.5 0 005.5 16H8M12.5 6.5L16 10l-3.5 3.5M8 10h8" stroke-linecap="round" stroke-linejoin="round" /></svg
+        >
+      </button>
     </div>
 
     <!-- Resources (hover for per-hour rates, click to pin) -->
@@ -1402,116 +1561,137 @@
       </div>
     </div>
 
-    <div class="pointer-events-auto ml-auto flex items-center gap-2">
-      <div class="relative" bind:this={armiesEl}>
+    <div class="hud-surface pointer-events-auto ml-auto flex h-12 items-stretch overflow-hidden p-1">
+      {#each [['armies', `Armies ${ownedArmies.length}`], ['cities', `Cities ${ownedCities.length}`], ['training', `Training ${queuedTrainingCount}`]] as [tab, label]}
         <button
           type="button"
-          class="hud-surface flex h-12 items-center gap-2.5 px-3 text-xs font-medium text-[#c7cec8] transition-colors hover:text-white"
-          on:click={() => (armiesOpen = !armiesOpen)}
-          aria-expanded={armiesOpen}
+          class="px-2.5 text-[10px] font-semibold uppercase tracking-[0.07em] transition-colors sm:px-3 {managementOpen && managementTab === tab
+            ? 'bg-blue-300/[0.12] text-blue-200'
+            : 'text-[#778078] hover:bg-white/[0.04] hover:text-[#c8cec9]'}"
+          on:click={() => toggleManagementTab(tab as typeof managementTab)}
+          aria-expanded={managementOpen && managementTab === tab}>{label}</button
         >
-          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4 text-blue-300">
-            <path d="M5 17V3m1 1h9l-2.5 3L15 10H6" stroke-linejoin="round" />
-          </svg>
-          <span class="text-sm font-semibold tabular-nums text-white">{ownedArmies.length}</span>
-          <span class="hidden text-[#7d877f] sm:inline">{ownedArmies.length === 1 ? 'army' : 'armies'}</span>
-          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-[#747d76] transition-transform duration-150 {armiesOpen ? 'rotate-180' : ''}">
-            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-          </svg>
-        </button>
-        {#if armiesOpen}
-          <div class="game-popover absolute right-0 top-[calc(100%+0.5rem)] w-72 overflow-hidden p-1.5">
-            <div class="flex items-center justify-between px-2 pb-1.5 pt-1">
-              <span class="panel-title">Your armies</span>
-              <span class="text-[10px] tabular-nums text-[#7d867f]">{ownedArmyTroops.toLocaleString()} troops</span>
-            </div>
-            <div class="max-h-[min(60vh,24rem)] overflow-y-auto">
-              {#each ownedArmies as army}
-                <div class="border-t border-white/[0.06] {army.armyId?.value === selectedArmyId ? 'bg-blue-300/[0.07]' : ''}">
-                  <button
-                    class="w-full min-w-0 px-2 py-2 text-left transition-colors hover:bg-white/[0.05]"
-                    on:click={() => {
-                      focusArmy(army);
-                      armiesOpen = false;
-                    }}
-                  >
-                    <span class="flex items-center justify-between gap-3">
-                      <span class="truncate text-xs font-semibold text-[#d9ddd8]">{armyTitle(army)}</span>
-                      <span class="text-xs font-semibold tabular-nums text-blue-200">{armySize(army)}</span>
-                    </span>
-                    <span class="mt-1 flex items-center justify-between gap-3 text-[10px] text-[#7c857e]">
-                      <span>Tile {army.coords?.x ?? '—'}, {army.coords?.y ?? '—'}</span>
-                      <span class={army.destination ? 'text-amber-200/80' : ''}>{army.destination ? `To ${army.destination.x}, ${army.destination.y}` : 'Holding'}</span>
-                    </span>
-                  </button>
-                </div>
-              {:else}
-                <div class="border-t border-white/[0.06] px-3 py-4 text-[11px] leading-relaxed text-[#7d867f]">No active armies. Train troops from one of your barracks.</div>
-              {/each}
-            </div>
-          </div>
-        {/if}
-      </div>
-
-      {#if myCities.length > 0}
-        <div class="relative" bind:this={citiesEl}>
-          <button
-            type="button"
-            class="hud-surface flex h-12 items-center gap-2 px-3 text-xs font-medium text-[#c7cec8] transition-colors hover:text-white"
-            on:click={() => (citiesOpen = !citiesOpen)}
-            aria-expanded={citiesOpen}
-          >
-            <span class="text-sm font-semibold tabular-nums text-white">{myCities.length}</span>
-            <span class="hidden text-[#7d877f] sm:inline">{myCities.length === 1 ? 'city' : 'cities'}</span>
-            <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-[#747d76] transition-transform duration-150 {citiesOpen ? 'rotate-180' : ''}">
-              <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
-            </svg>
-          </button>
-          {#if citiesOpen}
-            <div class="game-popover absolute right-0 top-[calc(100%+0.5rem)] w-64 overflow-hidden p-1.5">
-              <div class="panel-title px-2 pb-1.5 pt-1">Your cities</div>
-              {#each myCities as rawCity}
-                {@const city = liveCity(rawCity)}
-                {@const prod = cityProd(city)}
-                {@const foodNet = ratePerHour(city.netFoodFlow)}
-                {@const popGrowth = ratePerHour(city.populationGrowth)}
-                <button
-                  class="group w-full rounded-md px-2 py-2 text-left transition-colors hover:bg-white/[0.06]"
-                  on:click={() => {
-                    centerOnCity(city);
-                    citiesOpen = false;
-                  }}
-                >
-                  <div class="flex items-center gap-2">
-                    <span class="h-1.5 w-1.5 rounded-sm {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400'}"></span>
-                    <span class="min-w-0 flex-1 truncate text-xs font-medium text-[#d5dad6]">{city.name}</span>
-                    {#if city.starving}<span class="text-[11px] font-medium text-red-400">Starving</span>{/if}
-                  </div>
-                  <div class="mt-1 flex items-center gap-3 pl-3.5 text-[10px] tabular-nums text-[#79827b]">
-                    <span class="text-amber-200/80">{Math.round(prod.gold).toLocaleString()} gold/hr</span>
-                    <span class={foodNet < 0 ? 'text-red-400' : 'text-emerald-300/80'}>{fmtPerHour(foodNet)} food/hr</span>
-                    {@render popChip(popGrowth)}
-                  </div>
-                </button>
-              {/each}
-            </div>
-          {/if}
-        </div>
-      {/if}
-
-      <button class="hud-surface flex h-12 w-11 items-center justify-center text-[#778078] transition-colors hover:text-white" title="Sign out" aria-label="Sign out" on:click={logout}>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4"
-          ><path d="M8 4H5.5A1.5 1.5 0 004 5.5v9A1.5 1.5 0 005.5 16H8M12.5 6.5L16 10l-3.5 3.5M8 10h8" stroke-linecap="round" stroke-linejoin="round" /></svg
-        >
-      </button>
+      {/each}
     </div>
   </div>
 
+  {#if managementOpen}
+    <aside
+      class="game-popover pointer-events-auto absolute bottom-20 right-3 top-20 z-10 flex w-[min(21rem,calc(100vw-1.5rem))] flex-col overflow-hidden sm:right-4"
+      transition:fly={{ x: 18, duration: 180 }}
+    >
+      <div class="border-b border-white/[0.08] px-3 pb-2 pt-3">
+        <div class="flex items-center justify-between gap-3">
+          <div>
+            <div class="panel-title">{managementTab === 'armies' ? 'Armies' : managementTab === 'cities' ? 'Cities' : 'Training'}</div>
+            <div class="mt-0.5 text-[10px] text-[#727b74]">Live command overview</div>
+          </div>
+          <button class="flex h-7 w-7 items-center justify-center text-[#788179] transition-colors hover:text-white" aria-label="Close command panel" on:click={() => (managementOpen = false)}
+            >×</button
+          >
+        </div>
+      </div>
+
+      <div class="min-h-0 flex-1 overflow-y-auto p-2">
+        {#if managementTab === 'armies'}
+          <div class="flex items-center justify-between px-1 pb-2 text-[10px] text-[#778078]">
+            <span>{ownedArmies.length ? `${ownedArmyTroops.toLocaleString()} troops under command` : 'No field armies'}</span>
+            <span>{ownedMarchCount} marching</span>
+          </div>
+          {#each ownedArmies as army}
+            {@const march = marchForArmy(army)}
+            {@const destination = march?.destination}
+            {@const endpoint = march?.remainingRoute.at(-1)?.coords}
+            {@const partial = destination && endpoint && (destination.x !== endpoint.x || destination.y !== endpoint.y)}
+            <button
+              class="mb-1.5 w-full border px-3 py-2.5 text-left transition-colors {army.armyId?.value === selectedArmyId
+                ? 'border-blue-300/30 bg-blue-300/[0.09]'
+                : 'border-white/[0.07] bg-black/[0.08] hover:border-white/[0.14] hover:bg-white/[0.04]'}"
+              on:click={() => focusArmy(army)}
+            >
+              <div class="flex items-center justify-between gap-3">
+                <span class="truncate text-xs font-semibold text-[#dce1dc]">{armyTitle(army)}</span>
+                <span class="text-xs font-semibold tabular-nums text-blue-200">{armySize(army).toLocaleString()}</span>
+              </div>
+              <div class="mt-1 flex items-center justify-between gap-3 text-[10px] text-[#79827b]">
+                <span>Tile {army.coords?.x ?? '—'}, {army.coords?.y ?? '—'}</span>
+                <span class={destination ? 'text-amber-200/80' : ''}>{destination ? `To ${destination.x}, ${destination.y}` : army.marchId ? 'March details restricted' : 'Holding'}</span>
+              </div>
+              {#if march?.disclosure === ArmyMarchDisclosure.FULL_ROUTE}
+                <div class="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2 text-[10px]">
+                  <span class={partial ? 'text-orange-300/80' : 'text-blue-200/80'}>{partial ? 'Best known approach' : `${march.remainingRoute.length} tiles remaining`}</span>
+                  {#if march.estimatedRemainingDuration}<span class="tabular-nums text-[#9ba49d]">~{fmtCountdown(durationSeconds(march.estimatedRemainingDuration) * 1000)}</span>{/if}
+                </div>
+              {:else if march}
+                <div class="mt-2 border-t border-white/[0.06] pt-2 text-[10px] text-[#858e87]">Movement intelligence is limited</div>
+              {/if}
+            </button>
+          {:else}
+            <div class="px-3 py-8 text-center text-[11px] leading-relaxed text-[#737c75]">Train troops at a barracks to create an army.</div>
+          {/each}
+        {:else if managementTab === 'cities'}
+          {#each ownedCities as city}
+            {@const prod = cityProd(city)}
+            {@const foodNet = ratePerHour(city.netFoodFlow)}
+            <button
+              class="mb-1.5 w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
+              on:click={() => centerOnCity(city)}
+            >
+              <div class="flex items-center gap-2">
+                <span class="h-1.5 w-1.5 {city.starving ? 'animate-pulse bg-red-400' : 'bg-emerald-400'}"></span>
+                <span class="min-w-0 flex-1 truncate text-xs font-semibold text-[#dce1dc]">{city.name}</span>
+                <span class="text-[10px] tabular-nums text-[#89928b]">{Math.floor(city.population).toLocaleString()} pop</span>
+              </div>
+              <div class="mt-2 grid grid-cols-2 gap-2 border-t border-white/[0.06] pt-2 text-[10px] tabular-nums">
+                <span class="text-amber-200/80">{Math.round(prod.gold).toLocaleString()} gold/hr</span>
+                <span class={foodNet < 0 ? 'text-red-400' : 'text-emerald-300/80'}>{fmtPerHour(foodNet)} food/hr</span>
+              </div>
+            </button>
+          {/each}
+        {:else}
+          <div class="flex items-center justify-between px-1 pb-2 text-[10px] text-[#778078]">
+            <span>{ownedBarracks.length} {ownedBarracks.length === 1 ? 'barracks' : 'barracks'}</span>
+            {#if trainingOverviewLoading}<span>Refreshing…</span>{/if}
+          </div>
+          {#each ownedBarracks as barracks}
+            {@const queue = trainingQueues.get(barracks.buildingId?.value ?? '') ?? []}
+            {@const active = queue[0]}
+            <button
+              class="mb-1.5 w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
+              on:click={() => focusBuilding(barracks)}
+            >
+              <div class="flex items-center justify-between gap-3">
+                <span class="text-xs font-semibold text-[#dce1dc]">Barracks · level {barracks.level}</span>
+                <span class="text-[10px] text-[#879089]">{queue.length} queued</span>
+              </div>
+              <div class="mt-1 text-[10px] text-[#7b847d]">Tile {barracks.coords?.x ?? '—'}, {barracks.coords?.y ?? '—'}</div>
+              {#if active}
+                <div class="mt-2 flex items-center justify-between border-t border-white/[0.06] pt-2 text-[10px]">
+                  <span class="text-blue-200/80">{active.count} {troopName(active.type, active.count)}</span>
+                  <span class="tabular-nums text-[#9ba49d]">{active.completesAt ? fmtCountdown(timestampMs(active.completesAt) - now) : 'Waiting'}</span>
+                </div>
+              {:else}
+                <div class="mt-2 border-t border-white/[0.06] pt-2 text-[10px] text-[#68716a]">Idle · select to recruit</div>
+              {/if}
+            </button>
+          {:else}
+            <div class="px-3 py-8 text-center text-[11px] leading-relaxed text-[#737c75]">Build a barracks in one of your cities to train troops.</div>
+          {/each}
+        {/if}
+      </div>
+    </aside>
+  {/if}
+
   <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
-  <div class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4">
+  <div
+    class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4 {managementOpen
+      ? 'lg:left-4 lg:right-[22rem] lg:w-auto lg:max-w-none lg:translate-x-0'
+      : ''}"
+  >
     {#if sel}
-      {@const selectedInFog = hasVisionSources() && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius}
-      {@const selectedTerrain = selectedInFog ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
+      {@const selectedVisibility = visibilityAt(sel.x, sel.y)}
+      {@const selectedUnknown = selectedVisibility === TileVisibilityState.UNEXPLORED}
+      {@const selectedTerrain = selectedUnknown ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
       <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
         <div class="inspector-header flex items-center justify-between gap-4">
           <div class="min-w-0">
@@ -1563,25 +1743,40 @@
         {#if moveArmyId && movingArmy}
           {@const previewTarget = moveTarget ?? moveHover}
           {@const steps = moveRoute?.length ?? 0}
-          <div class="flex flex-wrap items-center gap-3 border-b border-blue-300/20 bg-blue-300/[0.07] px-4 py-2.5">
+          {@const includesUnknown = movingArmy.coords && moveRoute ? routeIncludesUnknown(movingArmy.coords, moveRoute) : false}
+          <div class="flex flex-wrap items-center gap-3 border-b px-4 py-2.5 {moveConfirmationPending ? 'border-red-300/30 bg-red-400/[0.09]' : 'border-blue-300/20 bg-blue-300/[0.07]'}">
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-semibold {previewTarget && !moveRoute ? 'text-red-200' : 'text-blue-200'}">
+              <div class="text-xs font-semibold {moveConfirmationPending || (previewTarget && !moveRoute && !moveRouteLoading) ? 'text-red-200' : 'text-blue-200'}">
                 {busy
-                  ? 'Issuing movement order…'
-                  : moveOrderActive && previewTarget
-                    ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
-                    : previewTarget
-                      ? moveRoute
-                        ? `Route to ${previewTarget.x}, ${previewTarget.y}`
-                        : 'That tile is unreachable'
-                      : 'Move army'}
+                  ? 'Submitting movement order…'
+                  : moveRouteLoading
+                    ? 'Calculating route…'
+                    : moveConfirmationPending && previewTarget
+                      ? `Right-click tile ${previewTarget.x}, ${previewTarget.y} again to confirm`
+                      : moveOrderActive && previewTarget
+                        ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
+                        : previewTarget
+                          ? moveRoute
+                            ? moveRouteComplete
+                              ? `Route to ${previewTarget.x}, ${previewTarget.y}`
+                              : `Best known approach to ${previewTarget.x}, ${previewTarget.y}`
+                            : moveRouteError || 'Route unavailable'
+                          : 'Move army'}
               </div>
               <div class="mt-0.5 text-[11px] text-[#9ba9b1]">
-                {previewTarget
-                  ? moveRoute
-                    ? `${steps} ${steps === 1 ? 'tile' : 'tiles'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteCost * 1000)} across this terrain`
-                    : 'Land armies cannot cross water or cut through a blocked corner.'
-                  : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
+                {moveConfirmationPending && previewTarget
+                  ? moveRouteLoading
+                    ? 'Plotting the route. A second right-click here will confirm once it is ready; any other click cancels.'
+                    : `${moveRoute ? `${includesUnknown ? `${steps} disclosed ${steps === 1 ? 'step' : 'steps'} · continues through unexplored terrain` : `${steps} ${steps === 1 ? 'tile' : 'tiles'}`} · about ${fmtCountdown(moveRouteDurationMs)}` : 'Route unavailable'} · right-click this tile again to confirm; any other click cancels.`
+                  : previewTarget
+                    ? moveRouteLoading
+                      ? 'Checking the known terrain and plotting through the fog.'
+                      : moveRoute
+                        ? `${steps} disclosed ${steps === 1 ? 'step' : 'steps'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteDurationMs)}${includesUnknown ? ' · continues through unexplored terrain' : ''}${!moveRouteComplete ? ' · stops at the closest reachable land' : ''}`
+                        : moveRouteError
+                          ? 'You can still right-click to send the order; the server will validate it directly.'
+                          : 'Land armies cannot cross water or cut through a blocked corner.'
+                    : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
               </div>
             </div>
             <span class="text-[10px] text-[#7e8981]">{moveOrderActive ? 'Esc hides route' : 'Esc cancels'}</span>
@@ -1597,7 +1792,10 @@
               <div class="grid grid-cols-3 gap-5">
                 <div>
                   <div class="inspector-stat-label">Strength</div>
-                  <div class="inspector-stat-value">{selectedArmySize.toLocaleString()} <span class="text-[#68716a]">troops</span></div>
+                  <div class="inspector-stat-value">
+                    {selectedArmy.compositionVisibility === ArmyCompositionVisibility.EXACT ? selectedArmySize.toLocaleString() : 'Unknown'}
+                    <span class="text-[#68716a]">troops</span>
+                  </div>
                 </div>
                 <div>
                   <div class="inspector-stat-label">Position</div>
@@ -1605,26 +1803,32 @@
                 </div>
                 <div>
                   <div class="inspector-stat-label">Orders</div>
-                  <div class="mt-1 text-xs font-medium {selectedArmy.destination ? 'text-amber-200' : 'text-[#aab2ac]'}">
-                    {selectedArmy.destination ? `March to ${selectedArmy.destination.x}, ${selectedArmy.destination.y}` : 'Hold position'}
+                  <div class="mt-1 text-xs font-medium {selectedMarch?.destination ? 'text-amber-200' : 'text-[#aab2ac]'}">
+                    {selectedMarch?.destination ? `March to ${selectedMarch.destination.x}, ${selectedMarch.destination.y}` : selectedArmy.marchId ? 'Movement details restricted' : 'Hold position'}
                   </div>
                 </div>
               </div>
               <div class="mt-3 border-t border-white/[0.07] pt-3">
                 <div class="inspector-label mb-2">Composition</div>
-                <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]">
-                  {#each selectedArmy.troops.filter((stack) => stack.count > 0) as stack}
-                    <span class="text-[#969f98]"><strong class="mr-1 font-semibold tabular-nums text-[#e0e2d8]">{stack.count}</strong>{troopName(stack.type, stack.count)}</span>
-                  {/each}
-                </div>
+                {#if selectedArmy.compositionVisibility === ArmyCompositionVisibility.HIDDEN}
+                  <div class="text-[11px] text-[#747d76]">Composition has not been identified.</div>
+                {:else}
+                  <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]">
+                    {#each selectedArmy.troops.filter((stack) => (stack.count ?? 1) > 0) as stack}
+                      <span class="text-[#969f98]">
+                        {#if stack.count !== undefined}<strong class="mr-1 font-semibold tabular-nums text-[#e0e2d8]">{stack.count}</strong>{/if}{troopName(stack.type, stack.count)}
+                      </span>
+                    {/each}
+                  </div>
+                {/if}
               </div>
             </section>
             {#if selectedArmyOwned}
               <div class="inspector-actions">
                 <button class="game-action game-action-primary" disabled={busy || (moveArmyId === selectedArmyId && !moveOrderActive)} on:click={() => prepareMove(selectedArmy)}>
-                  {selectedArmy.destination ? 'Redirect army' : 'Move army'}
+                  {selectedMarch ? 'Redirect army' : 'Move army'}
                 </button>
-                {#if selectedArmy.destination}
+                {#if selectedMarch}
                   <button class="game-action game-action-secondary" disabled={busy} on:click={() => haltArmy(selectedArmy)}>Halt</button>
                 {/if}
                 {#if selectedStack.length > 1}
@@ -1691,15 +1895,19 @@
           {/if}
 
           {#if !selectedArmy && sel.armies?.length}
+            {@const stackCompositionExact = sel.armies.every((army) => army.compositionVisibility === ArmyCompositionVisibility.EXACT)}
             <section class="inspector-section">
               <div class="mb-3 flex items-center justify-between">
                 <span class="inspector-label">Armies on this tile</span>
-                <span class="text-xs font-medium tabular-nums text-[#9aa39c]">{sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops</span>
+                <span class="text-xs font-medium tabular-nums text-[#9aa39c]">
+                  {stackCompositionExact ? `${sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops` : 'Strength unknown'}
+                </span>
               </div>
               <div class="space-y-2">
                 {#each sel.armies as army}
                   {@const owned = army.owner?.value === $userId}
                   {@const size = armySize(army)}
+                  {@const march = marchForArmy(army)}
                   <button
                     class="w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
                     on:click={() => focusArmy(army, false)}
@@ -1709,18 +1917,21 @@
                         <span class="h-2 w-2 shrink-0 {owned ? 'bg-blue-400' : 'bg-red-400'}"></span>
                         <span class="truncate text-xs font-semibold {owned ? 'text-blue-200' : 'text-red-200'}">{armyTitle(army)}</span>
                       </div>
-                      <span class="text-xs font-semibold tabular-nums text-[#e2e3d8]">{size}</span>
+                      <span class="text-xs font-semibold tabular-nums text-[#e2e3d8]">{army.compositionVisibility === ArmyCompositionVisibility.EXACT ? size : '?'}</span>
                     </div>
                     <p class="mt-1.5 text-[11px] leading-relaxed text-[#aeb5b0]">
-                      {army.troops
-                        .filter((stack) => stack.count > 0)
-                        .map((stack) => `${stack.count} ${troopName(stack.type, stack.count)}`)
-                        .join(', ') || 'No troops'}
+                      {army.compositionVisibility === ArmyCompositionVisibility.HIDDEN
+                        ? 'Composition unknown'
+                        : army.troops
+                            .filter((stack) => (stack.count ?? 1) > 0)
+                            .map((stack) => `${stack.count ?? 'Unknown'} ${troopName(stack.type, stack.count)}`)
+                            .join(', ') || 'No troops'}
                     </p>
                     <div class="mt-2 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-2 text-[10px]">
-                      <span class={army.destination ? 'text-amber-200/80' : 'text-[#79827b]'}>{army.destination ? `Marching to ${army.destination.x}, ${army.destination.y}` : 'Holding position'}</span
+                      <span class={march?.destination ? 'text-amber-200/80' : 'text-[#79827b]'}
+                        >{march?.destination ? `Marching to ${march.destination.x}, ${march.destination.y}` : army.marchId ? 'Marching' : 'Holding position'}</span
                       >
-                      <span class="font-semibold text-[#aeb7b0]">Manage army →</span>
+                      <span class="font-semibold text-[#aeb7b0]">View army →</span>
                     </div>
                   </button>
                 {/each}
@@ -2011,7 +2222,7 @@
             {/if}
           {:else if !selectedArmy && !sel.city && !sel.armies?.length}
             <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
-              {selectedInFog ? 'Beyond visibility range' : 'No structures on this tile'}
+              {selectedUnknown ? 'Beyond explored territory' : selectedVisibility === TileVisibilityState.EXPLORED ? 'Terrain remembered; current occupants are hidden' : 'No structures on this tile'}
             </div>
           {/if}
         </div>

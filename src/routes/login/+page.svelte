@@ -44,7 +44,7 @@
 
 <main class="relative flex min-h-screen flex-col bg-[#0e110f] px-6">
   <header class="mx-auto flex h-20 w-full max-w-6xl items-center border-b border-white/[0.07]">
-    <button aria-label="Go to home" on:click={() => goto('/')}>
+    <button aria-label="Go to home" tabindex="-1" on:click={() => goto('/')}>
       <Brand size="sm" />
     </button>
   </header>

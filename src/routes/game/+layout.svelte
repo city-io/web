@@ -3,6 +3,7 @@
   import {
     token,
     armies as armiesStore,
+    armyMarches as armyMarchesStore,
     buildings as buildingsStore,
     capital,
     cities as citiesStore,
@@ -12,11 +13,15 @@
     gameConfig,
     gold,
     mapCenter,
+    tileVisibility as tileVisibilityStore,
     tiles as tilesStore,
     userId
   } from '$lib/stores';
   import { tileKey } from '$lib/game/iso';
   import type { Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
+  import type { EntityBag } from '$lib/gen/cityio/entity/v1/bag_pb';
+  import type { EntityIdBag } from '$lib/gen/cityio/entity/v1/ids_pb';
+  import type { StateDelta, StateSnapshot, TileVisibility } from '$lib/gen/cityio/service/v1/state_pb';
   import { ratePerHour } from '$lib/game/rates';
   import { isTokenValid, handleUnauthenticated } from '$lib/session';
   import { Code, ConnectError } from '@connectrpc/connect';
@@ -26,6 +31,118 @@
   import { onMount } from 'svelte';
 
   let mapLoaded = false;
+
+  const visibilityMap = (entries: TileVisibility[]) => {
+    const result = new Map<string, TileVisibility['state']>();
+    for (const entry of entries) {
+      if (entry.tileId) result.set(tileKey(entry.tileId.x, entry.tileId.y), entry.state);
+    }
+    return result;
+  };
+
+  const setResources = (bag?: EntityBag) => {
+    const u = bag?.users[0];
+    if (!u) return;
+    gold.set(u.gold);
+    food.set(u.food);
+    foodIncomePerHour.set(ratePerHour(u.foodIncome));
+    foodUpkeepPerHour.set(ratePerHour(u.foodUpkeep));
+  };
+
+  const setCapital = (bag?: EntityBag, center = false) => {
+    const userCapital = bag?.cities.find((c) => c.owner?.value === $userId && c.type === 1);
+    if (!userCapital?.start) return;
+    capital.set(userCapital);
+    if (center) mapCenter.set({ x: userCapital.start.x + 2, y: userCapital.start.y + 2 });
+  };
+
+  const tileMap = (bag?: EntityBag) => {
+    const result = new Map<string, Tile>();
+    for (const tile of bag?.tiles ?? []) {
+      if (tile.tileId) result.set(tileKey(tile.tileId.x, tile.tileId.y), tile);
+    }
+    return result;
+  };
+
+  const applySnapshot = (snapshot: StateSnapshot) => {
+    const bag = snapshot.entities;
+    setResources(bag);
+    citiesStore.set(bag?.cities ?? []);
+    buildingsStore.set(bag?.buildings ?? []);
+    armiesStore.set(bag?.armies ?? []);
+    armyMarchesStore.set(bag?.armyMarches ?? []);
+    tilesStore.set(tileMap(bag));
+    tileVisibilityStore.set(visibilityMap(snapshot.tileVisibility));
+    setCapital(bag);
+  };
+
+  const upsertById = <T,>(previous: T[], incoming: T[], idOf: (value: T) => string | undefined): T[] => {
+    const result = new Map<string, T>();
+    for (const value of previous) {
+      const id = idOf(value);
+      if (id) result.set(id, value);
+    }
+    for (const value of incoming) {
+      const id = idOf(value);
+      if (id) result.set(id, value);
+    }
+    return [...result.values()];
+  };
+
+  const removedIds = (deleted?: EntityIdBag, hidden?: EntityIdBag) => ({
+    cities: new Set([...(deleted?.cityIds ?? []), ...(hidden?.cityIds ?? [])].map((id) => id.value)),
+    buildings: new Set([...(deleted?.buildingIds ?? []), ...(hidden?.buildingIds ?? [])].map((id) => id.value)),
+    armies: new Set([...(deleted?.armyIds ?? []), ...(hidden?.armyIds ?? [])].map((id) => id.value)),
+    armyMarches: new Set([...(deleted?.armyMarchIds ?? []), ...(hidden?.armyMarchIds ?? [])].map((id) => id.value))
+  });
+
+  const applyDelta = (delta: StateDelta) => {
+    const bag = delta.upserts;
+    setResources(bag);
+    const removed = removedIds(delta.deleted, delta.hidden);
+    citiesStore.update((previous) =>
+      upsertById(
+        previous.filter((city) => !removed.cities.has(city.cityId?.value ?? '')),
+        bag?.cities ?? [],
+        (city) => city.cityId?.value
+      )
+    );
+    buildingsStore.update((previous) =>
+      upsertById(
+        previous.filter((building) => !removed.buildings.has(building.buildingId?.value ?? '')),
+        bag?.buildings ?? [],
+        (building) => building.buildingId?.value
+      )
+    );
+    armiesStore.update((previous) =>
+      upsertById(
+        previous.filter((army) => !removed.armies.has(army.armyId?.value ?? '')),
+        bag?.armies ?? [],
+        (army) => army.armyId?.value
+      )
+    );
+    armyMarchesStore.update((previous) =>
+      upsertById(
+        previous.filter((march) => !removed.armyMarches.has(march.armyMarchId?.value ?? '')),
+        bag?.armyMarches ?? [],
+        (march) => march.armyMarchId?.value
+      )
+    );
+    if (bag?.tiles.length) {
+      tilesStore.update((previous) => {
+        const result = new Map(previous);
+        for (const tile of bag.tiles) if (tile.tileId) result.set(tileKey(tile.tileId.x, tile.tileId.y), tile);
+        return result;
+      });
+    }
+    if (delta.tileVisibility.length) {
+      tileVisibilityStore.update((previous) => {
+        const result = new Map(previous);
+        for (const visibility of delta.tileVisibility) if (visibility.tileId) result.set(tileKey(visibility.tileId.x, visibility.tileId.y), visibility.state);
+        return result;
+      });
+    }
+  };
 
   onMount(() => {
     // Never enter the game with an obviously dead token.
@@ -37,8 +154,8 @@
     const abortController = new AbortController();
 
     loadConfig();
-    // Load map first, then start stream so the stream's initial snapshot
-    // (from actor memory, always fresh) upserts over potentially stale DB data
+    // Load map first, then let the stream's initial authoritative snapshot
+    // reconcile it with fresh actor state.
     loadMap().then(() => startStream(abortController.signal));
 
     return () => {
@@ -61,6 +178,7 @@
       citiesStore.set(response.entities?.cities ?? []);
       buildingsStore.set(response.entities?.buildings ?? []);
       armiesStore.set(response.entities?.armies ?? []);
+      armyMarchesStore.set(response.entities?.armyMarches ?? []);
 
       const rawTiles = new Map<string, Tile>();
       for (const tile of response.entities?.tiles ?? []) {
@@ -74,17 +192,10 @@
         if (tile) rootedTiles.set(key, tile);
       }
       tilesStore.set(rootedTiles);
+      tileVisibilityStore.set(visibilityMap(response.tileVisibility));
 
-      // Find user's capital
-      const allCities = response.entities?.cities ?? [];
-      const userCapital = allCities.find((c) => c.owner?.value === $userId && c.type === 1);
-      if (userCapital && userCapital.start) {
-        capital.set(userCapital);
-        mapCenter.set({
-          x: userCapital.start.x + 2,
-          y: userCapital.start.y + 2
-        });
-      }
+      setResources(response.entities);
+      setCapital(response.entities, true);
 
       mapLoaded = true;
     } catch (err) {
@@ -99,84 +210,8 @@
     while (!signal.aborted) {
       try {
         for await (const state of userClient.streamState({}, { signal })) {
-          const bag = state.entities;
-          if (bag) {
-            // User resource updates
-            const u = bag.users[0];
-            if (u) {
-              gold.set(u.gold);
-              food.set(u.food);
-              foodIncomePerHour.set(ratePerHour(u.foodIncome));
-              foodUpkeepPerHour.set(ratePerHour(u.foodUpkeep));
-            }
-
-            // City delta updates (upsert by ID)
-            if (bag.cities.length) {
-              citiesStore.update((prev) => {
-                const updated = [...prev];
-                for (const c of bag.cities) {
-                  const id = c.cityId?.value;
-                  if (!id) continue;
-                  const idx = updated.findIndex((x) => x.cityId?.value === id);
-                  if (idx >= 0) updated[idx] = c;
-                  else updated.push(c);
-                }
-                return updated;
-              });
-            }
-
-            // Building delta updates (upsert by ID)
-            if (bag.buildings.length) {
-              buildingsStore.update((prev) => {
-                const updated = [...prev];
-                for (const b of bag.buildings) {
-                  const id = b.buildingId?.value;
-                  if (!id) continue;
-                  const idx = updated.findIndex((x) => x.buildingId?.value === id);
-                  if (idx >= 0) updated[idx] = b;
-                  else updated.push(b);
-                }
-                return updated;
-              });
-            }
-
-            // Army delta updates (upsert by ID)
-            if (bag.armies.length) {
-              armiesStore.update((prev) => {
-                const updated = [...prev];
-                for (const army of bag.armies) {
-                  const id = army.armyId?.value;
-                  if (!id) continue;
-                  const idx = updated.findIndex((x) => x.armyId?.value === id);
-                  if (idx >= 0) updated[idx] = army;
-                  else updated.push(army);
-                }
-                return updated;
-              });
-            }
-
-            if (bag.tiles.length) {
-              tilesStore.update((prev) => {
-                const updated = new Map(prev);
-                for (const tile of bag.tiles) {
-                  if (!tile.tileId) continue;
-                  updated.set(tileKey(tile.tileId.x, tile.tileId.y), tile);
-                }
-                return updated;
-              });
-            }
-          }
-
-          // Tombstones live on StreamStateResponse and can arrive without a bag.
-          if (state.deletedBuildingIds.length) {
-            const ids = new Set(state.deletedBuildingIds.map((id) => id.value).filter(Boolean));
-            buildingsStore.update((prev) => prev.filter((b) => !ids.has(b.buildingId?.value ?? '')));
-          }
-
-          if (state.deletedArmyIds.length) {
-            const ids = new Set(state.deletedArmyIds.map((id) => id.value).filter(Boolean));
-            armiesStore.update((prev) => prev.filter((army) => !ids.has(army.armyId?.value ?? '')));
-          }
+          if (state.frame.case === 'snapshot') applySnapshot(state.frame.value);
+          else if (state.frame.case === 'delta') applyDelta(state.frame.value);
         }
       } catch (err: unknown) {
         if (signal.aborted) return;

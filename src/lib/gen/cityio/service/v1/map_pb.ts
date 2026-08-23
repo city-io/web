@@ -10,13 +10,15 @@ import type { TileId } from "../../entity/v1/ids_pb";
 import { file_cityio_entity_v1_ids } from "../../entity/v1/ids_pb";
 import type { Tile } from "../../entity/v1/tile_pb";
 import { file_cityio_entity_v1_tile } from "../../entity/v1/tile_pb";
+import type { TileVisibility } from "./state_pb";
+import { file_cityio_service_v1_state } from "./state_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cityio/service/v1/map.proto.
  */
 export const file_cityio_service_v1_map: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vc2VydmljZS92MS9tYXAucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIg8KDUdldE1hcFJlcXVlc3QiawoOR2V0TWFwUmVzcG9uc2USKgoIdGlsZV9pZHMYASADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZBItCghlbnRpdGllcxgCIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuRW50aXR5QmFnIjsKDkdldFRpbGVSZXF1ZXN0EikKB3RpbGVfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZCI3Cg9HZXRUaWxlUmVzcG9uc2USJAoEdGlsZRgBIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuVGlsZTKtAQoKTWFwU2VydmljZRJNCgZHZXRNYXASIC5jaXR5aW8uc2VydmljZS52MS5HZXRNYXBSZXF1ZXN0GiEuY2l0eWlvLnNlcnZpY2UudjEuR2V0TWFwUmVzcG9uc2USUAoHR2V0VGlsZRIhLmNpdHlpby5zZXJ2aWNlLnYxLkdldFRpbGVSZXF1ZXN0GiIuY2l0eWlvLnNlcnZpY2UudjEuR2V0VGlsZVJlc3BvbnNlYgZwcm90bzM", [file_cityio_entity_v1_bag, file_cityio_entity_v1_ids, file_cityio_entity_v1_tile]);
+  fileDesc("ChtjaXR5aW8vc2VydmljZS92MS9tYXAucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIg8KDUdldE1hcFJlcXVlc3QipwEKDkdldE1hcFJlc3BvbnNlEioKCHRpbGVfaWRzGAEgAygLMhguY2l0eWlvLmVudGl0eS52MS5UaWxlSWQSLQoIZW50aXRpZXMYAiABKAsyGy5jaXR5aW8uZW50aXR5LnYxLkVudGl0eUJhZxI6Cg90aWxlX3Zpc2liaWxpdHkYAyADKAsyIS5jaXR5aW8uc2VydmljZS52MS5UaWxlVmlzaWJpbGl0eSI7Cg5HZXRUaWxlUmVxdWVzdBIpCgd0aWxlX2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5UaWxlSWQibgoPR2V0VGlsZVJlc3BvbnNlEiQKBHRpbGUYASABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlRpbGUSNQoKdmlzaWJpbGl0eRgCIAEoCzIhLmNpdHlpby5zZXJ2aWNlLnYxLlRpbGVWaXNpYmlsaXR5Mq0BCgpNYXBTZXJ2aWNlEk0KBkdldE1hcBIgLmNpdHlpby5zZXJ2aWNlLnYxLkdldE1hcFJlcXVlc3QaIS5jaXR5aW8uc2VydmljZS52MS5HZXRNYXBSZXNwb25zZRJQCgdHZXRUaWxlEiEuY2l0eWlvLnNlcnZpY2UudjEuR2V0VGlsZVJlcXVlc3QaIi5jaXR5aW8uc2VydmljZS52MS5HZXRUaWxlUmVzcG9uc2ViBnByb3RvMw", [file_cityio_entity_v1_bag, file_cityio_entity_v1_ids, file_cityio_entity_v1_tile, file_cityio_service_v1_state]);
 
 /**
  * @generated from message cityio.service.v1.GetMapRequest
@@ -46,6 +48,11 @@ export type GetMapResponse = Message<"cityio.service.v1.GetMapResponse"> & {
    * @generated from field: cityio.entity.v1.EntityBag entities = 2;
    */
   entities?: EntityBag | undefined;
+
+  /**
+   * @generated from field: repeated cityio.service.v1.TileVisibility tile_visibility = 3;
+   */
+  tileVisibility: TileVisibility[];
 };
 
 /**
@@ -80,6 +87,11 @@ export type GetTileResponse = Message<"cityio.service.v1.GetTileResponse"> & {
    * @generated from field: cityio.entity.v1.Tile tile = 1;
    */
   tile?: Tile | undefined;
+
+  /**
+   * @generated from field: cityio.service.v1.TileVisibility visibility = 2;
+   */
+  visibility?: TileVisibility | undefined;
 };
 
 /**

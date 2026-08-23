@@ -1,9 +1,7 @@
 import { Container, Graphics, Text } from 'pixi.js';
 
-import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
+import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
 import { TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
-import { TerrainType, type Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
-import { tileKey } from '$lib/game/iso';
 
 export type TroopStat = {
   name: string;
@@ -30,11 +28,11 @@ export function troopName(type: TroopType, count = 2): string {
 }
 
 export function armySize(army: Army): number {
-  return army.troops.reduce((sum, stack) => sum + stack.count, 0);
+  return army.troops.reduce((sum, stack) => sum + (stack.count ?? 0), 0);
 }
 
 export function armyTitle(army: Army): string {
-  const active = army.troops.filter((stack) => stack.count > 0);
+  const active = army.troops.filter((stack) => (stack.count ?? 1) > 0);
   if (active.length !== 1) return 'Field Army';
   switch (active[0].type) {
     case TroopType.SOLDIER:
@@ -51,118 +49,6 @@ export function armyTitle(army: Army): string {
 }
 
 export type ArmyPathStep = { x: number; y: number };
-
-const PATH_DIRECTIONS: ArmyPathStep[] = [
-  { x: -1, y: -1 },
-  { x: 0, y: -1 },
-  { x: 1, y: -1 },
-  { x: -1, y: 0 },
-  { x: 1, y: 0 },
-  { x: -1, y: 1 },
-  { x: 0, y: 1 },
-  { x: 1, y: 1 }
-];
-
-export function terrainMovementCost(terrain: TerrainType): number {
-  if (terrain === TerrainType.WATER) return 0;
-  if (terrain === TerrainType.MARSH) return 2;
-  if (terrain === TerrainType.MOUNTAINS) return 3;
-  return 1;
-}
-
-const chebyshev = (a: ArmyPathStep, b: ArmyPathStep): number => Math.max(Math.abs(a.x - b.x), Math.abs(a.y - b.y));
-
-const traversable = (tiles: Map<string, Tile>, step: ArmyPathStep): boolean => {
-  const tile = tiles.get(tileKey(step.x, step.y));
-  return !!tile && terrainMovementCost(tile.terrain) > 0;
-};
-
-type PathNode = ArmyPathStep & { cost: number; score: number };
-
-const pushNode = (heap: PathNode[], node: PathNode) => {
-  heap.push(node);
-  let index = heap.length - 1;
-  while (index > 0) {
-    const parent = Math.floor((index - 1) / 2);
-    const parentNode = heap[parent];
-    if (parentNode.score < node.score || (parentNode.score === node.score && parentNode.cost <= node.cost)) break;
-    heap[index] = parentNode;
-    index = parent;
-  }
-  heap[index] = node;
-};
-
-const popNode = (heap: PathNode[]): PathNode | undefined => {
-  const first = heap[0];
-  const last = heap.pop();
-  if (!first || !last || heap.length === 0) return first;
-  let index = 0;
-  while (true) {
-    const left = index * 2 + 1;
-    const right = left + 1;
-    if (left >= heap.length) break;
-    let child = left;
-    if (right < heap.length) {
-      const l = heap[left];
-      const r = heap[right];
-      if (r.score < l.score || (r.score === l.score && r.cost < l.cost)) child = right;
-    }
-    const childNode = heap[child];
-    if (last.score < childNode.score || (last.score === childNode.score && last.cost <= childNode.cost)) break;
-    heap[index] = childNode;
-    index = child;
-  }
-  heap[index] = last;
-  return first;
-};
-
-// Mirrors the backend's weighted eight-direction pathfinder so the previewed
-// route is the route the server will execute. Water is blocked; diagonal moves
-// cannot squeeze between two blocked orthogonal neighbors.
-export function findArmyPath(tiles: Map<string, Tile>, start: ArmyPathStep, destination: ArmyPathStep): ArmyPathStep[] | null {
-  if (start.x === destination.x && start.y === destination.y) return [];
-  if (!traversable(tiles, start) || !traversable(tiles, destination)) return null;
-
-  const startKey = tileKey(start.x, start.y);
-  const frontier: PathNode[] = [];
-  pushNode(frontier, { ...start, cost: 0, score: chebyshev(start, destination) });
-  const costs = new Map<string, number>([[startKey, 0]]);
-  const previous = new Map<string, ArmyPathStep>();
-
-  while (frontier.length > 0) {
-    const current = popNode(frontier)!;
-    const currentKey = tileKey(current.x, current.y);
-    if (current.cost !== costs.get(currentKey)) continue;
-    if (current.x === destination.x && current.y === destination.y) {
-      const path: ArmyPathStep[] = [];
-      for (let step = destination; step.x !== start.x || step.y !== start.y; ) {
-        path.push(step);
-        step = previous.get(tileKey(step.x, step.y))!;
-      }
-      return path.reverse();
-    }
-
-    for (const direction of PATH_DIRECTIONS) {
-      const next = { x: current.x + direction.x, y: current.y + direction.y };
-      if (!traversable(tiles, next)) continue;
-      if (direction.x !== 0 && direction.y !== 0) {
-        if (!traversable(tiles, { x: current.x + direction.x, y: current.y }) || !traversable(tiles, { x: current.x, y: current.y + direction.y })) continue;
-      }
-      const terrain = tiles.get(tileKey(next.x, next.y))!.terrain;
-      const cost = current.cost + terrainMovementCost(terrain);
-      const nextKey = tileKey(next.x, next.y);
-      if (cost >= (costs.get(nextKey) ?? Number.POSITIVE_INFINITY)) continue;
-      costs.set(nextKey, cost);
-      previous.set(nextKey, { x: current.x, y: current.y });
-      pushNode(frontier, { ...next, cost, score: cost + chebyshev(next, destination) });
-    }
-  }
-  return null;
-}
-
-export function armyPathCost(tiles: Map<string, Tile>, path: ArmyPathStep[]): number {
-  return path.reduce((total, step) => total + terrainMovementCost(tiles.get(tileKey(step.x, step.y))?.terrain ?? TerrainType.WATER), 0);
-}
 
 const drawFootTroop = (art: Graphics, x: number, y: number, color: number, light: number, archer: boolean) => {
   art.moveTo(x - 1.5, y + 6);
@@ -254,7 +140,7 @@ export function createArmyMarker(army: Army, userId?: string, selected = false):
     art.stroke({ color: 0xf0d65a, width: 2, alpha: 1 });
   }
 
-  const dominant = army.troops.filter((stack) => stack.count > 0).sort((a, b) => b.count - a.count)[0]?.type ?? TroopType.SOLDIER;
+  const dominant = army.troops.filter((stack) => (stack.count ?? 1) > 0).sort((a, b) => (b.count ?? 0) - (a.count ?? 0))[0]?.type ?? TroopType.SOLDIER;
   if (dominant === TroopType.CAVALRY) {
     drawCavalry(art, -9, -2, color);
     drawCavalry(art, 8, 0, color);
@@ -275,14 +161,14 @@ export function createArmyMarker(army: Army, userId?: string, selected = false):
       drawFootTroop(art, x, y, color, light, archer);
   }
 
-  if (army.destination) {
+  if (army.marchId) {
     art.poly([23, -3, 28, 1, 23, 5]);
     art.poly([28, -3, 33, 1, 28, 5]);
     art.stroke({ color: 0xeee7b5, width: 1.5, alpha: 0.95 });
   }
 
   const count = new Text({
-    text: armySize(army).toLocaleString(),
+    text: army.compositionVisibility === ArmyCompositionVisibility.EXACT ? armySize(army).toLocaleString() : '?',
     roundPixels: true,
     style: {
       fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],

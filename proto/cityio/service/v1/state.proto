@@ -1,0 +1,30 @@
+syntax = "proto3";
+
+package cityio.service.v1;
+
+import "cityio/entity/v1/bag.proto";
+import "cityio/entity/v1/ids.proto";
+
+enum TileVisibilityState {
+  TILE_VISIBILITY_STATE_UNSPECIFIED = 0;
+  TILE_VISIBILITY_STATE_UNEXPLORED = 1;
+  TILE_VISIBILITY_STATE_EXPLORED = 2;
+  TILE_VISIBILITY_STATE_VISIBLE = 3;
+}
+
+message TileVisibility {
+  cityio.entity.v1.TileId tile_id = 1;
+  TileVisibilityState state = 2;
+}
+
+message StateSnapshot {
+  cityio.entity.v1.EntityBag entities = 1;
+  repeated TileVisibility tile_visibility = 2;
+}
+
+message StateDelta {
+  cityio.entity.v1.EntityBag upserts = 1;
+  cityio.entity.v1.EntityIdBag deleted = 2;
+  cityio.entity.v1.EntityIdBag hidden = 3;
+  repeated TileVisibility tile_visibility = 4;
+}

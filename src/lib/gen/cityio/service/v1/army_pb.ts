@@ -4,23 +4,23 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Army } from "../../entity/v1/army_pb";
-import { file_cityio_entity_v1_army } from "../../entity/v1/army_pb";
+import type { ArmyRouteStep } from "../../entity/v1/army_march_pb";
+import { file_cityio_entity_v1_army_march } from "../../entity/v1/army_march_pb";
 import type { EntityBag } from "../../entity/v1/bag_pb";
 import { file_cityio_entity_v1_bag } from "../../entity/v1/bag_pb";
 import type { Coordinates, TroopType } from "../../entity/v1/common_pb";
 import { file_cityio_entity_v1_common } from "../../entity/v1/common_pb";
 import type { ArmyId, BuildingId, TrainingOrderId } from "../../entity/v1/ids_pb";
 import { file_cityio_entity_v1_ids } from "../../entity/v1/ids_pb";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cityio/service/v1/army.proto.
  */
 export const file_cityio_service_v1_army: GenFile = /*@__PURE__*/
-  fileDesc("ChxjaXR5aW8vc2VydmljZS92MS9hcm15LnByb3RvEhFjaXR5aW8uc2VydmljZS52MSLxAgoNVHJhaW5pbmdPcmRlchI8ChF0cmFpbmluZ19vcmRlcl9pZBgBIAEoCzIhLmNpdHlpby5lbnRpdHkudjEuVHJhaW5pbmdPcmRlcklkEikKB2FybXlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIxCgtiYXJyYWNrc19pZBgDIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdJZBIpCgR0eXBlGAQgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSDQoFY291bnQYBSABKAUSMwoKc3RhcnRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAIgBARI1Cgxjb21wbGV0ZXNfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSAGIAQFCDQoLX3N0YXJ0ZWRfYXRCDwoNX2NvbXBsZXRlc19hdCKBAQoSVHJhaW5Ucm9vcHNSZXF1ZXN0EjEKC2JhcnJhY2tzX2lkGAEgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEikKBHR5cGUYAiABKA4yGy5jaXR5aW8uZW50aXR5LnYxLlRyb29wVHlwZRINCgVjb3VudBgDIAEoBSJGChNUcmFpblRyb29wc1Jlc3BvbnNlEi8KBW9yZGVyGAEgASgLMiAuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5pbmdPcmRlciJOChlMaXN0VHJhaW5pbmdPcmRlcnNSZXF1ZXN0EjEKC2JhcnJhY2tzX2lkGAEgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkIk4KGkxpc3RUcmFpbmluZ09yZGVyc1Jlc3BvbnNlEjAKBm9yZGVycxgBIAMoCzIgLmNpdHlpby5zZXJ2aWNlLnYxLlRyYWluaW5nT3JkZXIiOwoOR2V0QXJteVJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkIjcKD0dldEFybXlSZXNwb25zZRIkCgRhcm15GAEgASgLMhYuY2l0eWlvLmVudGl0eS52MS5Bcm15InAKD01vdmVBcm15UmVxdWVzdBIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSMgoLZGVzdGluYXRpb24YAiABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzIhIKEE1vdmVBcm15UmVzcG9uc2UieAoSTWVyZ2VBcm1pZXNSZXF1ZXN0EjAKDnRhcmdldF9hcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSMAoOc291cmNlX2FybXlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZCIVChNNZXJnZUFybWllc1Jlc3BvbnNlIhMKEUxpc3RBcm1pZXNSZXF1ZXN0Im8KEkxpc3RBcm1pZXNSZXNwb25zZRIqCghhcm15X2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEi0KCGVudGl0aWVzGAIgASgLMhsuY2l0eWlvLmVudGl0eS52MS5FbnRpdHlCYWcyvgQKC0FybXlTZXJ2aWNlElwKC1RyYWluVHJvb3BzEiUuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5Ucm9vcHNSZXF1ZXN0GiYuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5Ucm9vcHNSZXNwb25zZRJxChJMaXN0VHJhaW5pbmdPcmRlcnMSLC5jaXR5aW8uc2VydmljZS52MS5MaXN0VHJhaW5pbmdPcmRlcnNSZXF1ZXN0Gi0uY2l0eWlvLnNlcnZpY2UudjEuTGlzdFRyYWluaW5nT3JkZXJzUmVzcG9uc2USUAoHR2V0QXJteRIhLmNpdHlpby5zZXJ2aWNlLnYxLkdldEFybXlSZXF1ZXN0GiIuY2l0eWlvLnNlcnZpY2UudjEuR2V0QXJteVJlc3BvbnNlElMKCE1vdmVBcm15EiIuY2l0eWlvLnNlcnZpY2UudjEuTW92ZUFybXlSZXF1ZXN0GiMuY2l0eWlvLnNlcnZpY2UudjEuTW92ZUFybXlSZXNwb25zZRJcCgtNZXJnZUFybWllcxIlLmNpdHlpby5zZXJ2aWNlLnYxLk1lcmdlQXJtaWVzUmVxdWVzdBomLmNpdHlpby5zZXJ2aWNlLnYxLk1lcmdlQXJtaWVzUmVzcG9uc2USWQoKTGlzdEFybWllcxIkLmNpdHlpby5zZXJ2aWNlLnYxLkxpc3RBcm1pZXNSZXF1ZXN0GiUuY2l0eWlvLnNlcnZpY2UudjEuTGlzdEFybWllc1Jlc3BvbnNlYgZwcm90bzM", [file_cityio_entity_v1_army, file_cityio_entity_v1_bag, file_cityio_entity_v1_common, file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
+  fileDesc("ChxjaXR5aW8vc2VydmljZS92MS9hcm15LnByb3RvEhFjaXR5aW8uc2VydmljZS52MSLxAgoNVHJhaW5pbmdPcmRlchI8ChF0cmFpbmluZ19vcmRlcl9pZBgBIAEoCzIhLmNpdHlpby5lbnRpdHkudjEuVHJhaW5pbmdPcmRlcklkEikKB2FybXlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIxCgtiYXJyYWNrc19pZBgDIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdJZBIpCgR0eXBlGAQgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSDQoFY291bnQYBSABKAUSMwoKc3RhcnRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAIgBARI1Cgxjb21wbGV0ZXNfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSAGIAQFCDQoLX3N0YXJ0ZWRfYXRCDwoNX2NvbXBsZXRlc19hdCKBAQoSVHJhaW5Ucm9vcHNSZXF1ZXN0EjEKC2JhcnJhY2tzX2lkGAEgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEikKBHR5cGUYAiABKA4yGy5jaXR5aW8uZW50aXR5LnYxLlRyb29wVHlwZRINCgVjb3VudBgDIAEoBSJGChNUcmFpblRyb29wc1Jlc3BvbnNlEi8KBW9yZGVyGAEgASgLMiAuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5pbmdPcmRlciJOChlMaXN0VHJhaW5pbmdPcmRlcnNSZXF1ZXN0EjEKC2JhcnJhY2tzX2lkGAEgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkIk4KGkxpc3RUcmFpbmluZ09yZGVyc1Jlc3BvbnNlEjAKBm9yZGVycxgBIAMoCzIgLmNpdHlpby5zZXJ2aWNlLnYxLlRyYWluaW5nT3JkZXIiOwoOR2V0QXJteVJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkImsKD0dldEFybXlSZXNwb25zZRIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSLQoIZW50aXRpZXMYAiABKAsyGy5jaXR5aW8uZW50aXR5LnYxLkVudGl0eUJhZyJwCg9Nb3ZlQXJteVJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEjIKC2Rlc3RpbmF0aW9uGAIgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcyISChBNb3ZlQXJteVJlc3BvbnNlIngKF1ByZXZpZXdBcm15Um91dGVSZXF1ZXN0EikKB2FybXlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIyCgtkZXN0aW5hdGlvbhgCIAEoCzIdLmNpdHlpby5lbnRpdHkudjEuQ29vcmRpbmF0ZXMihwEKGFByZXZpZXdBcm15Um91dGVSZXNwb25zZRIuCgVzdGVwcxgBIAMoCzIfLmNpdHlpby5lbnRpdHkudjEuQXJteVJvdXRlU3RlcBI1ChJlc3RpbWF0ZWRfZHVyYXRpb24YAyABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb25KBAgCEAMieAoSTWVyZ2VBcm1pZXNSZXF1ZXN0EjAKDnRhcmdldF9hcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSMAoOc291cmNlX2FybXlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZCIVChNNZXJnZUFybWllc1Jlc3BvbnNlIhMKEUxpc3RBcm1pZXNSZXF1ZXN0Im8KEkxpc3RBcm1pZXNSZXNwb25zZRIqCghhcm15X2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEi0KCGVudGl0aWVzGAIgASgLMhsuY2l0eWlvLmVudGl0eS52MS5FbnRpdHlCYWcyqwUKC0FybXlTZXJ2aWNlElwKC1RyYWluVHJvb3BzEiUuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5Ucm9vcHNSZXF1ZXN0GiYuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5Ucm9vcHNSZXNwb25zZRJxChJMaXN0VHJhaW5pbmdPcmRlcnMSLC5jaXR5aW8uc2VydmljZS52MS5MaXN0VHJhaW5pbmdPcmRlcnNSZXF1ZXN0Gi0uY2l0eWlvLnNlcnZpY2UudjEuTGlzdFRyYWluaW5nT3JkZXJzUmVzcG9uc2USUAoHR2V0QXJteRIhLmNpdHlpby5zZXJ2aWNlLnYxLkdldEFybXlSZXF1ZXN0GiIuY2l0eWlvLnNlcnZpY2UudjEuR2V0QXJteVJlc3BvbnNlEmsKEFByZXZpZXdBcm15Um91dGUSKi5jaXR5aW8uc2VydmljZS52MS5QcmV2aWV3QXJteVJvdXRlUmVxdWVzdBorLmNpdHlpby5zZXJ2aWNlLnYxLlByZXZpZXdBcm15Um91dGVSZXNwb25zZRJTCghNb3ZlQXJteRIiLmNpdHlpby5zZXJ2aWNlLnYxLk1vdmVBcm15UmVxdWVzdBojLmNpdHlpby5zZXJ2aWNlLnYxLk1vdmVBcm15UmVzcG9uc2USXAoLTWVyZ2VBcm1pZXMSJS5jaXR5aW8uc2VydmljZS52MS5NZXJnZUFybWllc1JlcXVlc3QaJi5jaXR5aW8uc2VydmljZS52MS5NZXJnZUFybWllc1Jlc3BvbnNlElkKCkxpc3RBcm1pZXMSJC5jaXR5aW8uc2VydmljZS52MS5MaXN0QXJtaWVzUmVxdWVzdBolLmNpdHlpby5zZXJ2aWNlLnYxLkxpc3RBcm1pZXNSZXNwb25zZWIGcHJvdG8z", [file_cityio_entity_v1_army_march, file_cityio_entity_v1_bag, file_cityio_entity_v1_common, file_cityio_entity_v1_ids, file_google_protobuf_timestamp, file_google_protobuf_duration]);
 
 /**
  * @generated from message cityio.service.v1.TrainingOrder
@@ -169,9 +169,14 @@ export const GetArmyRequestSchema: GenMessage<GetArmyRequest> = /*@__PURE__*/
  */
 export type GetArmyResponse = Message<"cityio.service.v1.GetArmyResponse"> & {
   /**
-   * @generated from field: cityio.entity.v1.Army army = 1;
+   * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
-  army?: Army | undefined;
+  armyId?: ArmyId | undefined;
+
+  /**
+   * @generated from field: cityio.entity.v1.EntityBag entities = 2;
+   */
+  entities?: EntityBag | undefined;
 };
 
 /**
@@ -217,6 +222,50 @@ export const MoveArmyResponseSchema: GenMessage<MoveArmyResponse> = /*@__PURE__*
   messageDesc(file_cityio_service_v1_army, 8);
 
 /**
+ * @generated from message cityio.service.v1.PreviewArmyRouteRequest
+ */
+export type PreviewArmyRouteRequest = Message<"cityio.service.v1.PreviewArmyRouteRequest"> & {
+  /**
+   * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
+   */
+  armyId?: ArmyId | undefined;
+
+  /**
+   * @generated from field: cityio.entity.v1.Coordinates destination = 2;
+   */
+  destination?: Coordinates | undefined;
+};
+
+/**
+ * Describes the message cityio.service.v1.PreviewArmyRouteRequest.
+ * Use `create(PreviewArmyRouteRequestSchema)` to create a new message.
+ */
+export const PreviewArmyRouteRequestSchema: GenMessage<PreviewArmyRouteRequest> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_army, 9);
+
+/**
+ * @generated from message cityio.service.v1.PreviewArmyRouteResponse
+ */
+export type PreviewArmyRouteResponse = Message<"cityio.service.v1.PreviewArmyRouteResponse"> & {
+  /**
+   * @generated from field: repeated cityio.entity.v1.ArmyRouteStep steps = 1;
+   */
+  steps: ArmyRouteStep[];
+
+  /**
+   * @generated from field: google.protobuf.Duration estimated_duration = 3;
+   */
+  estimatedDuration?: Duration | undefined;
+};
+
+/**
+ * Describes the message cityio.service.v1.PreviewArmyRouteResponse.
+ * Use `create(PreviewArmyRouteResponseSchema)` to create a new message.
+ */
+export const PreviewArmyRouteResponseSchema: GenMessage<PreviewArmyRouteResponse> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_army, 10);
+
+/**
  * @generated from message cityio.service.v1.MergeArmiesRequest
  */
 export type MergeArmiesRequest = Message<"cityio.service.v1.MergeArmiesRequest"> & {
@@ -236,7 +285,7 @@ export type MergeArmiesRequest = Message<"cityio.service.v1.MergeArmiesRequest">
  * Use `create(MergeArmiesRequestSchema)` to create a new message.
  */
 export const MergeArmiesRequestSchema: GenMessage<MergeArmiesRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 9);
+  messageDesc(file_cityio_service_v1_army, 11);
 
 /**
  * @generated from message cityio.service.v1.MergeArmiesResponse
@@ -249,7 +298,7 @@ export type MergeArmiesResponse = Message<"cityio.service.v1.MergeArmiesResponse
  * Use `create(MergeArmiesResponseSchema)` to create a new message.
  */
 export const MergeArmiesResponseSchema: GenMessage<MergeArmiesResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 10);
+  messageDesc(file_cityio_service_v1_army, 12);
 
 /**
  * @generated from message cityio.service.v1.ListArmiesRequest
@@ -262,7 +311,7 @@ export type ListArmiesRequest = Message<"cityio.service.v1.ListArmiesRequest"> &
  * Use `create(ListArmiesRequestSchema)` to create a new message.
  */
 export const ListArmiesRequestSchema: GenMessage<ListArmiesRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 11);
+  messageDesc(file_cityio_service_v1_army, 13);
 
 /**
  * @generated from message cityio.service.v1.ListArmiesResponse
@@ -284,7 +333,7 @@ export type ListArmiesResponse = Message<"cityio.service.v1.ListArmiesResponse">
  * Use `create(ListArmiesResponseSchema)` to create a new message.
  */
 export const ListArmiesResponseSchema: GenMessage<ListArmiesResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 12);
+  messageDesc(file_cityio_service_v1_army, 14);
 
 /**
  * ArmyService trains, moves and merges armies.
@@ -315,6 +364,14 @@ export const ArmyService: GenService<{
     methodKind: "unary";
     input: typeof GetArmyRequestSchema;
     output: typeof GetArmyResponseSchema;
+  },
+  /**
+   * @generated from rpc cityio.service.v1.ArmyService.PreviewArmyRoute
+   */
+  previewArmyRoute: {
+    methodKind: "unary";
+    input: typeof PreviewArmyRouteRequestSchema;
+    output: typeof PreviewArmyRouteResponseSchema;
   },
   /**
    * @generated from rpc cityio.service.v1.ArmyService.MoveArmy

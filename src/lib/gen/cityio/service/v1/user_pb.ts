@@ -4,19 +4,19 @@
 
 import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { EntityBag } from "../../entity/v1/bag_pb";
-import { file_cityio_entity_v1_bag } from "../../entity/v1/bag_pb";
-import type { ArmyId, BuildingId, UserId } from "../../entity/v1/ids_pb";
+import type { UserId } from "../../entity/v1/ids_pb";
 import { file_cityio_entity_v1_ids } from "../../entity/v1/ids_pb";
 import type { User } from "../../entity/v1/user_pb";
 import { file_cityio_entity_v1_user } from "../../entity/v1/user_pb";
+import type { StateDelta, StateSnapshot } from "./state_pb";
+import { file_cityio_service_v1_state } from "./state_pb";
 import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cityio/service/v1/user.proto.
  */
 export const file_cityio_service_v1_user: GenFile = /*@__PURE__*/
-  fileDesc("ChxjaXR5aW8vc2VydmljZS92MS91c2VyLnByb3RvEhFjaXR5aW8uc2VydmljZS52MSJECg9SZWdpc3RlclJlcXVlc3QSDQoFZW1haWwYASABKAkSEAoIdXNlcm5hbWUYAiABKAkSEAoIcGFzc3dvcmQYAyABKAkiTAoQUmVnaXN0ZXJSZXNwb25zZRIpCgd1c2VyX2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSDQoFdG9rZW4YAiABKAkiNAoMTG9naW5SZXF1ZXN0EhIKCmlkZW50aWZpZXIYASABKAkSEAoIcGFzc3dvcmQYAiABKAkiRAoNTG9naW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIkCgR1c2VyGAIgASgLMhYuY2l0eWlvLmVudGl0eS52MS5Vc2VyIjsKDkdldFVzZXJSZXF1ZXN0EikKB3VzZXJfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlVzZXJJZCI3Cg9HZXRVc2VyUmVzcG9uc2USJAoEdXNlchgBIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuVXNlciI+ChFEZWxldGVVc2VyUmVxdWVzdBIpCgd1c2VyX2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQiFAoSRGVsZXRlVXNlclJlc3BvbnNlIhQKElN0cmVhbVN0YXRlUmVxdWVzdCK0AQoTU3RyZWFtU3RhdGVSZXNwb25zZRItCghlbnRpdGllcxgBIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuRW50aXR5QmFnEjoKFGRlbGV0ZWRfYnVpbGRpbmdfaWRzGAIgAygLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEjIKEGRlbGV0ZWRfYXJteV9pZHMYAyADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZDK7AwoLVXNlclNlcnZpY2USUwoIUmVnaXN0ZXISIi5jaXR5aW8uc2VydmljZS52MS5SZWdpc3RlclJlcXVlc3QaIy5jaXR5aW8uc2VydmljZS52MS5SZWdpc3RlclJlc3BvbnNlEkoKBUxvZ2luEh8uY2l0eWlvLnNlcnZpY2UudjEuTG9naW5SZXF1ZXN0GiAuY2l0eWlvLnNlcnZpY2UudjEuTG9naW5SZXNwb25zZRJQCgdHZXRVc2VyEiEuY2l0eWlvLnNlcnZpY2UudjEuR2V0VXNlclJlcXVlc3QaIi5jaXR5aW8uc2VydmljZS52MS5HZXRVc2VyUmVzcG9uc2USWQoKRGVsZXRlVXNlchIkLmNpdHlpby5zZXJ2aWNlLnYxLkRlbGV0ZVVzZXJSZXF1ZXN0GiUuY2l0eWlvLnNlcnZpY2UudjEuRGVsZXRlVXNlclJlc3BvbnNlEl4KC1N0cmVhbVN0YXRlEiUuY2l0eWlvLnNlcnZpY2UudjEuU3RyZWFtU3RhdGVSZXF1ZXN0GiYuY2l0eWlvLnNlcnZpY2UudjEuU3RyZWFtU3RhdGVSZXNwb25zZTABYgZwcm90bzM", [file_cityio_entity_v1_bag, file_cityio_entity_v1_ids, file_cityio_entity_v1_user]);
+  fileDesc("ChxjaXR5aW8vc2VydmljZS92MS91c2VyLnByb3RvEhFjaXR5aW8uc2VydmljZS52MSJECg9SZWdpc3RlclJlcXVlc3QSDQoFZW1haWwYASABKAkSEAoIdXNlcm5hbWUYAiABKAkSEAoIcGFzc3dvcmQYAyABKAkiTAoQUmVnaXN0ZXJSZXNwb25zZRIpCgd1c2VyX2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSDQoFdG9rZW4YAiABKAkiNAoMTG9naW5SZXF1ZXN0EhIKCmlkZW50aWZpZXIYASABKAkSEAoIcGFzc3dvcmQYAiABKAkiRAoNTG9naW5SZXNwb25zZRINCgV0b2tlbhgBIAEoCRIkCgR1c2VyGAIgASgLMhYuY2l0eWlvLmVudGl0eS52MS5Vc2VyIjsKDkdldFVzZXJSZXF1ZXN0EikKB3VzZXJfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlVzZXJJZCI3Cg9HZXRVc2VyUmVzcG9uc2USJAoEdXNlchgBIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuVXNlciI+ChFEZWxldGVVc2VyUmVxdWVzdBIpCgd1c2VyX2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQiFAoSRGVsZXRlVXNlclJlc3BvbnNlIhQKElN0cmVhbVN0YXRlUmVxdWVzdCKWAQoTU3RyZWFtU3RhdGVSZXNwb25zZRIQCghyZXZpc2lvbhgBIAEoBBI0CghzbmFwc2hvdBgCIAEoCzIgLmNpdHlpby5zZXJ2aWNlLnYxLlN0YXRlU25hcHNob3RIABIuCgVkZWx0YRgDIAEoCzIdLmNpdHlpby5zZXJ2aWNlLnYxLlN0YXRlRGVsdGFIAEIHCgVmcmFtZTK7AwoLVXNlclNlcnZpY2USUwoIUmVnaXN0ZXISIi5jaXR5aW8uc2VydmljZS52MS5SZWdpc3RlclJlcXVlc3QaIy5jaXR5aW8uc2VydmljZS52MS5SZWdpc3RlclJlc3BvbnNlEkoKBUxvZ2luEh8uY2l0eWlvLnNlcnZpY2UudjEuTG9naW5SZXF1ZXN0GiAuY2l0eWlvLnNlcnZpY2UudjEuTG9naW5SZXNwb25zZRJQCgdHZXRVc2VyEiEuY2l0eWlvLnNlcnZpY2UudjEuR2V0VXNlclJlcXVlc3QaIi5jaXR5aW8uc2VydmljZS52MS5HZXRVc2VyUmVzcG9uc2USWQoKRGVsZXRlVXNlchIkLmNpdHlpby5zZXJ2aWNlLnYxLkRlbGV0ZVVzZXJSZXF1ZXN0GiUuY2l0eWlvLnNlcnZpY2UudjEuRGVsZXRlVXNlclJlc3BvbnNlEl4KC1N0cmVhbVN0YXRlEiUuY2l0eWlvLnNlcnZpY2UudjEuU3RyZWFtU3RhdGVSZXF1ZXN0GiYuY2l0eWlvLnNlcnZpY2UudjEuU3RyZWFtU3RhdGVSZXNwb25zZTABYgZwcm90bzM", [file_cityio_entity_v1_ids, file_cityio_entity_v1_user, file_cityio_service_v1_state]);
 
 /**
  * @generated from message cityio.service.v1.RegisterRequest
@@ -189,26 +189,30 @@ export const StreamStateRequestSchema: GenMessage<StreamStateRequest> = /*@__PUR
   messageDesc(file_cityio_service_v1_user, 8);
 
 /**
- * StreamStateResponse carries an initial entity snapshot followed by entity
- * upserts and deletion tombstones as state changes.
- *
  * @generated from message cityio.service.v1.StreamStateResponse
  */
 export type StreamStateResponse = Message<"cityio.service.v1.StreamStateResponse"> & {
   /**
-   * @generated from field: cityio.entity.v1.EntityBag entities = 1;
+   * @generated from field: uint64 revision = 1;
    */
-  entities?: EntityBag | undefined;
+  revision: bigint;
 
   /**
-   * @generated from field: repeated cityio.entity.v1.BuildingId deleted_building_ids = 2;
+   * @generated from oneof cityio.service.v1.StreamStateResponse.frame
    */
-  deletedBuildingIds: BuildingId[];
-
-  /**
-   * @generated from field: repeated cityio.entity.v1.ArmyId deleted_army_ids = 3;
-   */
-  deletedArmyIds: ArmyId[];
+  frame: {
+    /**
+     * @generated from field: cityio.service.v1.StateSnapshot snapshot = 2;
+     */
+    value: StateSnapshot;
+    case: "snapshot";
+  } | {
+    /**
+     * @generated from field: cityio.service.v1.StateDelta delta = 3;
+     */
+    value: StateDelta;
+    case: "delta";
+  } | { case: undefined; value?: undefined };
 };
 
 /**

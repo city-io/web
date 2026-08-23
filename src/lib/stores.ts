@@ -5,8 +5,10 @@ import type { Duration } from '@bufbuild/protobuf/wkt';
 import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
 import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
 import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
+import type { ArmyMarch } from '$lib/gen/cityio/entity/v1/army_march_pb';
 import type { Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
 import type { BuildingConfig } from '$lib/gen/cityio/service/v1/config_pb';
+import type { TileVisibilityState } from '$lib/gen/cityio/service/v1/state_pb';
 
 const persisted = (key: string) => {
   const init = typeof window !== 'undefined' ? localStorage.getItem(key) || '' : '';
@@ -44,7 +46,9 @@ export const gameConfig = writable<{
 export const capital = writable<City | null>(null);
 export const mapCenter = writable<{ x: number; y: number }>({ x: 0, y: 0 });
 export const tiles = writable<Map<string, Tile>>(new Map());
+export const tileVisibility = writable<Map<string, TileVisibilityState>>(new Map());
 
 export const cities = writable<City[]>([]);
 export const buildings = writable<Building[]>([]);
 export const armies = writable<Army[]>([]);
+export const armyMarches = writable<ArmyMarch[]>([]);

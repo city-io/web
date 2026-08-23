@@ -1,8 +1,9 @@
 <script lang="ts">
   import { onMount } from 'svelte';
-  import { armies, cities, buildings, mapCenter, tiles, userId, gameConfig } from '$lib/stores';
+  import { armies, cities, buildings, mapCenter, tiles, tileVisibility, userId, gameConfig } from '$lib/stores';
   import { tileKey } from '$lib/game/iso';
   import { TerrainType } from '$lib/gen/cityio/entity/v1/tile_pb';
+  import { TileVisibilityState } from '$lib/gen/cityio/service/v1/state_pb';
 
   // A plain square overview (readability over iso fidelity). No new RPC — every
   // pixel comes from the stores already loaded by the game layout.
@@ -39,21 +40,7 @@
     }
   };
 
-  const isVisible = (x: number, y: number) => {
-    const ownedCities = $cities.filter((city) => city.owner?.value === $userId && city.start);
-    const ownedArmies = $armies.filter((army) => army.owner?.value === $userId && army.coords);
-    if (ownedCities.length === 0 && ownedArmies.length === 0) return true;
-    if (
-      ownedCities.some((city) => {
-        const start = city.start!;
-        const dx = Math.max(start.x - x, x - (start.x + city.size - 1), 0);
-        const dy = Math.max(start.y - y, y - (start.y + city.size - 1), 0);
-        return Math.max(dx, dy) <= $gameConfig.visionRadius;
-      })
-    )
-      return true;
-    return ownedArmies.some((army) => Math.max(Math.abs(army.coords!.x - x), Math.abs(army.coords!.y - y)) <= $gameConfig.visionRadius);
-  };
+  const visibilityAt = (x: number, y: number) => $tileVisibility.get(tileKey(x, y)) ?? TileVisibilityState.UNEXPLORED;
 
   const draw = () => {
     raf = 0;
@@ -69,8 +56,10 @@
     if ($tiles.size) {
       for (let y = 0; y < mapHeight; y++) {
         for (let x = 0; x < mapWidth; x++) {
-          if (!isVisible(x, y)) continue;
-          ctx.fillStyle = terrainColor($tiles.get(tileKey(x, y))?.terrain ?? TerrainType.GRASSLAND);
+          const visibility = visibilityAt(x, y);
+          if (visibility === TileVisibilityState.UNEXPLORED) continue;
+          const color = terrainColor($tiles.get(tileKey(x, y))?.terrain ?? TerrainType.GRASSLAND);
+          ctx.fillStyle = visibility === TileVisibilityState.VISIBLE ? color : `${color}88`;
           ctx.fillRect(Math.floor(x * scaleX), Math.floor(y * scaleY), Math.ceil(scaleX), Math.ceil(scaleY));
         }
       }
@@ -80,7 +69,7 @@
     for (const c of $cities) {
       if (!c.start) continue;
       const own = c.owner?.value === $userId;
-      if (!own && !isVisible(c.start.x, c.start.y)) continue;
+      if (!own && visibilityAt(c.start.x, c.start.y) !== TileVisibilityState.VISIBLE) continue;
       ctx.fillStyle = own ? 'rgba(68,153,255,0.5)' : c.owner ? 'rgba(221,68,68,0.5)' : 'rgba(153,153,153,0.4)';
       ctx.fillRect(Math.floor(c.start.x * scaleX), Math.floor(c.start.y * scaleY), Math.ceil(c.size * scaleX), Math.ceil(c.size * scaleY));
     }
@@ -89,14 +78,14 @@
     ctx.fillStyle = '#e8c37a';
     for (const b of $buildings) {
       if (!b.coords) continue;
-      if (!isVisible(b.coords.x, b.coords.y)) continue;
+      if (visibilityAt(b.coords.x, b.coords.y) !== TileVisibilityState.VISIBLE) continue;
       ctx.fillRect(Math.floor(b.coords.x * scaleX), Math.floor(b.coords.y * scaleY), Math.max(1, scaleX), Math.max(1, scaleY));
     }
 
     // Armies use owner colors and a slightly larger dot than buildings.
     for (const army of $armies) {
       if (!army.coords) continue;
-      if (!isVisible(army.coords.x, army.coords.y)) continue;
+      if (visibilityAt(army.coords.x, army.coords.y) !== TileVisibilityState.VISIBLE) continue;
       ctx.fillStyle = army.owner?.value === $userId ? '#60a5fa' : '#f87171';
       ctx.fillRect(Math.floor(army.coords.x * scaleX) - 1, Math.floor(army.coords.y * scaleY) - 1, Math.max(2, scaleX + 1), Math.max(2, scaleY + 1));
     }
@@ -120,7 +109,7 @@
 
   // Redraw when any source changes ($mapCenter is an object, always truthy —
   // the condition exists only to register the reactive dependencies).
-  $: if ($tiles || $cities || $buildings || $armies || $mapCenter || viewCols || viewRows) schedule();
+  $: if ($tiles || $tileVisibility || $cities || $buildings || $armies || $mapCenter || viewCols || viewRows) schedule();
 
   onMount(() => {
     draw();
@@ -136,5 +125,6 @@
 </script>
 
 <div class="overflow-hidden rounded-lg border border-white/[0.1] bg-[#101512]/90 p-1 shadow-[0_12px_36px_rgba(0,0,0,0.22)] backdrop-blur-md">
-  <canvas bind:this={canvas} width={SIZE} height={SIZE} class="block cursor-pointer rounded" style="image-rendering: pixelated; width: {SIZE}px; height: {SIZE}px" on:click={handleClick}></canvas>
+  <canvas bind:this={canvas} width={SIZE} height={SIZE} class="cursor-action-custom block rounded" style="image-rendering: pixelated; width: {SIZE}px; height: {SIZE}px" on:click={handleClick}
+  ></canvas>
 </div>
