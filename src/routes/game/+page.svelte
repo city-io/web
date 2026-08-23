@@ -7,6 +7,7 @@
   import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
   import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
+  import { TROOP_STATS, TROOP_TYPES, armyPathCost, armySize, armyTitle, createArmyMarker, findArmyPath, troopName, type ArmyPathStep } from '$lib/game/troops';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
@@ -14,9 +15,11 @@
   import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import { BuildingType, CityType, TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
   import { TerrainType, type Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
+  import type { TrainingOrder } from '$lib/gen/cityio/service/v1/army_pb';
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
-  import type { Duration } from '@bufbuild/protobuf/wkt';
-  import { buildingClient, cityClient } from '$lib/api/client';
+  import type { Duration, Timestamp } from '@bufbuild/protobuf/wkt';
+  import { Code, ConnectError } from '@connectrpc/connect';
+  import { armyClient, buildingClient, cityClient } from '$lib/api/client';
 
   // ── constants ──────────────────────────────────────────
   const MIN_ZOOM = 0.4;
@@ -65,13 +68,33 @@
   const placeTypes = [BuildingType.HOUSE, BuildingType.FARM, BuildingType.MINE, BuildingType.BARRACKS];
   let busy = false;
   let err = '';
+  let notice = '';
   let showBuild = false;
+  let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
+  let recruitCount = 1;
+  let selectedArmyId: string | null = null;
+  let moveArmyId: string | null = null;
+  let trackedArmyId: string | null = null;
+  let moveTarget: { x: number; y: number } | null = null;
+  let moveHover: { x: number; y: number } | null = null;
+  let moveRoute: ArmyPathStep[] | null = null;
+  let moveRouteCost = 0;
+  let moveOrderActive = false;
+  let moveDestinationObserved = false;
+  let moveGfx: Graphics | null = null;
+  let trainingOrders: TrainingOrder[] = [];
+  let trainingOrdersBarracksId: string | null = null;
+  let trainingOrdersAvailable = true;
+  let trainingOrdersLoading = false;
+  let lastTrainingPoll = 0;
 
   // Compact top-bar menus keep secondary information off the map until needed.
   let ratesOpen = false;
   let ratesEl: HTMLDivElement;
   let citiesOpen = false;
   let citiesEl: HTMLDivElement;
+  let armiesOpen = false;
+  let armiesEl: HTMLDivElement;
 
   // Keyboard navigation
   let showHelp = false;
@@ -159,16 +182,19 @@
     [BuildingType.FARM]: 'Farm',
     [BuildingType.MINE]: 'Mine'
   };
-  const TN: Record<number, string> = {
-    [TroopType.SOLDIER]: 'Soldiers',
-    [TroopType.ARCHER]: 'Archers',
-    [TroopType.CAVALRY]: 'Cavalry',
-    [TroopType.ARTILLERY]: 'Artillery'
-  };
   const bName = (t: BuildingType) => BN[t] ?? 'Unknown';
   const cName = (t: CityType) => (t === CityType.CITY ? 'City' : t === CityType.TOWN ? 'Town' : 'Settlement');
-  const troopName = (t: TroopType) => TN[t] ?? 'Troops';
-  const armySize = (army: Army) => army.troops.reduce((sum, stack) => sum + stack.count, 0);
+  const barracksCapacity = (building: Building) => Math.max(0, building.level * 5);
+  const trainablePopulation = (city?: City) => (city ? Math.max(0, Math.floor(city.population * 0.35 - city.militaryPopulation)) : 0);
+
+  $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
+  $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
+  $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => (a.armyId?.value ?? '').localeCompare(b.armyId?.value ?? ''));
+  $: ownedArmyTroops = ownedArmies.reduce((total, army) => total + armySize(army), 0);
+  $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
+  $: if (selectedBarracksId && trainingOrdersAvailable && (trainingOrdersBarracksId !== selectedBarracksId || now - lastTrainingPoll >= 3000)) {
+    loadTrainingOrders(selectedBarracksId);
+  }
 
   // ── building config helpers ─────────────────────────────
   const getBuildingConfig = (t: BuildingType): BuildingConfig | undefined => $gameConfig.buildings.find((b) => b.type === t);
@@ -243,6 +269,8 @@
     return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
   };
 
+  const timestampMs = (timestamp?: Timestamp): number => (timestamp ? Number(timestamp.seconds) * 1000 + timestamp.nanos / 1e6 : 0);
+
   // ── reactive store sync ─────────────────────────────────
   // buildLookup is cheap (rebuilds a Map) — run synchronously so tileData is always fresh.
   // rebuildTiles is expensive (destroys/creates Pixi containers) — debounce via rAF.
@@ -267,7 +295,29 @@
     for (const [k, entry] of starvingGfx) {
       if (!tileData.get(k)?.city?.starving) entry.gfx.visible = false;
     }
-    if (sel) {
+    const tracked = trackedArmyId ? $armies.find((army) => army.armyId?.value === trackedArmyId) : undefined;
+    if (tracked?.coords) {
+      const x = tracked.coords.x;
+      const y = tracked.coords.y;
+      sel = { x, y, ...tileData.get(tileKey(x, y)) };
+      if (moveOrderActive && moveArmyId === tracked.armyId?.value && moveTarget) {
+        if (x === moveTarget.x && y === moveTarget.y) {
+          cancelMoveMode();
+        } else if (tracked.destination) {
+          moveDestinationObserved = true;
+          moveTarget = { x: tracked.destination.x, y: tracked.destination.y };
+          moveHover = moveTarget;
+        } else if (moveDestinationObserved) {
+          cancelMoveMode();
+        }
+      }
+    } else if (trackedArmyId) {
+      trackedArmyId = null;
+      selectedArmyId = null;
+      moveArmyId = null;
+      moveTarget = null;
+      moveHover = null;
+    } else if (sel) {
       const t = tileData.get(tileKey(sel.x, sel.y));
       sel = { x: sel.x, y: sel.y, ...t };
     }
@@ -311,8 +361,14 @@
       const dy = Math.max(sy - row, row - (sy + s - 1), 0);
       min = Math.min(min, Math.max(dx, dy));
     }
+    for (const army of $armies) {
+      if (army.owner?.value !== $userId || !army.coords) continue;
+      min = Math.min(min, Math.max(Math.abs(army.coords.x - col), Math.abs(army.coords.y - row)));
+    }
     return min;
   };
+
+  const hasVisionSources = () => myCities.length > 0 || $armies.some((army) => army.owner?.value === $userId && army.coords);
 
   const getCenter = () => {
     if (!cont) return { x: 0, y: 0 };
@@ -363,7 +419,11 @@
     centerCam(col, row);
     // Focus the center tile so its detail panel opens, same as a map click.
     sel = { x: col, y: row, ...tileData.get(tileKey(col, row)) };
+    trackedArmyId = null;
+    selectedArmyId = null;
+    cancelMoveMode();
     err = '';
+    notice = '';
     showBuild = false;
     drawSel(col, row);
   };
@@ -444,6 +504,7 @@
     }
     loadVisible();
     if (sel) drawSel(sel.x, sel.y);
+    if (moveArmyId) drawMovePreview(moveTarget ?? moveHover);
   };
 
   const loadCities = async () => {
@@ -455,13 +516,257 @@
     }
   };
 
+  const errorText = (e: unknown, fallback: string): string => {
+    if (e instanceof ConnectError) return e.rawMessage;
+    return e instanceof Error ? e.message : fallback;
+  };
+
   const doAction = async (fn: () => Promise<unknown>, msg: string) => {
     busy = true;
     err = '';
+    notice = '';
     try {
       await fn();
     } catch (e: unknown) {
-      err = e instanceof Error ? e.message : msg;
+      err = errorText(e, msg);
+    } finally {
+      busy = false;
+    }
+  };
+
+  const loadTrainingOrders = async (barracksId: string, reportError = false) => {
+    if (trainingOrdersLoading) return;
+    if (trainingOrdersBarracksId !== barracksId) {
+      trainingOrders = [];
+      trainingOrdersBarracksId = barracksId;
+    }
+    trainingOrdersLoading = true;
+    lastTrainingPoll = Date.now();
+    try {
+      const response = await armyClient.listTrainingOrders({ barracksId: { value: barracksId } });
+      if (selectedBarracksId === barracksId) trainingOrders = response.orders;
+    } catch (e: unknown) {
+      if (e instanceof ConnectError && e.code === Code.Unimplemented) {
+        trainingOrdersAvailable = false;
+        trainingOrders = [];
+      } else if (reportError) {
+        err = errorText(e, 'Could not load the training queue');
+      }
+    } finally {
+      trainingOrdersLoading = false;
+    }
+  };
+
+  const queueTroops = async () => {
+    const barracks = sel?.building;
+    if (!barracks || barracks.type !== BuildingType.BARRACKS) return;
+    const capacity = barracksCapacity(barracks);
+    const count = Math.max(1, Math.min(capacity, Math.floor(recruitCount)));
+    const stat = TROOP_STATS[recruitType];
+    recruitCount = count;
+    busy = true;
+    err = '';
+    notice = '';
+    try {
+      const response = await armyClient.trainTroops({ barracksId: barracks.buildingId, type: recruitType, count });
+      if (response.order) {
+        const orderId = response.order.trainingOrderId?.value;
+        trainingOrders = [...trainingOrders.filter((order) => order.trainingOrderId?.value !== orderId), response.order];
+        trainingOrdersBarracksId = barracks.buildingId?.value ?? null;
+      } else if (trainingOrdersAvailable && barracks.buildingId?.value) {
+        void loadTrainingOrders(barracks.buildingId.value, true);
+      }
+      notice = `${count} ${troopName(recruitType, count)} queued. This batch takes ${fmtCountdown(count * stat.trainSeconds * 1000)} once it reaches the front.`;
+    } catch (e: unknown) {
+      err = errorText(e, 'Training order failed');
+    } finally {
+      busy = false;
+    }
+  };
+
+  const mergeOwnedArmies = async (stack: Army[], targetId?: string) => {
+    const owned = stack
+      .filter((army) => army.owner?.value === $userId && army.armyId?.value)
+      .sort((a, b) => Number(b.armyId?.value === targetId) - Number(a.armyId?.value === targetId) || armySize(b) - armySize(a));
+    if (owned.length < 2) return;
+    const target = owned[0];
+    busy = true;
+    err = '';
+    notice = '';
+    try {
+      for (const source of owned.slice(1)) {
+        await armyClient.mergeArmies({ targetArmyId: target.armyId, sourceArmyId: source.armyId });
+      }
+      trackedArmyId = target.armyId?.value ?? null;
+      notice = `${owned.length} armies merged into one formation.`;
+    } catch (e: unknown) {
+      err = errorText(e, 'Army merge failed');
+    } finally {
+      busy = false;
+    }
+  };
+
+  const clearMovePreview = () => {
+    if (!moveGfx) return;
+    cont?.removeChild(moveGfx);
+    moveGfx.destroy();
+    moveGfx = null;
+  };
+
+  const drawMovePreview = (destination: { x: number; y: number } | null) => {
+    clearMovePreview();
+    const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
+    moveRoute = null;
+    moveRouteCost = 0;
+    if (!cont || !army?.coords || !destination) return;
+
+    moveRoute = findArmyPath($tiles, army.coords, destination);
+    moveRouteCost = moveRoute ? armyPathCost($tiles, moveRoute) : 0;
+    const points = [army.coords, ...(moveRoute ?? [])].map((step) => tileToScreen(step.x, step.y));
+
+    const route = new Graphics();
+    if (moveRoute) {
+      for (const point of points.slice(1, -1)) {
+        route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
+        route.fill({ color: 0x6ca7dc, alpha: 0.11 });
+        route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
+        route.stroke({ color: 0x9cc9ee, width: 0.75, alpha: 0.32 });
+      }
+      const strokeRoute = (color: number, width: number, alpha: number) => {
+        route.moveTo(points[0].sx, points[0].sy);
+        for (const point of points.slice(1)) route.lineTo(point.sx, point.sy);
+        route.stroke({ color, width, alpha });
+      };
+      strokeRoute(0x111611, 7, 0.85);
+      strokeRoute(0x7eb5ec, 3, 1);
+      route.circle(points[0].sx, points[0].sy, 5);
+      route.fill({ color: 0x17202a, alpha: 0.95 });
+      route.circle(points[0].sx, points[0].sy, 5);
+      route.stroke({ color: 0xb9d9f2, width: 1.5, alpha: 1 });
+
+      for (let index = 0; index < points.length - 1; index += 2) {
+        const from = points[index];
+        const to = points[index + 1];
+        const dx = to.sx - from.sx;
+        const dy = to.sy - from.sy;
+        const length = Math.hypot(dx, dy) || 1;
+        const nx = dx / length;
+        const ny = dy / length;
+        const px = -ny;
+        const py = nx;
+        const cx = (from.sx + to.sx) / 2;
+        const cy = (from.sy + to.sy) / 2;
+        route.poly([cx + nx * 5, cy + ny * 5, cx - nx * 4 + px * 3.5, cy - ny * 4 + py * 3.5, cx - nx * 4 - px * 3.5, cy - ny * 4 - py * 3.5]);
+        route.fill({ color: 0xe2f1fb, alpha: 1 });
+        route.poly([cx + nx * 5, cy + ny * 5, cx - nx * 4 + px * 3.5, cy - ny * 4 + py * 3.5, cx - nx * 4 - px * 3.5, cy - ny * 4 - py * 3.5]);
+        route.stroke({ color: 0x17202a, width: 1, alpha: 0.9 });
+      }
+    }
+    const target = tileToScreen(destination.x, destination.y);
+    route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
+    route.fill({ color: moveRoute ? 0xf0d65a : 0xd96257, alpha: 0.13 });
+    route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
+    route.stroke({ color: moveRoute ? 0xf0d65a : 0xd96257, width: 2, alpha: 0.95 });
+    route.zIndex = 9e6;
+    cont.addChild(route);
+    moveGfx = route;
+  };
+
+  const clearMoveTarget = () => {
+    moveTarget = null;
+    moveHover = null;
+    moveRoute = null;
+    moveRouteCost = 0;
+    moveOrderActive = false;
+    moveDestinationObserved = false;
+    clearMovePreview();
+  };
+
+  const cancelMoveMode = () => {
+    moveArmyId = null;
+    clearMoveTarget();
+  };
+
+  const focusArmy = (army: Army, center = true) => {
+    const id = army.armyId?.value;
+    if (!id || !army.coords) return;
+    cancelMoveMode();
+    selectedArmyId = id;
+    trackedArmyId = id;
+    const x = army.coords.x;
+    const y = army.coords.y;
+    sel = { x, y, ...tileData.get(tileKey(x, y)) };
+    err = '';
+    notice = '';
+    showBuild = false;
+    if (center) centerCam(x, y);
+    drawSel(x, y);
+    if (army.destination) {
+      moveArmyId = id;
+      moveTarget = { x: army.destination.x, y: army.destination.y };
+      moveHover = moveTarget;
+      moveOrderActive = true;
+      moveDestinationObserved = true;
+    }
+    scheduleRender();
+  };
+
+  const prepareMove = (army: Army) => {
+    const id = army.armyId?.value;
+    if (!id || !army.coords || army.owner?.value !== $userId) return;
+    clearMoveTarget();
+    moveArmyId = id;
+    err = '';
+    notice = '';
+  };
+
+  const updateMoveHover = (screenX: number, screenY: number) => {
+    if (!moveArmyId || !cont) return;
+    const tile = screenToTile((screenX - cont.x) / cont.scale.x, (screenY - cont.y) / cont.scale.y);
+    if (tile.x < 0 || tile.y < 0 || tile.x >= worldWidth || tile.y >= worldHeight) return;
+    if (moveHover?.x === tile.x && moveHover?.y === tile.y) return;
+    moveHover = tile;
+    if (!moveTarget) drawMovePreview(tile);
+  };
+
+  const issueMove = async (destination: { x: number; y: number }) => {
+    const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
+    if (!army?.armyId || !army.coords || !moveRoute || busy) return;
+    busy = true;
+    err = '';
+    notice = '';
+    try {
+      await armyClient.moveArmy({ armyId: army.armyId, destination });
+      if (moveRoute.length === 0) {
+        notice = 'Army ordered to hold its current position.';
+        cancelMoveMode();
+      } else {
+        notice = `Marching to tile ${destination.x}, ${destination.y}.`;
+        moveTarget = { ...destination };
+        moveHover = moveTarget;
+        moveOrderActive = true;
+        moveDestinationObserved = false;
+        drawMovePreview(destination);
+      }
+    } catch (e: unknown) {
+      err = errorText(e, 'Movement order failed');
+    } finally {
+      busy = false;
+    }
+  };
+
+  const haltArmy = async (army: Army) => {
+    if (!army.armyId || !army.coords || army.owner?.value !== $userId) return;
+    busy = true;
+    err = '';
+    notice = '';
+    try {
+      await armyClient.moveArmy({ armyId: army.armyId, destination: army.coords });
+      trackedArmyId = army.armyId.value;
+      notice = 'Army ordered to hold its current position.';
+      cancelMoveMode();
+    } catch (e: unknown) {
+      err = errorText(e, 'Halt order failed');
     } finally {
       busy = false;
     }
@@ -477,6 +782,7 @@
     return () => {
       window.removeEventListener('resize', onR);
       app?.canvas?.removeEventListener('wheel', onWheel);
+      app?.canvas?.removeEventListener('contextmenu', onContextMenu);
       app?.destroy(true, { children: true });
     };
   });
@@ -638,7 +944,7 @@
     cont.addChild(tc);
     loaded.set(k, tc);
 
-    const dist = myCities.length > 0 ? getVisDist(col, row) : 0;
+    const dist = hasVisionSources() ? getVisDist(col, row) : 0;
     const inFog = dist > $gameConfig.visionRadius;
 
     const kind = inFog ? 'fog' : terrainKind(terrainAt(col, row));
@@ -648,7 +954,7 @@
         const neighborCol = col + dc;
         const neighborRow = row + dr;
         if (neighborCol < 0 || neighborRow < 0 || neighborCol >= worldWidth || neighborRow >= worldHeight) return null;
-        if (myCities.length > 0 && getVisDist(neighborCol, neighborRow) > $gameConfig.visionRadius) return 'fog';
+        if (hasVisionSources() && getVisDist(neighborCol, neighborRow) > $gameConfig.visionRadius) return 'fog';
         return terrainKind(terrainAt(neighborCol, neighborRow));
       }) as unknown as TerrainNeighbors;
       const transition = getTerrainTransitionSprite(kind, neighbors, col, row);
@@ -657,30 +963,17 @@
     if (!inFog && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
     if (!inFog && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
 
-    // Armies are lightweight overlays so the existing terrain/building art is
-    // unchanged. A blue marker is owned, red is foreign; a small pennant means
-    // at least one army on the tile is marching.
-    if (!inFog && td?.armies?.length) {
-      const marker = new Graphics();
-      const owned = td.armies.every((army) => army.owner?.value === $userId);
-      const color = owned ? 0x60a5fa : 0xf87171;
-      marker.circle(15, -8, 7);
-      marker.fill({ color: 0x101512, alpha: 0.92 });
-      marker.circle(15, -8, 7);
-      marker.stroke({ color, width: td.armies.length > 1 ? 3 : 2, alpha: 0.95 });
-      marker.moveTo(15, -15);
-      marker.lineTo(15, -25);
-      marker.stroke({ color, width: 1.5, alpha: 0.95 });
-      marker.poly([15, -25, 23, -22, 15, -19]);
-      marker.fill({ color, alpha: 0.95 });
-      if (td.armies.some((army) => army.destination)) {
-        marker.moveTo(9, 2);
-        marker.lineTo(18, 2);
-        marker.lineTo(15, -1);
-        marker.moveTo(18, 2);
-        marker.lineTo(15, 5);
-        marker.stroke({ color, width: 1.5, alpha: 0.9 });
-      }
+    const visibleArmies = inFog ? td?.armies?.filter((army) => army.owner?.value === $userId) : td?.armies;
+    if (visibleArmies?.length) {
+      const army = visibleArmies.find((candidate) => candidate.armyId?.value === selectedArmyId) ?? [...visibleArmies].sort((a, b) => armySize(b) - armySize(a))[0];
+      const marker = createArmyMarker(army, $userId, army.armyId?.value === selectedArmyId);
+      marker.eventMode = 'static';
+      marker.cursor = 'pointer';
+      marker.on('pointerdown', (event) => {
+        if (event.button !== 0) return;
+        event.stopPropagation();
+        focusArmy(army, false);
+      });
       tc.addChild(marker);
     }
 
@@ -800,6 +1093,9 @@
   };
 
   const deselect = () => {
+    cancelMoveMode();
+    trackedArmyId = null;
+    selectedArmyId = null;
     sel = null;
     if (selGfx) {
       cont.removeChild(selGfx);
@@ -811,6 +1107,7 @@
   // ── input ───────────────────────────────────────────────
   const setupInput = () => {
     cont.on('pointerdown', (e) => {
+      if (e.button !== 0) return;
       drag = true;
       const p = e.data.global;
       dsx = p.x;
@@ -824,8 +1121,9 @@
     });
 
     cont.on('pointermove', (e) => {
-      if (!drag) return;
       const p = e.data.global;
+      if (moveArmyId && !drag) updateMoveHover(p.x, p.y);
+      if (!drag) return;
       // Drag is 1:1 (no easing); keep the target locked to the rendered camera.
       const c = clampPos(csx + (p.x - dsx), csy + (p.y - dsy), cont.scale.x);
       cont.x = c.x;
@@ -856,11 +1154,20 @@
         velX = velY = 0;
         const mc = screenToTile((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
         if (mc.x >= 0 && mc.y >= 0 && mc.x < worldWidth && mc.y < worldHeight) {
+          cancelMoveMode();
           const t = tileData.get(tileKey(mc.x, mc.y));
-          sel = { x: mc.x, y: mc.y, ...t };
-          err = '';
-          showBuild = false;
-          drawSel(mc.x, mc.y);
+          if (t?.armies?.length === 1 && !t.building) {
+            focusArmy(t.armies[0], false);
+          } else {
+            trackedArmyId = null;
+            selectedArmyId = null;
+            sel = { x: mc.x, y: mc.y, ...t };
+            err = '';
+            notice = '';
+            showBuild = false;
+            recruitCount = 1;
+            drawSel(mc.x, mc.y);
+          }
         }
       } else if (!easeMotion || performance.now() - lastMoveT > 80) {
         // No flick (or motion easing off): stop where released.
@@ -871,6 +1178,7 @@
         velX = Math.max(-4000, Math.min(4000, velX));
         velY = Math.max(-4000, Math.min(4000, velY));
       }
+      if (moveArmyId) updateMoveHover(p.x, p.y);
     });
 
     cont.on('pointerupoutside', () => {
@@ -881,6 +1189,7 @@
     // Keep wheel input dedicated to zoom. Map movement is pointer drag or the
     // keyboard, so smooth-wheel mice can never be mistaken for trackpads.
     app.canvas.addEventListener('wheel', onWheel, { passive: false });
+    app.canvas.addEventListener('contextmenu', onContextMenu);
   };
 
   const onWheel = (e: WheelEvent) => {
@@ -894,6 +1203,27 @@
     const rawFactor = Math.exp(-deltaPixels * sensitivity);
     const maxStep = e.ctrlKey ? 1.08 : 1.12;
     zoomAt(mx, my, Math.max(1 / maxStep, Math.min(maxStep, rawFactor)));
+  };
+
+  const onContextMenu = (e: MouseEvent) => {
+    e.preventDefault();
+    const army = selectedArmyId ? $armies.find((candidate) => candidate.armyId?.value === selectedArmyId) : undefined;
+    if (!army?.armyId?.value || !army.coords || army.owner?.value !== $userId) return;
+    if (busy || !cont) return;
+    const rect = app.canvas.getBoundingClientRect();
+    const tile = screenToTile((e.clientX - rect.left - cont.x) / cont.scale.x, (e.clientY - rect.top - cont.y) / cont.scale.y);
+    if (tile.x < 0 || tile.y < 0 || tile.x >= worldWidth || tile.y >= worldHeight) return;
+    moveArmyId = army.armyId.value;
+    moveTarget = tile;
+    moveHover = tile;
+    err = '';
+    notice = '';
+    drawMovePreview(tile);
+    if (!moveRoute) {
+      err = 'That destination cannot be reached by a land army.';
+      return;
+    }
+    void issueMove(tile);
   };
 
   const logout = () => {
@@ -953,6 +1283,12 @@
         if (cap) centerOnCity(cap);
         break;
       }
+      case 'm':
+      case 'M': {
+        const army = selectedArmy?.owner?.value === $userId ? selectedArmy : sel?.armies?.find((candidate) => candidate.owner?.value === $userId);
+        if (army) prepareMove(army);
+        break;
+      }
       case ']':
         cycleCity(1);
         break;
@@ -965,7 +1301,8 @@
         showHelp = !showHelp;
         break;
       case 'Escape':
-        if (showHelp) showHelp = false;
+        if (moveArmyId) cancelMoveMode();
+        else if (showHelp) showHelp = false;
         else deselect();
         break;
       default:
@@ -985,6 +1322,7 @@
   on:click={(e) => {
     if (ratesOpen && ratesEl && !ratesEl.contains(e.target as Node)) ratesOpen = false;
     if (citiesOpen && citiesEl && !citiesEl.contains(e.target as Node)) citiesOpen = false;
+    if (armiesOpen && armiesEl && !armiesEl.contains(e.target as Node)) armiesOpen = false;
   }}
 />
 
@@ -1007,7 +1345,7 @@
 
 <div class="relative h-screen w-screen overflow-hidden bg-[#0e110f]">
   <!-- Canvas -->
-  <div bind:this={el} class="absolute inset-0 cursor-grab active:cursor-grabbing"></div>
+  <div bind:this={el} class="absolute inset-0 {moveArmyId ? 'cursor-crosshair' : 'cursor-grab active:cursor-grabbing'}"></div>
 
   <!-- Separate HUD clusters keep the map from feeling boxed in by one navbar. -->
   <div class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2 sm:inset-x-4 sm:top-4">
@@ -1065,6 +1403,56 @@
     </div>
 
     <div class="pointer-events-auto ml-auto flex items-center gap-2">
+      <div class="relative" bind:this={armiesEl}>
+        <button
+          type="button"
+          class="hud-surface flex h-12 items-center gap-2.5 px-3 text-xs font-medium text-[#c7cec8] transition-colors hover:text-white"
+          on:click={() => (armiesOpen = !armiesOpen)}
+          aria-expanded={armiesOpen}
+        >
+          <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4 text-blue-300">
+            <path d="M5 17V3m1 1h9l-2.5 3L15 10H6" stroke-linejoin="round" />
+          </svg>
+          <span class="text-sm font-semibold tabular-nums text-white">{ownedArmies.length}</span>
+          <span class="hidden text-[#7d877f] sm:inline">{ownedArmies.length === 1 ? 'army' : 'armies'}</span>
+          <svg viewBox="0 0 20 20" fill="currentColor" class="h-3 w-3 text-[#747d76] transition-transform duration-150 {armiesOpen ? 'rotate-180' : ''}">
+            <path fill-rule="evenodd" d="M5.23 7.21a.75.75 0 011.06.02L10 11.17l3.71-3.94a.75.75 0 111.08 1.04l-4.25 4.5a.75.75 0 01-1.08 0l-4.25-4.5a.75.75 0 01.02-1.06z" clip-rule="evenodd" />
+          </svg>
+        </button>
+        {#if armiesOpen}
+          <div class="game-popover absolute right-0 top-[calc(100%+0.5rem)] w-72 overflow-hidden p-1.5">
+            <div class="flex items-center justify-between px-2 pb-1.5 pt-1">
+              <span class="panel-title">Your armies</span>
+              <span class="text-[10px] tabular-nums text-[#7d867f]">{ownedArmyTroops.toLocaleString()} troops</span>
+            </div>
+            <div class="max-h-[min(60vh,24rem)] overflow-y-auto">
+              {#each ownedArmies as army}
+                <div class="border-t border-white/[0.06] {army.armyId?.value === selectedArmyId ? 'bg-blue-300/[0.07]' : ''}">
+                  <button
+                    class="w-full min-w-0 px-2 py-2 text-left transition-colors hover:bg-white/[0.05]"
+                    on:click={() => {
+                      focusArmy(army);
+                      armiesOpen = false;
+                    }}
+                  >
+                    <span class="flex items-center justify-between gap-3">
+                      <span class="truncate text-xs font-semibold text-[#d9ddd8]">{armyTitle(army)}</span>
+                      <span class="text-xs font-semibold tabular-nums text-blue-200">{armySize(army)}</span>
+                    </span>
+                    <span class="mt-1 flex items-center justify-between gap-3 text-[10px] text-[#7c857e]">
+                      <span>Tile {army.coords?.x ?? '—'}, {army.coords?.y ?? '—'}</span>
+                      <span class={army.destination ? 'text-amber-200/80' : ''}>{army.destination ? `To ${army.destination.x}, ${army.destination.y}` : 'Holding'}</span>
+                    </span>
+                  </button>
+                </div>
+              {:else}
+                <div class="border-t border-white/[0.06] px-3 py-4 text-[11px] leading-relaxed text-[#7d867f]">No active armies. Train troops from one of your barracks.</div>
+              {/each}
+            </div>
+          </div>
+        {/if}
+      </div>
+
       {#if myCities.length > 0}
         <div class="relative" bind:this={citiesEl}>
           <button
@@ -1122,13 +1510,15 @@
   <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
   <div class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4">
     {#if sel}
-      {@const selectedInFog = myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius}
+      {@const selectedInFog = hasVisionSources() && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius}
       {@const selectedTerrain = selectedInFog ? { name: 'Unexplored', note: 'Terrain has not been surveyed.' } : terrainInfo(terrainAt(sel.x, sel.y))}
       <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
         <div class="inspector-header flex items-center justify-between gap-4">
           <div class="min-w-0">
             <h2 class="truncate text-base font-semibold text-[#f0f2e8]">
-              {#if sel.building}
+              {#if selectedArmy}
+                {armyTitle(selectedArmy)}
+              {:else if sel.building}
                 {bName(sel.building.type)}
               {:else if sel.armies?.length}
                 {sel.armies.length === 1 ? 'Army' : `${sel.armies.length} armies`}
@@ -1138,11 +1528,20 @@
                 {selectedTerrain.name}
               {/if}
             </h2>
-            <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
-              {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
-              {/if}<span class="font-medium text-[#d4d5c8]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
-            </div>
-            <p class="mt-1 truncate text-[11px] text-[#8f9387]">{selectedTerrain.note}</p>
+            {#if selectedArmy}
+              <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
+                <span class={selectedArmy.owner?.value === $userId ? 'font-medium text-blue-200' : 'font-medium text-red-200'}
+                  >{selectedArmy.owner?.value === $userId ? 'Your army' : 'Foreign army'}</span
+                >
+                · Tile {sel.x}, {sel.y}
+              </div>
+            {:else}
+              <div class="mt-0.5 flex flex-wrap items-center gap-x-1 text-[11px] text-[#b0b2a5]">
+                {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
+                {/if}<span class="font-medium text-[#d4d5c8]">{selectedTerrain.name}</span> · Tile {sel.x}, {sel.y}
+              </div>
+              <p class="mt-1 truncate text-[11px] text-[#8f9387]">{selectedTerrain.note}</p>
+            {/if}
           </div>
           <button
             aria-label="Close"
@@ -1158,9 +1557,85 @@
         {#if err}
           <div class="border-b border-red-400/30 bg-red-500/[0.08] px-4 py-2 text-xs text-red-300">{err}</div>
         {/if}
+        {#if notice}
+          <div class="border-b border-emerald-300/20 bg-emerald-300/[0.07] px-4 py-2 text-xs text-emerald-200">{notice}</div>
+        {/if}
+        {#if moveArmyId && movingArmy}
+          {@const previewTarget = moveTarget ?? moveHover}
+          {@const steps = moveRoute?.length ?? 0}
+          <div class="flex flex-wrap items-center gap-3 border-b border-blue-300/20 bg-blue-300/[0.07] px-4 py-2.5">
+            <div class="min-w-0 flex-1">
+              <div class="text-xs font-semibold {previewTarget && !moveRoute ? 'text-red-200' : 'text-blue-200'}">
+                {busy
+                  ? 'Issuing movement order…'
+                  : moveOrderActive && previewTarget
+                    ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
+                    : previewTarget
+                      ? moveRoute
+                        ? `Route to ${previewTarget.x}, ${previewTarget.y}`
+                        : 'That tile is unreachable'
+                      : 'Move army'}
+              </div>
+              <div class="mt-0.5 text-[11px] text-[#9ba9b1]">
+                {previewTarget
+                  ? moveRoute
+                    ? `${steps} ${steps === 1 ? 'tile' : 'tiles'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteCost * 1000)} across this terrain`
+                    : 'Land armies cannot cross water or cut through a blocked corner.'
+                  : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
+              </div>
+            </div>
+            <span class="text-[10px] text-[#7e8981]">{moveOrderActive ? 'Esc hides route' : 'Esc cancels'}</span>
+          </div>
+        {/if}
 
         <div class="inspector-body">
-          {#if sel.city}
+          {#if selectedArmy}
+            {@const selectedArmyOwned = selectedArmy.owner?.value === $userId}
+            {@const selectedArmySize = armySize(selectedArmy)}
+            {@const selectedStack = sel.armies?.filter((army) => army.owner?.value === $userId) ?? []}
+            <section class="inspector-section">
+              <div class="grid grid-cols-3 gap-5">
+                <div>
+                  <div class="inspector-stat-label">Strength</div>
+                  <div class="inspector-stat-value">{selectedArmySize.toLocaleString()} <span class="text-[#68716a]">troops</span></div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Position</div>
+                  <div class="inspector-stat-value">{selectedArmy.coords?.x ?? '—'}, {selectedArmy.coords?.y ?? '—'}</div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Orders</div>
+                  <div class="mt-1 text-xs font-medium {selectedArmy.destination ? 'text-amber-200' : 'text-[#aab2ac]'}">
+                    {selectedArmy.destination ? `March to ${selectedArmy.destination.x}, ${selectedArmy.destination.y}` : 'Hold position'}
+                  </div>
+                </div>
+              </div>
+              <div class="mt-3 border-t border-white/[0.07] pt-3">
+                <div class="inspector-label mb-2">Composition</div>
+                <div class="flex flex-wrap gap-x-5 gap-y-1.5 text-[11px]">
+                  {#each selectedArmy.troops.filter((stack) => stack.count > 0) as stack}
+                    <span class="text-[#969f98]"><strong class="mr-1 font-semibold tabular-nums text-[#e0e2d8]">{stack.count}</strong>{troopName(stack.type, stack.count)}</span>
+                  {/each}
+                </div>
+              </div>
+            </section>
+            {#if selectedArmyOwned}
+              <div class="inspector-actions">
+                <button class="game-action game-action-primary" disabled={busy || (moveArmyId === selectedArmyId && !moveOrderActive)} on:click={() => prepareMove(selectedArmy)}>
+                  {selectedArmy.destination ? 'Redirect army' : 'Move army'}
+                </button>
+                {#if selectedArmy.destination}
+                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => haltArmy(selectedArmy)}>Halt</button>
+                {/if}
+                {#if selectedStack.length > 1}
+                  <button class="game-action game-action-secondary" disabled={busy} on:click={() => mergeOwnedArmies(selectedStack, selectedArmyId ?? undefined)}>Merge stack</button>
+                {/if}
+                <div class="mt-1 border-t border-white/[0.06] pt-2 text-[10px] leading-relaxed text-[#747d76]">Right-click the map to move immediately.</div>
+              </div>
+            {/if}
+          {/if}
+
+          {#if !selectedArmy && sel.city}
             <section class="inspector-section">
               <div class="mb-3 flex items-center justify-between gap-3">
                 <span class="inspector-label">City resources</span>
@@ -1215,36 +1690,61 @@
             </section>
           {/if}
 
-          {#if sel.armies?.length}
+          {#if !selectedArmy && sel.armies?.length}
             <section class="inspector-section">
               <div class="mb-3 flex items-center justify-between">
-                <span class="inspector-label">Units present</span>
+                <span class="inspector-label">Armies on this tile</span>
                 <span class="text-xs font-medium tabular-nums text-[#9aa39c]">{sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops</span>
               </div>
-              <div class="space-y-3">
-                {#each sel.armies as army, index}
-                  <div class="border-l-2 pl-3 {army.owner?.value === $userId ? 'border-blue-400/70' : 'border-red-400/70'} {index > 0 ? 'pt-0.5' : ''}">
-                    <div class="flex items-center justify-between gap-2 text-xs">
-                      <span class={army.owner?.value === $userId ? 'font-semibold text-blue-300' : 'font-semibold text-red-300'}>{army.owner?.value === $userId ? 'Your army' : 'Foreign army'}</span>
-                      <span class="text-[#778179]">{army.destination ? `To ${army.destination.x}, ${army.destination.y}` : 'Holding'}</span>
+              <div class="space-y-2">
+                {#each sel.armies as army}
+                  {@const owned = army.owner?.value === $userId}
+                  {@const size = armySize(army)}
+                  <button
+                    class="w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
+                    on:click={() => focusArmy(army, false)}
+                  >
+                    <div class="flex items-center justify-between gap-3">
+                      <div class="flex min-w-0 items-center gap-2">
+                        <span class="h-2 w-2 shrink-0 {owned ? 'bg-blue-400' : 'bg-red-400'}"></span>
+                        <span class="truncate text-xs font-semibold {owned ? 'text-blue-200' : 'text-red-200'}">{armyTitle(army)}</span>
+                      </div>
+                      <span class="text-xs font-semibold tabular-nums text-[#e2e3d8]">{size}</span>
                     </div>
-                    <p class="mt-1.5 text-xs leading-relaxed text-[#b3bab5]">
+                    <p class="mt-1.5 text-[11px] leading-relaxed text-[#aeb5b0]">
                       {army.troops
                         .filter((stack) => stack.count > 0)
-                        .map((stack) => `${stack.count} ${troopName(stack.type)}`)
+                        .map((stack) => `${stack.count} ${troopName(stack.type, stack.count)}`)
                         .join(', ') || 'No troops'}
                     </p>
-                  </div>
+                    <div class="mt-2 flex items-center justify-between gap-3 border-t border-white/[0.06] pt-2 text-[10px]">
+                      <span class={army.destination ? 'text-amber-200/80' : 'text-[#79827b]'}>{army.destination ? `Marching to ${army.destination.x}, ${army.destination.y}` : 'Holding position'}</span
+                      >
+                      <span class="font-semibold text-[#aeb7b0]">Manage army →</span>
+                    </div>
+                  </button>
                 {/each}
               </div>
             </section>
           {/if}
 
           <!-- Building information -->
-          {#if sel.building}
+          {#if !selectedArmy && sel.building}
             {@const isBuilding = sel.building.level === 0}
             {@const stats = isBuilding ? null : getLevelStats(sel.building.type, sel.building.level)}
             {@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
+            {@const upgrading = !!(sel.building.constructionStart && sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
+            {@const isBarracks = sel.building.type === BuildingType.BARRACKS}
+            {@const recruitStat = TROOP_STATS[recruitType]}
+            {@const trainingCapacity = isBarracks ? barracksCapacity(sel.building) : 0}
+            {@const availablePopulation = trainablePopulation(sel.city)}
+            {@const batchCount = Number.isFinite(recruitCount) ? Math.floor(recruitCount) : 1}
+            {@const trainingCost = batchCount * recruitStat.gold}
+            {@const trainingPopulation = batchCount * recruitStat.population}
+            {@const trainingBatchSeconds = batchCount * recruitStat.trainSeconds}
+            {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && trainingOrdersBarracksId === selectedBarracksId && trainingOrders.length > 0}
+            {@const canTrain =
+              isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && BigInt(trainingCost) <= $gold && trainingPopulation <= availablePopulation}
             <section class="inspector-section">
               <div class="flex items-center justify-between">
                 <span class="inspector-label">Improvement</span>
@@ -1290,6 +1790,9 @@
               {#if nextStats && sel.city?.owner?.value === $userId}
                 <div class="mt-3 border-t border-white/[0.07] pt-3">
                   <div class="inspector-label mb-1">Upgrade</div>
+                  {#if barracksTrainingInProgress}
+                    <div class="mb-2 text-[10px] text-amber-200/80">Finish the training queue before upgrading this barracks.</div>
+                  {/if}
                   <div class="inspector-row">
                     <span>Cost</span>
                     <span class="text-amber-200">{nextStats.cost.map(fmtRes).join(', ')}</span>
@@ -1326,12 +1829,122 @@
                 </div>
               {/if}
             </section>
+            {#if isBarracks && sel.city?.owner?.value === $userId && !isBuilding}
+              <section class="inspector-section">
+                <div class="mb-3 flex items-center justify-between gap-3">
+                  <span class="inspector-label">Recruit troops</span>
+                  <span class="text-[10px] tabular-nums text-[#818a83]">Batch limit {trainingCapacity}</span>
+                </div>
+                <div class="grid grid-cols-2 border-l border-t border-white/[0.07]">
+                  {#each TROOP_TYPES as type}
+                    {@const option = TROOP_STATS[type]}
+                    <button
+                      class="border-b border-r border-white/[0.07] px-2 py-2 text-left transition-colors {recruitType === type
+                        ? 'bg-blue-300/10 text-blue-100'
+                        : 'text-[#929b94] hover:bg-white/[0.04] hover:text-white'}"
+                      on:click={() => (recruitType = type)}
+                    >
+                      <span class="block text-[11px] font-semibold">{option.name}</span>
+                      <span class="mt-0.5 block text-[9px] tabular-nums text-[#7f887f]">{option.gold} gold each</span>
+                    </button>
+                  {/each}
+                </div>
+                <div class="mt-3 flex items-center justify-between gap-3">
+                  <span class="text-[11px] text-[#8f978f]">Batch size</span>
+                  <div class="flex items-center border border-white/[0.1] bg-black/15">
+                    <button
+                      class="h-7 w-7 text-sm text-[#aeb6af] hover:bg-white/[0.06] hover:text-white"
+                      on:click={() => (recruitCount = Math.max(1, (recruitCount || 1) - 1))}
+                      aria-label="Decrease troop count">−</button
+                    >
+                    <input
+                      class="h-7 w-11 border-x border-white/[0.08] bg-transparent text-center text-xs font-semibold tabular-nums text-white outline-none"
+                      type="number"
+                      min="1"
+                      max={trainingCapacity}
+                      bind:value={recruitCount}
+                      on:change={() => (recruitCount = Math.max(1, Math.min(trainingCapacity, Math.floor(recruitCount || 1))))}
+                    />
+                    <button
+                      class="h-7 w-7 text-sm text-[#aeb6af] hover:bg-white/[0.06] hover:text-white"
+                      on:click={() => (recruitCount = Math.min(trainingCapacity, (recruitCount || 1) + 1))}
+                      aria-label="Increase troop count">+</button
+                    >
+                  </div>
+                </div>
+                <div class="mt-3 border-t border-white/[0.07] pt-2">
+                  <div class="inspector-row">
+                    <span>Order cost</span>
+                    <span class={BigInt(trainingCost) <= $gold ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
+                  </div>
+                  <div class="inspector-row">
+                    <span>Population</span>
+                    <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}
+                      >{trainingPopulation} <span class="text-[#6f7770]">/ {availablePopulation} available</span></span
+                    >
+                  </div>
+                  <div class="inspector-row">
+                    <span>Training</span>
+                    <span>{recruitStat.trainSeconds}s each · {fmtCountdown(trainingBatchSeconds * 1000)} batch</span>
+                  </div>
+                  <div class="inspector-row">
+                    <span>Army upkeep</span>
+                    <span class="text-emerald-200/80">{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
+                  </div>
+                </div>
+                {#if trainingOrdersAvailable && trainingOrdersBarracksId === selectedBarracksId}
+                  <div class="mt-3 border-t border-white/[0.07] pt-3">
+                    <div class="mb-2 flex items-center justify-between gap-3">
+                      <span class="inspector-label">Training queue</span>
+                      {#if trainingOrders.length > 0}
+                        <span class="text-[10px] tabular-nums text-[#818a83]">{trainingOrders.length} {trainingOrders.length === 1 ? 'order' : 'orders'}</span>
+                      {/if}
+                    </div>
+                    {#if trainingOrdersLoading && trainingOrders.length === 0}
+                      <div class="text-[10px] text-[#737c75]">Reading barracks orders…</div>
+                    {:else if trainingOrders.length === 0}
+                      <div class="border border-dashed border-white/[0.09] px-3 py-2 text-[10px] text-[#747d76]">No troops are waiting to train.</div>
+                    {:else}
+                      <div class="space-y-1.5">
+                        {#each trainingOrders.slice(0, 3) as order, index (order.trainingOrderId?.value)}
+                          {@const startsAt = timestampMs(order.startedAt)}
+                          {@const completesAt = timestampMs(order.completesAt)}
+                          {@const active = startsAt > 0 && completesAt > 0}
+                          {@const progress = active ? Math.max(0, Math.min(100, ((now - startsAt) / Math.max(1, completesAt - startsAt)) * 100)) : 0}
+                          <div class="border border-white/[0.08] bg-black/10 px-2.5 py-2">
+                            <div class="flex items-center justify-between gap-3 text-[10px]">
+                              <span class="font-semibold text-[#c2c9c2]">{order.count} {troopName(order.type, order.count)}</span>
+                              <span class={active ? 'tabular-nums text-blue-200' : 'text-[#7c857e]'}>
+                                {active ? fmtCountdown(completesAt - now) : `Waiting · ${index + 1}`}
+                              </span>
+                            </div>
+                            {#if active}
+                              <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.07]">
+                                <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${progress}%`}></div>
+                              </div>
+                            {/if}
+                          </div>
+                        {/each}
+                      </div>
+                      {#if trainingOrders.length > 3}
+                        <div class="mt-2 text-[9px] tabular-nums text-[#707971]">+{trainingOrders.length - 3} more in queue</div>
+                      {/if}
+                    {/if}
+                  </div>
+                {/if}
+              </section>
+            {/if}
             {#if sel.city?.owner?.value === $userId}
-              {@const upgrading = !!(sel.building.constructionStart && sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
               <div class="inspector-actions">
+                {#if isBarracks && !isBuilding}
+                  <button class="game-action game-action-primary" disabled={busy || !canTrain} on:click={queueTroops}>
+                    {busy ? 'Working...' : `Train ${batchCount} ${troopName(recruitType, batchCount)}`}
+                  </button>
+                {/if}
                 <button
                   class="game-action game-action-primary"
-                  disabled={busy || upgrading}
+                  disabled={busy || upgrading || barracksTrainingInProgress}
+                  title={barracksTrainingInProgress ? 'Finish the training queue before upgrading' : undefined}
                   on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}>{busy ? '...' : 'Upgrade'}</button
                 >
                 <button
@@ -1341,7 +1954,7 @@
                 >
               </div>
             {/if}
-          {:else if sel.city?.owner?.value === $userId}
+          {:else if !selectedArmy && sel.city?.owner?.value === $userId}
             {#if showBuild}
               {@const buildStats = getLevelStats(buildType, 1)}
               <section class="inspector-section">
@@ -1396,7 +2009,7 @@
                 <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>Build structure</button>
               </div>
             {/if}
-          {:else if !sel.city && !sel.armies?.length}
+          {:else if !selectedArmy && !sel.city && !sel.armies?.length}
             <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
               {selectedInFog ? 'Beyond visibility range' : 'No structures on this tile'}
             </div>
@@ -1439,7 +2052,7 @@
       <div class="panel w-72 p-5" on:click|stopPropagation on:keydown|stopPropagation role="presentation">
         <div class="panel-title mb-3 text-[11px]">Keyboard Shortcuts</div>
         <div class="space-y-1.5 text-xs text-stone-200">
-          {#each [['Pan', 'Click + drag / WASD'], ['Pan faster', 'Shift + move'], ['Zoom', 'Wheel / + / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Deselect', 'Esc'], ['Toggle this help', '?']] as [label, keys]}
+          {#each [['Pan', 'Click + drag / WASD'], ['Pan faster', 'Shift + move'], ['Zoom', 'Wheel / + / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Select army', 'Click formation / card'], ['Preview movement', 'Move button / M'], ['Issue movement', 'Right-click map'], ['Cancel move / deselect', 'Esc'], ['Toggle this help', '?']] as [label, keys]}
             <div class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{label}</span>
               <kbd class="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-gray-300">{keys}</kbd>
