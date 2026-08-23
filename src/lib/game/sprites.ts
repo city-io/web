@@ -29,7 +29,7 @@ const TERRAIN_BASE: Record<TerrainKind, number> = {
   desert: 0xc29a4b,
   marsh: 0x526f50,
   water: 0x315fa3,
-  fog: 0x050604
+  fog: 0x1d241f
 };
 
 const TERRAIN_VARIANTS: Record<TerrainKind, number> = {

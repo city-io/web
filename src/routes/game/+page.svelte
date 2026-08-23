@@ -4,7 +4,7 @@
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
   import { fly, fade } from 'svelte/transition';
-  import { Application, Container, Graphics, Rectangle } from 'pixi.js';
+  import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
   import { getStructureSprite, getTerrainSprite, initSprites, type StructureKind, type TerrainKind } from '$lib/game/sprites';
   import MiniMap from '$lib/components/MiniMap.svelte';
@@ -26,6 +26,7 @@
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
   let cont: Container;
+  let labelLayer: Container;
   let el: HTMLDivElement;
   let cw = 800,
     ch = 600;
@@ -413,6 +414,7 @@
   const rebuildTiles = () => {
     for (const [, c] of loaded) c.destroy({ children: true });
     loaded.clear();
+    for (const label of labelLayer?.removeChildren() ?? []) label.destroy({ children: true });
     constructionGfx.clear();
     starvingGfx.clear();
     if (selGfx) {
@@ -473,13 +475,16 @@
     cw = el.clientWidth;
     ch = el.clientHeight;
     app = new Application();
-    await app.init({ width: cw, height: ch, backgroundColor: 0x050604, antialias: false, roundPixels: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
+    await app.init({ width: cw, height: ch, backgroundColor: 0x171c18, antialias: false, roundPixels: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
     el.appendChild(app.canvas);
     cont = new Container();
     cont.sortableChildren = true;
     cont.interactive = true;
     cont.hitArea = new Rectangle(-1e5, -1e5, 2e5, 2e5);
     app.stage.addChild(cont);
+    labelLayer = new Container();
+    labelLayer.zIndex = 5e6;
+    cont.addChild(labelLayer);
     easeMotion = !window.matchMedia?.('(prefers-reduced-motion: reduce)').matches;
     centerCam($mapCenter.x, $mapCenter.y, true);
     setupInput();
@@ -553,6 +558,49 @@
   };
 
   // ── tile rendering ──────────────────────────────────────
+  const addCityLabel = (city: City, px: number, py: number) => {
+    const owned = city.owner?.value === $userId;
+    const ownerColor = owned ? 0x336ca8 : city.owner ? 0x9b3f38 : 0x66685f;
+    const wrapper = new Container();
+    wrapper.position.set(px, py + HH + 3);
+
+    const population = new Text({
+      text: Math.max(0, Math.round(city.population)).toLocaleString(),
+      roundPixels: true,
+      style: {
+        fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
+        fontSize: 9,
+        fontWeight: 'bold',
+        fill: '#f5f2df',
+        stroke: { color: '#151712', width: 2 }
+      }
+    });
+    const badgeWidth = Math.max(14, Math.ceil(population.width) + 6);
+    const badge = new Graphics();
+    badge.rect(0, 0, badgeWidth, 13);
+    badge.fill({ color: ownerColor, alpha: 1 });
+    badge.rect(0, 0, badgeWidth, 13);
+    badge.stroke({ color: 0x171912, width: 1.5, alpha: 1 });
+    population.anchor.set(0.5);
+    population.position.set(badgeWidth / 2, 6.5);
+
+    const name = new Text({
+      text: city.name,
+      roundPixels: true,
+      style: {
+        fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
+        fontSize: 11,
+        fontWeight: 'bold',
+        fill: owned ? '#f4e47c' : '#efeee2',
+        stroke: { color: '#151712', width: 3 }
+      }
+    });
+    name.position.set(badgeWidth + 4, -1);
+    wrapper.addChild(badge, population, name);
+    wrapper.pivot.x = (badgeWidth + 4 + name.width) / 2;
+    labelLayer.addChild(wrapper);
+  };
+
   const renderTile = (col: number, row: number) => {
     if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return;
     const k = tileKey(col, row);
@@ -574,6 +622,7 @@
 
     tc.addChild(getTerrainSprite(inFog ? 'fog' : terrainKind(terrainAt(col, row)), col, row));
     if (!inFog && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
+    if (!inFog && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
 
     // Armies are lightweight overlays so the existing terrain/building art is
     // unchanged. A blue marker is owned, red is foreign; a small pennant means

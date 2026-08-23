@@ -57,7 +57,7 @@
     const scaleX = SIZE / mapWidth;
     const scaleY = SIZE / mapHeight;
 
-    ctx.fillStyle = '#050604';
+    ctx.fillStyle = '#1d241f';
     ctx.fillRect(0, 0, SIZE, SIZE);
 
     if ($terrain) {
