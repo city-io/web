@@ -1715,7 +1715,7 @@
 {/snippet}
 
 {#snippet troopGlyph(type: TroopType)}
-  {@const tier = type === TroopType.SOLDIER ? 'I' : type === TroopType.ARCHER ? 'II' : type === TroopType.CAVALRY ? 'III' : 'IV'}
+  {@const tier = 'I'}
   <span class="unit-token" title={`${troopName(type, 1)} · tier ${tier}`}>
     <svg viewBox="0 0 36 36" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
       {#if type === TroopType.SOLDIER}
