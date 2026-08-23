@@ -613,19 +613,45 @@
 
     const route = new Graphics();
     if (moveRoute) {
+      for (const point of points.slice(1, -1)) {
+        route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
+        route.fill({ color: 0x6ca7dc, alpha: 0.11 });
+        route.poly(DIAMOND_VERTS.map((value, index) => value * 0.72 + (index % 2 === 0 ? point.sx : point.sy)));
+        route.stroke({ color: 0x9cc9ee, width: 0.75, alpha: 0.32 });
+      }
       const strokeRoute = (color: number, width: number, alpha: number) => {
         route.moveTo(points[0].sx, points[0].sy);
         for (const point of points.slice(1)) route.lineTo(point.sx, point.sy);
         route.stroke({ color, width, alpha });
       };
-      strokeRoute(0x111611, 5, 0.8);
-      strokeRoute(0x7eb5ec, 2, 0.95);
-      for (const point of points.slice(1, -1)) {
-        route.circle(point.sx, point.sy, 2);
-        route.fill({ color: 0xd6e7ee, alpha: 0.9 });
+      strokeRoute(0x111611, 7, 0.85);
+      strokeRoute(0x7eb5ec, 3, 1);
+      route.circle(points[0].sx, points[0].sy, 5);
+      route.fill({ color: 0x17202a, alpha: 0.95 });
+      route.circle(points[0].sx, points[0].sy, 5);
+      route.stroke({ color: 0xb9d9f2, width: 1.5, alpha: 1 });
+
+      for (let index = 0; index < points.length - 1; index += 2) {
+        const from = points[index];
+        const to = points[index + 1];
+        const dx = to.sx - from.sx;
+        const dy = to.sy - from.sy;
+        const length = Math.hypot(dx, dy) || 1;
+        const nx = dx / length;
+        const ny = dy / length;
+        const px = -ny;
+        const py = nx;
+        const cx = (from.sx + to.sx) / 2;
+        const cy = (from.sy + to.sy) / 2;
+        route.poly([cx + nx * 5, cy + ny * 5, cx - nx * 4 + px * 3.5, cy - ny * 4 + py * 3.5, cx - nx * 4 - px * 3.5, cy - ny * 4 - py * 3.5]);
+        route.fill({ color: 0xe2f1fb, alpha: 1 });
+        route.poly([cx + nx * 5, cy + ny * 5, cx - nx * 4 + px * 3.5, cy - ny * 4 + py * 3.5, cx - nx * 4 - px * 3.5, cy - ny * 4 - py * 3.5]);
+        route.stroke({ color: 0x17202a, width: 1, alpha: 0.9 });
       }
     }
     const target = tileToScreen(destination.x, destination.y);
+    route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
+    route.fill({ color: moveRoute ? 0xf0d65a : 0xd96257, alpha: 0.13 });
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
     route.stroke({ color: moveRoute ? 0xf0d65a : 0xd96257, width: 2, alpha: 0.95 });
     route.zIndex = 9e6;
@@ -1098,15 +1124,19 @@
         const mc = screenToTile((p.x - cont.x) / cont.scale.x, (p.y - cont.y) / cont.scale.y);
         if (mc.x >= 0 && mc.y >= 0 && mc.x < worldWidth && mc.y < worldHeight) {
           cancelMoveMode();
-          trackedArmyId = null;
-          selectedArmyId = null;
           const t = tileData.get(tileKey(mc.x, mc.y));
-          sel = { x: mc.x, y: mc.y, ...t };
-          err = '';
-          notice = '';
-          showBuild = false;
-          recruitCount = 1;
-          drawSel(mc.x, mc.y);
+          if (t?.armies?.length === 1 && !t.building) {
+            focusArmy(t.armies[0], false);
+          } else {
+            trackedArmyId = null;
+            selectedArmyId = null;
+            sel = { x: mc.x, y: mc.y, ...t };
+            err = '';
+            notice = '';
+            showBuild = false;
+            recruitCount = 1;
+            drawSel(mc.x, mc.y);
+          }
         }
       } else if (!easeMotion || performance.now() - lastMoveT > 80) {
         // No flick (or motion easing off): stop where released.
