@@ -11,6 +11,15 @@ message ArmyRouteStep {
   Coordinates coords = 1;
 }
 
+// ArmyRoute separates exact, explored geometry from an undisclosed remainder.
+// When hidden_segment_end is present, clients may draw a straight uncertain
+// connector from the army or final known step to that coordinate, but must not
+// treat the connector as the route the army will actually follow.
+message ArmyRoute {
+  repeated ArmyRouteStep known_steps = 1;
+  optional Coordinates hidden_segment_end = 2;
+}
+
 message MoveObjective {
   Coordinates destination = 1;
 }
@@ -43,6 +52,6 @@ message ArmyOrder {
     ConquerSettlementObjective conquer_settlement = 5;
     RetreatObjective retreat = 6;
   }
-  repeated ArmyRouteStep remaining_route = 7;
+  ArmyRoute remaining_route = 7;
   optional google.protobuf.Duration estimated_remaining_duration = 8;
 }

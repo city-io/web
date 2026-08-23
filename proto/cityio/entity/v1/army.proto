@@ -25,8 +25,7 @@ message Army {
   UserId owner = 2;
   Coordinates coords = 3;
   repeated TroopStack troops = 4;
-  reserved 5;
-  ArmyCompositionVisibility composition_visibility = 6;
-  optional ArmyOrderId order_id = 7;
-  optional BattleId battle_id = 8;
+  ArmyCompositionVisibility composition_visibility = 5;
+  optional ArmyOrderId order_id = 6;
+  optional BattleId battle_id = 7;
 }
