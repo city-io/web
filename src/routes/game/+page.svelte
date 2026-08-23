@@ -773,19 +773,10 @@
       drag = false;
     });
 
-    // Native wheel handler so we can read ctrlKey / deltaX and preventDefault —
-    // Pixi's federated wheel event doesn't reliably expose these. This gives
-    // trackpad-first behavior while keeping the mouse-wheel zoom users liked:
-    //   • pinch (ctrlKey, incl. macOS trackpad pinch) → smooth proportional zoom
-    //   • two-finger trackpad scroll → pan
-    //   • classic mouse wheel → stepped zoom (unchanged feel)
+    // Keep wheel input dedicated to zoom. Map movement is pointer drag or the
+    // keyboard, so smooth-wheel mice can never be mistaken for trackpads.
     app.canvas.addEventListener('wheel', onWheel, { passive: false });
   };
-
-  // A mouse wheel emits large, vertical-only, integer steps (often |deltaY| ~100,
-  // or line/page deltaMode); a trackpad emits small/fractional pixel deltas that
-  // frequently carry a horizontal component. Used to route scroll → pan vs zoom.
-  const isTrackpadScroll = (e: WheelEvent) => e.deltaMode === 0 && (e.deltaX !== 0 || !Number.isInteger(e.deltaY) || Math.abs(e.deltaY) < 50);
 
   const onWheel = (e: WheelEvent) => {
     if (!cont) return;
@@ -793,15 +784,11 @@
     const rect = app.canvas.getBoundingClientRect();
     const mx = e.clientX - rect.left;
     const my = e.clientY - rect.top;
-    if (e.ctrlKey) {
-      // Pinch-zoom: proportional to gesture speed, anchored under the cursor.
-      zoomAt(mx, my, Math.exp(-e.deltaY * 0.01));
-    } else if (isTrackpadScroll(e)) {
-      panBy(-e.deltaX, -e.deltaY);
-    } else {
-      // Classic mouse wheel — preserve the original stepped 8% zoom.
-      zoomAt(mx, my, e.deltaY < 0 ? 1.08 : 1 / 1.08);
-    }
+    const deltaPixels = e.deltaMode === WheelEvent.DOM_DELTA_LINE ? e.deltaY * 16 : e.deltaMode === WheelEvent.DOM_DELTA_PAGE ? e.deltaY * ch : e.deltaY;
+    const sensitivity = e.ctrlKey ? 0.0006 : 0.0015;
+    const rawFactor = Math.exp(-deltaPixels * sensitivity);
+    const maxStep = e.ctrlKey ? 1.08 : 1.12;
+    zoomAt(mx, my, Math.max(1 / maxStep, Math.min(maxStep, rawFactor)));
   };
 
   const logout = () => {
@@ -1299,14 +1286,14 @@
       <div class="panel w-72 p-5" on:click|stopPropagation on:keydown|stopPropagation role="presentation">
         <div class="panel-title mb-3 text-[11px]">Keyboard Shortcuts</div>
         <div class="space-y-1.5 text-xs text-stone-200">
-          {#each [['Pan', 'WASD / arrows'], ['Pan faster', 'Shift + move'], ['Zoom', '+ / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Deselect', 'Esc'], ['Toggle this help', '?']] as [label, keys]}
+          {#each [['Pan', 'Click + drag / WASD'], ['Pan faster', 'Shift + move'], ['Zoom', 'Wheel / + / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Deselect', 'Esc'], ['Toggle this help', '?']] as [label, keys]}
             <div class="flex items-center justify-between gap-4">
               <span class="text-gray-400">{label}</span>
               <kbd class="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-gray-300">{keys}</kbd>
             </div>
           {/each}
         </div>
-        <div class="mt-3 border-t border-white/[0.06] pt-2 text-[10px] text-gray-600">Trackpad: two-finger scroll to pan, pinch to zoom.</div>
+        <div class="mt-3 border-t border-white/[0.06] pt-2 text-[10px] text-gray-600">Zoom centers on the cursor. Drag anywhere on the map to move.</div>
       </div>
     </div>
   {/if}
