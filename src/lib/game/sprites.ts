@@ -3,10 +3,14 @@ import { HW, HH, TH } from './iso';
 import { tileHash, varyColor } from './colors';
 
 export type TerrainKind = 'grassland' | 'plains' | 'forest' | 'hills' | 'mountains' | 'desert' | 'marsh' | 'water' | 'fog';
+export type TerrainNeighbors = readonly [TerrainKind | null, TerrainKind | null, TerrainKind | null, TerrainKind | null];
 export type StructureKind = 'house' | 'farm' | 'mine' | 'barracks' | 'city_center' | 'town_center';
 
 const PAD = 2;
 const W = 2 * HW + PAD * 2;
+const ATLAS_FRAME_WIDTH = 68;
+const ATLAS_FRAME_HEIGHT = 72;
+const ATLAS_BASE_Y = 48;
 
 const TERRAIN_HEADROOM: Record<TerrainKind, number> = {
   grassland: 0,
@@ -83,14 +87,10 @@ function clipDiamond(ctx: CanvasRenderingContext2D, cx: number, cy: number, scal
   ctx.clip();
 }
 
-function drawFlatGround(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: number, gridColor = 'rgba(20,25,17,0.58)') {
+function drawFlatGround(ctx: CanvasRenderingContext2D, cx: number, cy: number, color: number) {
   diamondPath(ctx, cx, cy);
   ctx.fillStyle = css(color);
   ctx.fill();
-  diamondPath(ctx, cx, cy);
-  ctx.lineWidth = 1;
-  ctx.strokeStyle = gridColor;
-  ctx.stroke();
 }
 
 function drawGrass(ctx: CanvasRenderingContext2D, cx: number, cy: number, seed: number, sparse = false) {
@@ -408,11 +408,11 @@ function renderTerrain(kind: TerrainKind, variant: number): HTMLCanvasElement {
   const seed = variant * 7919 + 42;
 
   if (kind === 'fog') {
-    drawFlatGround(ctx, cx, cy, TERRAIN_BASE.fog, 'rgba(0,0,0,0)');
+    drawFlatGround(ctx, cx, cy, TERRAIN_BASE.fog);
     return canvas;
   }
 
-  drawFlatGround(ctx, cx, cy, varyColor(TERRAIN_BASE[kind], variant, variant * 3, 5), kind === 'water' ? 'rgba(13,37,74,0.72)' : 'rgba(20,25,17,0.58)');
+  drawFlatGround(ctx, cx, cy, varyColor(TERRAIN_BASE[kind], variant, variant * 3, 5));
   switch (kind) {
     case 'grassland':
       drawGrass(ctx, cx, cy, seed);
@@ -475,6 +475,7 @@ function renderStructure(kind: StructureKind): HTMLCanvasElement {
 
 let sheet: Spritesheet | null = null;
 const terrainCache = new Map<string, Texture>();
+const transitionCache = new Map<string, Texture>();
 const structureCache = new Map<string, Texture>();
 
 export async function initSprites(): Promise<void> {
@@ -512,9 +513,104 @@ function structureTexture(kind: StructureKind): Texture {
 
 export function getTerrainSprite(kind: TerrainKind, col: number, row: number): Sprite {
   const variant = (tileHash(col, row) >>> 0) % TERRAIN_VARIANTS[kind];
-  const sprite = new Sprite(terrainTexture(kind, variant));
+  const texture = terrainTexture(kind, variant);
+  const sprite = new Sprite(texture);
   const headroom = TERRAIN_HEADROOM[kind];
-  sprite.anchor.set(0.5, (PAD + headroom + HH) / (TH + headroom + PAD * 2));
+  const atlasFrame = sheet?.textures[`terrain_${kind}_${variant}`] ?? sheet?.textures[`terrain_${kind}`];
+  sprite.anchor.set(0.5, texture === atlasFrame ? ATLAS_BASE_Y / ATLAS_FRAME_HEIGHT : (PAD + headroom + HH) / (TH + headroom + PAD * 2));
+  return sprite;
+}
+
+const EDGE_VERTICES: readonly [readonly [number, number], readonly [number, number]][] = [
+  [
+    [0, -HH],
+    [HW, 0]
+  ],
+  [
+    [HW, 0],
+    [0, HH]
+  ],
+  [
+    [0, HH],
+    [-HW, 0]
+  ],
+  [
+    [-HW, 0],
+    [0, -HH]
+  ]
+];
+
+function mixColor(a: number, b: number, amount: number): number {
+  const [ar, ag, ab] = rgb(a);
+  const [br, bg, bb] = rgb(b);
+  return (Math.round(ar + (br - ar) * amount) << 16) | (Math.round(ag + (bg - ag) * amount) << 8) | Math.round(ab + (bb - ab) * amount);
+}
+
+function drawTerrainEdge(ctx: CanvasRenderingContext2D, edge: number, kind: TerrainKind, neighbor: TerrainKind, variant: number) {
+  const [[x1, y1], [x2, y2]] = EDGE_VERTICES[edge];
+  const midpointX = (x1 + x2) / 2;
+  const midpointY = (y1 + y2) / 2;
+  const inwardX = -Math.sign(midpointX);
+  const inwardY = -Math.sign(midpointY);
+  const isCoast = kind === 'water' || neighbor === 'water';
+  const sameTerrain = kind === neighbor;
+  const depth = sameTerrain ? 2 : isCoast ? 5 : 4;
+
+  for (let step = 2; step < 31; step++) {
+    const t = step / 32;
+    const edgeX = ATLAS_FRAME_WIDTH / 2 + x1 + (x2 - x1) * t;
+    const edgeY = ATLAS_BASE_Y + y1 + (y2 - y1) * t;
+    for (let offset = 0; offset < depth; offset++) {
+      if (offset > 1 && (step + offset + variant + edge) % 3 === 0) continue;
+
+      let color: number;
+      let alpha = 0.78;
+      if (sameTerrain) {
+        color = TERRAIN_BASE[kind];
+        alpha = offset === 0 ? 0.9 : 0.58;
+      } else if (kind === 'water') {
+        color = offset === 0 && step % 4 < 2 ? 0xa8d3d2 : mixColor(TERRAIN_BASE.water, 0x6da3bc, 0.55);
+        alpha = offset === 0 ? 0.9 : 0.72;
+      } else if (neighbor === 'water') {
+        color = offset < 2 ? 0xc9ad68 : mixColor(TERRAIN_BASE[kind], 0xc9ad68, 0.55);
+        alpha = offset < 2 ? 0.92 : 0.68;
+      } else {
+        color = mixColor(TERRAIN_BASE[kind], TERRAIN_BASE[neighbor], offset < 2 ? 0.52 : 0.34);
+        alpha = offset < 2 ? 0.82 : 0.58;
+      }
+
+      ctx.fillStyle = css(color, alpha);
+      ctx.fillRect(Math.round(edgeX + inwardX * offset), Math.round(edgeY + inwardY * Math.ceil(offset / 2)), 2, 2);
+    }
+  }
+}
+
+function transitionTexture(kind: TerrainKind, neighbors: TerrainNeighbors, variant: number): Texture | null {
+  if (kind === 'fog' || neighbors.every((neighbor) => neighbor === null || neighbor === 'fog')) return null;
+  const key = `${kind}:${variant}:${neighbors.map((neighbor) => neighbor ?? '-').join(',')}`;
+  const cached = transitionCache.get(key);
+  if (cached) return cached;
+
+  const canvas = document.createElement('canvas');
+  canvas.width = ATLAS_FRAME_WIDTH;
+  canvas.height = ATLAS_FRAME_HEIGHT;
+  const ctx = canvas.getContext('2d')!;
+  for (let edge = 0; edge < neighbors.length; edge++) {
+    const neighbor = neighbors[edge];
+    if (neighbor && neighbor !== 'fog') drawTerrainEdge(ctx, edge, kind, neighbor, variant);
+  }
+  const texture = Texture.from(canvas);
+  texture.source.scaleMode = 'nearest';
+  transitionCache.set(key, texture);
+  return texture;
+}
+
+export function getTerrainTransitionSprite(kind: TerrainKind, neighbors: TerrainNeighbors, col: number, row: number): Sprite | null {
+  const variant = (tileHash(col, row) >>> 0) % TERRAIN_VARIANTS[kind];
+  const texture = transitionTexture(kind, neighbors, variant);
+  if (!texture) return null;
+  const sprite = new Sprite(texture);
+  sprite.anchor.set(0.5, ATLAS_BASE_Y / ATLAS_FRAME_HEIGHT);
   return sprite;
 }
 

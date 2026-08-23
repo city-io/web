@@ -6,7 +6,7 @@
   import { fly, fade } from 'svelte/transition';
   import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
-  import { getStructureSprite, getTerrainSprite, initSprites, type StructureKind, type TerrainKind } from '$lib/game/sprites';
+  import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
@@ -620,7 +620,19 @@
     const dist = myCities.length > 0 ? getVisDist(col, row) : 0;
     const inFog = dist > $gameConfig.visionRadius;
 
-    tc.addChild(getTerrainSprite(inFog ? 'fog' : terrainKind(terrainAt(col, row)), col, row));
+    const kind = inFog ? 'fog' : terrainKind(terrainAt(col, row));
+    tc.addChild(getTerrainSprite(kind, col, row));
+    if (!inFog) {
+      const neighbors = EDGE_TO_NEIGHBOR.map(([dc, dr]) => {
+        const neighborCol = col + dc;
+        const neighborRow = row + dr;
+        if (neighborCol < 0 || neighborRow < 0 || neighborCol >= worldWidth || neighborRow >= worldHeight) return null;
+        if (myCities.length > 0 && getVisDist(neighborCol, neighborRow) > $gameConfig.visionRadius) return 'fog';
+        return terrainKind(terrainAt(neighborCol, neighborRow));
+      }) as unknown as TerrainNeighbors;
+      const transition = getTerrainTransitionSprite(kind, neighbors, col, row);
+      if (transition) tc.addChild(transition);
+    }
     if (!inFog && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
     if (!inFog && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
 
