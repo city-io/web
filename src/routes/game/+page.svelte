@@ -77,6 +77,9 @@
   let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
   let recruitCount = 1;
   let selectedArmyId: string | null = null;
+  let splitArmyFormId: string | null = null;
+  let showSplit = false;
+  let splitCounts: Partial<Record<TroopType, number>> = {};
   let moveArmyId: string | null = null;
   let trackedArmyId: string | null = null;
   let moveTarget: { x: number; y: number } | null = null;
@@ -210,6 +213,12 @@
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
   $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
+  $: if (selectedArmyId !== splitArmyFormId) {
+    splitArmyFormId = selectedArmyId;
+    showSplit = false;
+    splitCounts = {};
+  }
+  $: splitTotal = Object.values(splitCounts).reduce((total, count) => total + (count ?? 0), 0);
   $: orderById = new Map($armyOrders.map((order) => [order.armyOrderId?.value, order]));
   const orderForArmy = (army?: Army): ArmyOrder | undefined => (army?.orderId?.value ? orderById.get(army.orderId.value) : undefined);
   const orderDestination = (order?: ArmyOrder) => {
@@ -937,6 +946,46 @@
       cancelMoveMode();
     } catch (e: unknown) {
       err = errorText(e, 'Halt order failed');
+    } finally {
+      busy = false;
+    }
+  };
+
+  const setSplitCount = (type: TroopType, value: number, available: number) => {
+    splitCounts = { ...splitCounts, [type]: Math.max(0, Math.min(available, Math.floor(value || 0))) };
+  };
+
+  const splitArmy = async (army: Army) => {
+    if (!army.armyId || army.owner?.value !== $userId || army.battleId || busy) return;
+    const troops = army.troops.flatMap((stack) => {
+      const count = splitCounts[stack.type] ?? 0;
+      return count > 0 ? [{ type: stack.type, count }] : [];
+    });
+    if (splitTotal <= 0 || splitTotal >= armySize(army)) {
+      err = 'Choose at least one troop while leaving at least one in the source army.';
+      return;
+    }
+    busy = true;
+    err = '';
+    notice = '';
+    try {
+      const detachedCount = splitTotal;
+      const response = await armyClient.splitArmy({ armyId: army.armyId, troops });
+      const incoming = response.entities?.armies ?? [];
+      if (incoming.length) {
+        armies.update((previous) => {
+          const byId = new Map(previous.map((candidate) => [candidate.armyId?.value, candidate]));
+          for (const candidate of incoming) byId.set(candidate.armyId?.value, candidate);
+          return [...byId.values()];
+        });
+      }
+      const detached = incoming.find((candidate) => candidate.armyId?.value === response.armyId?.value);
+      showSplit = false;
+      splitCounts = {};
+      notice = `Created a new army with ${detachedCount.toLocaleString()} troops.`;
+      if (detached) focusArmy(detached, false);
+    } catch (e: unknown) {
+      err = errorText(e, 'Army split failed');
     } finally {
       busy = false;
     }
@@ -1883,6 +1932,40 @@
                 {/if}
                 {#if selectedStack.length > 1}
                   <button class="game-action game-action-secondary" disabled={busy} on:click={() => mergeOwnedArmies(selectedStack, selectedArmyId ?? undefined)}>Merge stack</button>
+                {/if}
+                <button
+                  class="game-action game-action-secondary"
+                  disabled={busy || !!selectedArmy.battleId || selectedArmySize <= 1}
+                  on:click={() => {
+                    showSplit = !showSplit;
+                    splitCounts = {};
+                  }}
+                >
+                  Split army
+                </button>
+                {#if showSplit && !selectedArmy.battleId}
+                  <div class="mt-2 border border-white/[0.08] bg-black/[0.12] p-3">
+                    <div class="mb-2 text-[10px] font-semibold uppercase tracking-[0.12em] text-[#9ba49d]">New army composition</div>
+                    <div class="space-y-2">
+                      {#each selectedArmy.troops.filter((stack) => (stack.count ?? 0) > 0) as stack}
+                        <label class="flex items-center justify-between gap-3 text-[11px] text-[#aeb5b0]">
+                          <span>{troopName(stack.type, stack.count)} <span class="text-[#68716a]">({stack.count} available)</span></span>
+                          <input
+                            class="w-20 border border-white/[0.12] bg-black/20 px-2 py-1 text-right tabular-nums text-[#e0e2d8] outline-none focus:border-blue-300/50"
+                            type="number"
+                            min="0"
+                            max={stack.count ?? 0}
+                            value={splitCounts[stack.type] ?? 0}
+                            on:input={(event) => setSplitCount(stack.type, Number(event.currentTarget.value), stack.count ?? 0)}
+                          />
+                        </label>
+                      {/each}
+                    </div>
+                    <button class="game-action game-action-primary mt-3 w-full" disabled={busy || splitTotal <= 0 || splitTotal >= selectedArmySize} on:click={() => splitArmy(selectedArmy)}>
+                      Create {splitTotal > 0 ? `${splitTotal}-troop` : ''} detachment
+                    </button>
+                    <div class="mt-2 text-[10px] leading-relaxed text-[#747d76]">The new army starts idle on this tile. This army keeps its current order.</div>
+                  </div>
                 {/if}
                 <div class="mt-1 border-t border-white/[0.06] pt-2 text-[10px] leading-relaxed text-[#747d76]">Right-click the map to move immediately.</div>
               </div>

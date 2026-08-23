@@ -3,6 +3,7 @@ syntax = "proto3";
 package cityio.service.v1;
 
 import "cityio/entity/v1/army_order.proto";
+import "cityio/entity/v1/army.proto";
 import "cityio/entity/v1/bag.proto";
 import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/ids.proto";
@@ -82,13 +83,22 @@ message MergeArmiesRequest {
 }
 message MergeArmiesResponse {}
 
+message SplitArmyRequest {
+  cityio.entity.v1.ArmyId army_id = 1;
+  repeated cityio.entity.v1.TroopStack troops = 2;
+}
+message SplitArmyResponse {
+  cityio.entity.v1.ArmyId army_id = 1;
+  cityio.entity.v1.EntityBag entities = 2;
+}
+
 message ListArmiesRequest {}
 message ListArmiesResponse {
   repeated cityio.entity.v1.ArmyId army_ids = 1;
   cityio.entity.v1.EntityBag entities = 2;
 }
 
-// ArmyService trains, commands, fights, retreats, and merges armies.
+// ArmyService trains, commands, fights, retreats, splits, and merges armies.
 service ArmyService {
   rpc TrainTroops(TrainTroopsRequest) returns (TrainTroopsResponse);
   rpc ListTrainingOrders(ListTrainingOrdersRequest) returns (ListTrainingOrdersResponse);
@@ -99,5 +109,6 @@ service ArmyService {
   rpc ConquerSettlement(ConquerSettlementRequest) returns (ConquerSettlementResponse);
   rpc RetreatArmy(RetreatArmyRequest) returns (RetreatArmyResponse);
   rpc MergeArmies(MergeArmiesRequest) returns (MergeArmiesResponse);
+  rpc SplitArmy(SplitArmyRequest) returns (SplitArmyResponse);
   rpc ListArmies(ListArmiesRequest) returns (ListArmiesResponse);
 }
