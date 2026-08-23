@@ -1323,33 +1323,47 @@
       glyph.lineTo(-5, 0);
       glyph.lineTo(-7, 2);
     } else if (active.type === TroopType.CAVALRY) {
-      glyph.moveTo(-14, 4);
-      glyph.lineTo(-13, -1);
-      glyph.lineTo(-10, -4);
-      glyph.lineTo(-6, -2);
-      glyph.lineTo(-5, 2);
-      glyph.lineTo(-8, 4);
-      glyph.lineTo(-14, 4);
-      glyph.moveTo(-12, -2);
-      glyph.lineTo(-14, -5);
-      glyph.moveTo(-9, -3.5);
-      glyph.lineTo(-8, -6);
-      glyph.circle(-7.5, -0.5, 0.7);
+      glyph.moveTo(-15, 5);
+      glyph.lineTo(-14, 1);
+      glyph.lineTo(-11, -3);
+      glyph.lineTo(-12, -6);
+      glyph.lineTo(-8, -4);
+      glyph.lineTo(-5, -6);
+      glyph.lineTo(-4, -1);
+      glyph.lineTo(-2, 1);
+      glyph.lineTo(-4, 4);
+      glyph.lineTo(-9, 4.5);
+      glyph.lineTo(-12, 6);
+      glyph.moveTo(-10, -3);
+      glyph.lineTo(-6, 0);
+      glyph.circle(-4.8, 0.6, 0.65);
       glyph.fill({ color: 0xb8cbc5, alpha: 1 });
     } else if (active.type === TroopType.ARTILLERY) {
-      glyph.circle(-12, 2, 3);
-      glyph.circle(-12, 2, 1);
-      glyph.moveTo(-11, -1);
-      glyph.lineTo(-5, -4);
-      glyph.lineTo(-4, -2);
-      glyph.lineTo(-10, 1);
+      glyph.circle(-13, 3, 2.5);
+      glyph.circle(-5, 3, 2.5);
+      glyph.circle(-13, 3, 0.7);
+      glyph.circle(-5, 3, 0.7);
+      glyph.moveTo(-16, 0.5);
+      glyph.lineTo(-2, 0.5);
+      glyph.moveTo(-12, 0.5);
+      glyph.lineTo(-7, -4.5);
+      glyph.lineTo(-2, -6);
+      glyph.lineTo(-1, -3.5);
+      glyph.lineTo(-7, -1);
     } else {
-      glyph.moveTo(-14, 4.5);
-      glyph.lineTo(-6, -3.5);
-      glyph.moveTo(-8, -5.5);
-      glyph.lineTo(-4, -1.5);
-      glyph.moveTo(-12, 1);
-      glyph.lineTo(-9, 4);
+      glyph.moveTo(-10, -6);
+      glyph.lineTo(-7, -3);
+      glyph.lineTo(-8.5, 2);
+      glyph.lineTo(-11.5, 2);
+      glyph.lineTo(-13, -3);
+      glyph.closePath();
+      glyph.fill({ color: 0xffffff, alpha: 1 });
+      glyph.moveTo(-15, 2);
+      glyph.lineTo(-5, 2);
+      glyph.moveTo(-10, 2);
+      glyph.lineTo(-10, 6);
+      glyph.moveTo(-12, 6);
+      glyph.lineTo(-8, 6);
     }
     glyph.stroke({ color: 0xb8cbc5, width: 1.35, alpha: 1 });
 
@@ -2021,10 +2035,10 @@
 
 {#snippet troopGlyph(type: TroopType)}
   {@const tier = 'I'}
-  <span class="unit-token">
+  <span class="unit-token {type === TroopType.SOLDIER ? 'unit-token-soldier' : ''}">
     <svg viewBox="0 0 36 36" aria-hidden="true" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
       {#if type === TroopType.SOLDIER}
-        <path d="m18 4 4 4-2.5 15h-3L14 8l4-4Z" fill="currentColor" opacity=".18" stroke-width="1.9" />
+        <path d="m18 4 4 4-2.5 15h-3L14 8l4-4Z" fill="currentColor" stroke-width="1.9" />
         <path d="M10 23h16M18 23v8M14.5 31h7" stroke-width="2" />
       {:else if type === TroopType.ARCHER}
         <path d="M10 6c13 4 13 20 0 24M10 6v24M8 18h20M25 15l4 3-4 3" stroke-width="1.8" />
@@ -2334,7 +2348,11 @@
               {#if active}
                 <div class="mt-2 border-t border-white/[0.06] pt-2">
                   <div class="flex items-center justify-between gap-3 text-[10px]">
-                    <span class="text-blue-200/80">Training {active.count} {troopName(active.type, active.count)}</span>
+                    <span class="flex items-center gap-2 text-blue-200/80">
+                      <span class="training-order-icon">{@render troopGlyph(active.type)}</span>
+                      Training {active.count}
+                      {troopName(active.type, active.count)}
+                    </span>
                     <span class="tabular-nums text-[#9ba49d]">{completesAt ? fmtCountdown(completesAt - now) : 'Waiting'}</span>
                   </div>
                   {#if completesAt > startsAt}
@@ -3010,106 +3028,114 @@
               {/if}
             </section>
             {#if isBarracks && sel.city?.owner?.value === $userId && !isBuilding}
-              <section class="inspector-section">
-                {#if trainingOrdersAvailable && selectedTrainingOrders.length > 0}
-                  {@const activeOrder = selectedTrainingOrders[0]}
-                  {@const queuedPopulation = queuePopulationCost(selectedTrainingOrders)}
-                  {@const activeStartsAt = timestampMs(activeOrder.startedAt)}
-                  {@const activeCompletesAt = timestampMs(activeOrder.completesAt)}
-                  {@const activeProgress =
-                    activeStartsAt > 0 && activeCompletesAt > activeStartsAt ? Math.max(0, Math.min(100, ((now - activeStartsAt) / (activeCompletesAt - activeStartsAt)) * 100)) : 0}
-                  <div class="mb-2 border border-blue-200/15 bg-blue-200/[0.05] px-2.5 py-2">
-                    <div class="flex items-center justify-between gap-3 text-[10px]">
-                      <span class="font-semibold text-blue-100">Training {activeOrder.count} {troopName(activeOrder.type, activeOrder.count)}</span>
-                      <span class="tabular-nums text-blue-200/80">{activeCompletesAt ? fmtCountdown(activeCompletesAt - now) : 'Waiting'}</span>
-                    </div>
-                    {#if activeStartsAt > 0 && activeCompletesAt > activeStartsAt}
-                      <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.08]">
-                        <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div>
+              <section class="inspector-section barracks-training-section">
+                <div class="barracks-training-scroll">
+                  {#if trainingOrdersAvailable && selectedTrainingOrders.length > 0}
+                    {@const activeOrder = selectedTrainingOrders[0]}
+                    {@const queuedPopulation = queuePopulationCost(selectedTrainingOrders)}
+                    {@const activeStartsAt = timestampMs(activeOrder.startedAt)}
+                    {@const activeCompletesAt = timestampMs(activeOrder.completesAt)}
+                    {@const activeProgress =
+                      activeStartsAt > 0 && activeCompletesAt > activeStartsAt ? Math.max(0, Math.min(100, ((now - activeStartsAt) / (activeCompletesAt - activeStartsAt)) * 100)) : 0}
+                    <div class="mb-2 border border-blue-200/15 bg-blue-200/[0.05] px-2.5 py-2">
+                      <div class="flex items-center justify-between gap-3 text-[10px]">
+                        <span class="flex items-center gap-2 font-semibold text-blue-100">
+                          <span class="training-order-icon">{@render troopGlyph(activeOrder.type)}</span>
+                          Training {activeOrder.count}
+                          {troopName(activeOrder.type, activeOrder.count)}
+                        </span>
+                        <span class="tabular-nums text-blue-200/80">{activeCompletesAt ? fmtCountdown(activeCompletesAt - now) : 'Waiting'}</span>
                       </div>
-                    {/if}
-                    {#if selectedTrainingOrders.length > 1}
-                      <div class="mt-1.5 text-[9px] tabular-nums text-[#7f9292]">
-                        +{selectedTrainingOrders.length - 1}
-                        {selectedTrainingOrders.length === 2 ? 'batch' : 'batches'} waiting
+                      {#if activeStartsAt > 0 && activeCompletesAt > activeStartsAt}
+                        <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.08]">
+                          <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div>
+                        </div>
+                      {/if}
+                      {#if selectedTrainingOrders.length > 1}
+                        <div class="mt-1.5 text-[9px] tabular-nums text-[#7f9292]">
+                          +{selectedTrainingOrders.length - 1}
+                          {selectedTrainingOrders.length === 2 ? 'batch' : 'batches'} waiting
+                        </div>
+                      {/if}
+                      <div class="mt-1 text-[9px] tabular-nums text-blue-200/70">
+                        {queuedPopulation.toLocaleString()}
+                        {queuedPopulation === 1 ? 'resident' : 'residents'} transferred into this queue
                       </div>
-                    {/if}
-                    <div class="mt-1 text-[9px] tabular-nums text-blue-200/70">
-                      {queuedPopulation.toLocaleString()}
-                      {queuedPopulation === 1 ? 'resident' : 'residents'} transferred into this queue
+                    </div>
+                  {/if}
+                  <div class="mb-2 flex items-center justify-between gap-3">
+                    <span class="inspector-label">Train troops</span>
+                    <span class="text-[10px] tabular-nums text-[#818a83]">Batch limit {trainingCapacity}</span>
+                  </div>
+                  <div class="mb-3">{@render populationUse(sel.city!)}</div>
+                  <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
+                    {#each TROOP_TYPES as type}
+                      {@const option = TROOP_STATS[type]}
+                      <button
+                        class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 text-center transition-colors {recruitType === type
+                          ? 'bg-[#48666d]/65 text-white'
+                          : 'text-[#9d9c8d] hover:bg-white/[0.04] hover:text-white'}"
+                        on:click={() => (recruitType = type)}
+                      >
+                        {@render troopGlyph(type)}
+                        <span class="mt-1 block w-full truncate text-[9px] font-bold">{option.name}</span>
+                        <span class="mt-0.5 block text-[8px] tabular-nums text-[#859799]">
+                          {option.gold}g · {option.population}
+                          {option.population === 1 ? 'recruit' : 'recruits'}
+                        </span>
+                      </button>
+                    {/each}
+                  </div>
+                  <label class="mt-3 block border border-white/[0.08] bg-black/10 px-3 py-2.5">
+                    <span class="flex items-center justify-between gap-3 text-[10px]">
+                      <span class="font-semibold text-[#bdc8c7]">Number to train</span>
+                      <strong class="text-sm tabular-nums text-blue-200">{batchCount} / {trainingCapacity}</strong>
+                    </span>
+                    <input class="mt-2 block w-full accent-[#78a9b5]" type="range" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
+                    <span class="mt-1 flex justify-between text-[8px] tabular-nums text-[#687679]"><span>1</span><span>Batch capacity {trainingCapacity}</span></span>
+                  </label>
+                  <div class="mt-2 border border-blue-200/10 bg-blue-200/[0.035] px-2 py-1.5 text-[9px] leading-relaxed text-[#849698]">
+                    Recruits leave the city population as soon as the order is queued. Population growth can replenish the available pool.
+                  </div>
+                  <div class="mt-2 border-t border-[#465a5f] pt-1.5">
+                    <div class="inspector-row">
+                      <span>Gold cost</span>
+                      <span class={BigInt(trainingCost) <= $gold ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
+                    </div>
+                    <div class="inspector-row">
+                      <span>Residents recruited</span>
+                      <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}>{trainingPopulation.toLocaleString()}</span>
+                    </div>
+                    <div class="inspector-row">
+                      <span>Recruitable after</span>
+                      {#if trainingPopulation <= availablePopulation}
+                        <span class="text-emerald-200">
+                          <span class="text-[#78817a]">{availablePopulation.toLocaleString()} →</span>
+                          {populationAfterTraining.toLocaleString()}
+                        </span>
+                      {:else}
+                        <span class="text-red-300">{availablePopulation.toLocaleString()} available · {(trainingPopulation - availablePopulation).toLocaleString()} short</span>
+                      {/if}
+                    </div>
+                    <div class="inspector-row">
+                      <span>Ready in</span>
+                      <span>{recruitStat.trainSeconds}s each · {fmtCountdown(trainingBatchSeconds * 1000)} batch</span>
+                    </div>
+                    <div class="inspector-row">
+                      <span>Army upkeep</span>
+                      <span class="text-red-300/80">-{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
                     </div>
                   </div>
-                {/if}
-                <div class="mb-2 flex items-center justify-between gap-3">
-                  <span class="inspector-label">Train troops</span>
-                  <span class="text-[10px] tabular-nums text-[#818a83]">Batch limit {trainingCapacity}</span>
                 </div>
-                <div class="mb-3">{@render populationUse(sel.city!)}</div>
-                <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
-                  {#each TROOP_TYPES as type}
-                    {@const option = TROOP_STATS[type]}
-                    <button
-                      class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 text-center transition-colors {recruitType === type
-                        ? 'bg-[#48666d]/65 text-white'
-                        : 'text-[#9d9c8d] hover:bg-white/[0.04] hover:text-white'}"
-                      on:click={() => (recruitType = type)}
-                    >
-                      {@render troopGlyph(type)}
-                      <span class="mt-1 block w-full truncate text-[9px] font-bold">{option.name}</span>
-                      <span class="mt-0.5 block text-[8px] tabular-nums text-[#859799]">
-                        {option.gold}g · {option.population}
-                        {option.population === 1 ? 'recruit' : 'recruits'}
-                      </span>
-                    </button>
-                  {/each}
+                <div class="barracks-training-action">
+                  <button class="game-action game-action-primary w-full" disabled={busy || !canTrain} on:click={queueTroops}>
+                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter">
+                      <circle cx="9" cy="7" r="3" />
+                      <path d="M3.5 19v-1.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5V19M18 8v6M15 11h6" />
+                    </svg>
+                    {busy ? 'Working…' : 'Train'}
+                  </button>
                 </div>
-                <label class="mt-3 block border border-white/[0.08] bg-black/10 px-3 py-2.5">
-                  <span class="flex items-center justify-between gap-3 text-[10px]">
-                    <span class="font-semibold text-[#bdc8c7]">Number to train</span>
-                    <strong class="text-sm tabular-nums text-blue-200">{batchCount} / {trainingCapacity}</strong>
-                  </span>
-                  <input class="mt-2 block w-full accent-[#78a9b5]" type="range" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
-                  <span class="mt-1 flex justify-between text-[8px] tabular-nums text-[#687679]"><span>1</span><span>Batch capacity {trainingCapacity}</span></span>
-                </label>
-                <div class="mt-2 border border-blue-200/10 bg-blue-200/[0.035] px-2 py-1.5 text-[9px] leading-relaxed text-[#849698]">
-                  Recruits leave the city population as soon as the order is queued. Population growth can replenish the available pool.
-                </div>
-                <div class="mt-2 border-t border-[#465a5f] pt-1.5">
-                  <div class="inspector-row">
-                    <span>Gold cost</span>
-                    <span class={BigInt(trainingCost) <= $gold ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
-                  </div>
-                  <div class="inspector-row">
-                    <span>Residents recruited</span>
-                    <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}>{trainingPopulation.toLocaleString()}</span>
-                  </div>
-                  <div class="inspector-row">
-                    <span>Recruitable after</span>
-                    {#if trainingPopulation <= availablePopulation}
-                      <span class="text-emerald-200">
-                        <span class="text-[#78817a]">{availablePopulation.toLocaleString()} →</span>
-                        {populationAfterTraining.toLocaleString()}
-                      </span>
-                    {:else}
-                      <span class="text-red-300">{availablePopulation.toLocaleString()} available · {(trainingPopulation - availablePopulation).toLocaleString()} short</span>
-                    {/if}
-                  </div>
-                  <div class="inspector-row">
-                    <span>Ready in</span>
-                    <span>{recruitStat.trainSeconds}s each · {fmtCountdown(trainingBatchSeconds * 1000)} batch</span>
-                  </div>
-                  <div class="inspector-row">
-                    <span>Army upkeep</span>
-                    <span class="text-red-300/80">-{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
-                  </div>
-                </div>
-                <button class="game-action game-action-primary mt-3 w-full" disabled={busy || !canTrain} on:click={queueTroops}>
-                  <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter">
-                    <circle cx="9" cy="7" r="3" />
-                    <path d="M3.5 19v-1.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5V19M18 8v6M15 11h6" />
-                  </svg>
-                  {busy ? 'Working…' : 'Train'}
-                </button>
               </section>
             {/if}
           {:else if !selectedArmy && !sel.building && sel.city?.owner?.value === $userId && !showCityManagement}
