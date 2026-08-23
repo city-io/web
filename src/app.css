@@ -144,6 +144,10 @@
     @apply border-[#67775f] bg-[#394937] text-[#f0f2e8] hover:bg-[#465a43];
   }
 
+  .game-action-secondary {
+    @apply border-[#555b52] bg-[#292d27] text-[#cbd0c8] hover:bg-[#343a32] hover:text-white;
+  }
+
   .game-action-danger {
     @apply border-[#5a3d37] bg-[#2c211e] text-[#d8aaa0] hover:bg-[#3a2925] hover:text-[#efbeb3];
   }

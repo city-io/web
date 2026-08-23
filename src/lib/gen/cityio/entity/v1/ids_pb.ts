@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/ids.proto.
  */
 export const file_cityio_entity_v1_ids: GenFile = /*@__PURE__*/
-  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIh4KBlRpbGVJZBIJCgF4GAEgASgFEgkKAXkYAiABKAViBnByb3RvMw");
+  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIiAKD1RyYWluaW5nT3JkZXJJZBINCgV2YWx1ZRgBIAEoCSIeCgZUaWxlSWQSCQoBeBgBIAEoBRIJCgF5GAIgASgFYgZwcm90bzM");
 
 /**
  * @generated from message cityio.entity.v1.UserId
@@ -81,6 +81,23 @@ export const ArmyIdSchema: GenMessage<ArmyId> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_ids, 3);
 
 /**
+ * @generated from message cityio.entity.v1.TrainingOrderId
+ */
+export type TrainingOrderId = Message<"cityio.entity.v1.TrainingOrderId"> & {
+  /**
+   * @generated from field: string value = 1;
+   */
+  value: string;
+};
+
+/**
+ * Describes the message cityio.entity.v1.TrainingOrderId.
+ * Use `create(TrainingOrderIdSchema)` to create a new message.
+ */
+export const TrainingOrderIdSchema: GenMessage<TrainingOrderId> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_ids, 4);
+
+/**
  * @generated from message cityio.entity.v1.TileId
  */
 export type TileId = Message<"cityio.entity.v1.TileId"> & {
@@ -100,5 +117,5 @@ export type TileId = Message<"cityio.entity.v1.TileId"> & {
  * Use `create(TileIdSchema)` to create a new message.
  */
 export const TileIdSchema: GenMessage<TileId> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_ids, 4);
+  messageDesc(file_cityio_entity_v1_ids, 5);
 
