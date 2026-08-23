@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/battle.proto.
  */
 export const file_cityio_entity_v1_battle: GenFile = /*@__PURE__*/
-  fileDesc("Ch1jaXR5aW8vZW50aXR5L3YxL2JhdHRsZS5wcm90bxIQY2l0eWlvLmVudGl0eS52MSLKAQoKQmF0dGxlU2lkZRIqCgh1c2VyX2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEioKCGFybXlfaWRzGAIgAygLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSNwoQZ2Fycmlzb25fY2l0eV9pZBgDIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkSACIAQESFgoOZ2Fycmlzb25fY291bnQYBCABKANCEwoRX2dhcnJpc29uX2NpdHlfaWQipgIKBkJhdHRsZRItCgliYXR0bGVfaWQYASABKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUlkEikKB3RpbGVfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZBIvCglhdHRhY2tlcnMYAyABKAsyHC5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVNpZGUSLwoJZGVmZW5kZXJzGAQgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVTaWRlEi4KCnN0YXJ0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDG5leHRfdGlja19hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBiBnByb3RvMw", [file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
+  fileDesc("Ch1jaXR5aW8vZW50aXR5L3YxL2JhdHRsZS5wcm90bxIQY2l0eWlvLmVudGl0eS52MSLHAQoKQmF0dGxlU2lkZRIqCgh1c2VyX2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEioKCGFybXlfaWRzGAIgAygLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSNgoPbWlsaXRpYV9jaXR5X2lkGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWRIAIgBARIVCg1taWxpdGlhX2NvdW50GAQgASgDQhIKEF9taWxpdGlhX2NpdHlfaWQipgIKBkJhdHRsZRItCgliYXR0bGVfaWQYASABKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUlkEikKB3RpbGVfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZBIvCglhdHRhY2tlcnMYAyABKAsyHC5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVNpZGUSLwoJZGVmZW5kZXJzGAQgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVTaWRlEi4KCnN0YXJ0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDG5leHRfdGlja19hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBiBnByb3RvMw", [file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
 
 /**
  * @generated from message cityio.entity.v1.BattleSide
@@ -31,14 +31,14 @@ export type BattleSide = Message<"cityio.entity.v1.BattleSide"> & {
   armyIds: ArmyId[];
 
   /**
-   * @generated from field: optional cityio.entity.v1.CityId garrison_city_id = 3;
+   * @generated from field: optional cityio.entity.v1.CityId militia_city_id = 3;
    */
-  garrisonCityId?: CityId | undefined;
+  militiaCityId?: CityId | undefined;
 
   /**
-   * @generated from field: int64 garrison_count = 4;
+   * @generated from field: int64 militia_count = 4;
    */
-  garrisonCount: bigint;
+  militiaCount: bigint;
 };
 
 /**

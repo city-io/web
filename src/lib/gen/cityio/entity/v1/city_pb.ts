@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/city.proto.
  */
 export const file_cityio_entity_v1_city: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEirQUKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGwoTZ2Fycmlzb25fcG9wdWxhdGlvbhgOIAEoARIYChBnYXJyaXNvbl9wZXJjZW50GA8gASgFEhcKD2NvcmVfcG9wdWxhdGlvbhgQIAEoARIeChZyZWNydWl0YWJsZV9wb3B1bGF0aW9uGBEgASgBEhoKEnRheGFibGVfcG9wdWxhdGlvbhgSIAEoARIvCg9mb29kX3Byb2R1Y3Rpb24YCSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSKwoLZm9vZF91cGtlZXAYCiABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSLQoNbmV0X2Zvb2RfZmxvdxgLIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIYChB0YXhfcmF0ZV9wZXJjZW50GBMgASgFEioKCnRheF9pbmNvbWUYFCABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGVCCAoGX293bmVyYgZwcm90bzM", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiqwUKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGgoSbWlsaXRpYV9wb3B1bGF0aW9uGA4gASgBEhcKD21pbGl0aWFfcGVyY2VudBgPIAEoBRIXCg9jb3JlX3BvcHVsYXRpb24YECABKAESHgoWcmVjcnVpdGFibGVfcG9wdWxhdGlvbhgRIAEoARIaChJ0YXhhYmxlX3BvcHVsYXRpb24YEiABKAESLwoPZm9vZF9wcm9kdWN0aW9uGAkgASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlEisKC2Zvb2RfdXBrZWVwGAogASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlEi0KDW5ldF9mb29kX2Zsb3cYCyABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGAoQdGF4X3JhdGVfcGVyY2VudBgTIAEoBRIqCgp0YXhfaW5jb21lGBQgASgLMhYuY2l0eWlvLmVudGl0eS52MS5SYXRlQggKBl9vd25lcmIGcHJvdG8z", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
 
 /**
  * City is a settlement on the map, owned by a player or neutral.
@@ -91,16 +91,16 @@ export type City = Message<"cityio.entity.v1.City"> & {
 
   /**
    * The current non-mobile defensive reserve and its configured target share
-   * of housing capacity. Garrison losses refill through future growth.
+   * of housing capacity. Militia losses refill through future growth.
    *
-   * @generated from field: double garrison_population = 14;
+   * @generated from field: double militia_population = 14;
    */
-  garrisonPopulation: number;
+  militiaPopulation: number;
 
   /**
-   * @generated from field: int32 garrison_percent = 15;
+   * @generated from field: int32 militia_percent = 15;
    */
-  garrisonPercent: number;
+  militiaPercent: number;
 
   /**
    * The protected 55% housing share that training can never consume.
@@ -117,7 +117,7 @@ export type City = Message<"cityio.entity.v1.City"> & {
   recruitablePopulation: number;
 
   /**
-   * Residents currently paying tax (all residents except the garrison).
+   * Residents currently paying tax (all residents except the militia).
    *
    * @generated from field: double taxable_population = 18;
    */

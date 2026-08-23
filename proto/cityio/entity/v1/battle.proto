@@ -8,8 +8,8 @@ import "google/protobuf/timestamp.proto";
 message BattleSide {
   repeated UserId user_ids = 1;
   repeated ArmyId army_ids = 2;
-  optional CityId garrison_city_id = 3;
-  int64 garrison_count = 4;
+  optional CityId militia_city_id = 3;
+  int64 militia_count = 4;
 }
 
 // Battle exists only while combat is active. Each side can contain armies

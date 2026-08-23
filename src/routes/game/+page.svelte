@@ -108,7 +108,7 @@
   let lastTrainingOverviewPoll = 0;
   let trainingNoticeTimer: ReturnType<typeof setTimeout> | null = null;
   let policyDraftCityId: string | null = null;
-  let garrisonDraft = 10;
+  let militiaDraft = 10;
   let taxDraft = 10;
   let policySaving = false;
 
@@ -229,7 +229,7 @@
   const barracksCapacity = (building: Building) => Math.max(0, building.level * 5);
   const residents = (city: City) => Math.max(0, Math.floor(city.population));
   const housingCapacity = (city: City) => Math.max(0, Math.floor(city.populationCap));
-  const garrisonPopulation = (city: City) => Math.max(0, Math.floor(city.garrisonPopulation));
+  const militiaPopulation = (city: City) => Math.max(0, Math.floor(city.militiaPopulation));
   const corePopulation = (city: City) => Math.max(0, Math.ceil(city.corePopulation));
   const taxablePopulation = (city: City) => Math.max(0, Math.floor(city.taxablePopulation));
   const trainablePopulation = (city?: City) => (city ? Math.max(0, Math.floor(city.recruitablePopulation)) : 0);
@@ -287,7 +287,7 @@
   $: selectedPolicyCityId = sel?.city?.owner?.value === $userId ? (sel?.city?.cityId?.value ?? null) : null;
   $: if (selectedPolicyCityId !== policyDraftCityId) {
     policyDraftCityId = selectedPolicyCityId;
-    garrisonDraft = sel?.city?.garrisonPercent ?? $gameConfig.populationPolicy?.defaultGarrisonPercent ?? 10;
+    militiaDraft = sel?.city?.militiaPercent ?? $gameConfig.populationPolicy?.defaultMilitiaPercent ?? 10;
     taxDraft = sel?.city?.taxRatePercent ?? $gameConfig.populationPolicy?.defaultTaxRatePercent ?? 10;
   }
   $: if (ownedBarracks.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
@@ -628,7 +628,7 @@
     try {
       const response = await cityClient.updateCityPolicy({
         cityId: city.cityId,
-        garrisonPercent: garrisonDraft,
+        militiaPercent: militiaDraft,
         taxRatePercent: taxDraft
       });
       if (response.city) {
@@ -2064,7 +2064,7 @@
                 <span class="text-amber-200/80">{Math.round(prod.gold + ratePerHour(city.taxIncome)).toLocaleString()} gold/hr</span>
                 <span class={foodNet < 0 ? 'text-red-400' : 'text-emerald-300/80'}>{fmtPerHour(foodNet)} food/hr</span>
                 <span class="text-blue-200/80">{trainablePopulation(city).toLocaleString()} recruitable</span>
-                <span class="text-[#929c96]">{garrisonPopulation(city).toLocaleString()} garrison</span>
+                <span class="text-[#929c96]">{militiaPopulation(city).toLocaleString()} militia</span>
               </div>
             </button>
           {/each}
@@ -2321,8 +2321,8 @@
                 <div class="mt-2.5 flex items-center justify-between border-t border-red-300/15 pt-2.5 text-[11px]">
                   <span class="font-semibold uppercase tracking-[0.12em] text-red-300">Battle in progress</span>
                   <span class="text-[#aab2ac]">
-                    {selectedBattle.attackers?.armyIds.length ?? 0} attacking · {selectedBattle.defenders?.armyIds.length ?? 0} defending{selectedBattle.defenders?.garrisonCount
-                      ? ` · ${selectedBattle.defenders.garrisonCount} garrison`
+                    {selectedBattle.attackers?.armyIds.length ?? 0} attacking · {selectedBattle.defenders?.armyIds.length ?? 0} defending{selectedBattle.defenders?.militiaCount
+                      ? ` · ${selectedBattle.defenders.militiaCount} militia`
                       : ''}
                   </span>
                 </div>
@@ -2422,7 +2422,7 @@
           {#if !selectedArmy && sel.city && selectedSettlementCenter && showCityManagement && cityManagementView === 'city'}
             {@const cityResidents = residents(sel.city)}
             {@const cityHousing = housingCapacity(sel.city)}
-            {@const cityGarrison = garrisonPopulation(sel.city)}
+            {@const cityMilitia = militiaPopulation(sel.city)}
             {@const cityCore = corePopulation(sel.city)}
             {@const cityTaxable = taxablePopulation(sel.city)}
             {@const cityRecruitable = trainablePopulation(sel.city)}
@@ -2448,8 +2448,8 @@
                   <div class="inspector-stat-value">{cityHousing.toLocaleString()}</div>
                 </div>
                 <div>
-                  <div class="inspector-stat-label">Garrison</div>
-                  <div class="inspector-stat-value text-blue-200">{cityGarrison.toLocaleString()}</div>
+                  <div class="inspector-stat-label">Militia</div>
+                  <div class="inspector-stat-value text-blue-200">{cityMilitia.toLocaleString()}</div>
                 </div>
                 <div>
                   <div class="inspector-stat-label">Growth</div>
@@ -2467,16 +2467,16 @@
               <!-- Food economy is owner-only intel; non-owners receive these unset -->
               {#if sel.city.owner?.value === $userId}
                 {@const policy = $gameConfig.populationPolicy}
-                {@const minGarrison = policy?.minGarrisonPercent ?? 5}
-                {@const maxGarrison = policy?.maxGarrisonPercent ?? 30}
+                {@const minMilitia = policy?.minMilitiaPercent ?? 5}
+                {@const maxMilitia = policy?.maxMilitiaPercent ?? 45}
                 {@const maxTax = policy?.maxTaxRatePercent ?? 100}
-                {@const previewTargetGarrison = (cityHousing * garrisonDraft) / 100}
-                {@const previewGarrison = Math.min(sel.city.garrisonPopulation, previewTargetGarrison)}
-                {@const previewRecruitable = Math.max(0, Math.floor(cityResidents - cityCore - previewTargetGarrison))}
-                {@const previewTaxable = Math.max(0, Math.floor(cityResidents - previewGarrison))}
+                {@const previewTargetMilitia = (cityHousing * militiaDraft) / 100}
+                {@const previewMilitia = Math.min(sel.city.militiaPopulation, previewTargetMilitia)}
+                {@const previewRecruitable = Math.max(0, Math.floor(cityResidents - cityCore - previewTargetMilitia))}
+                {@const previewTaxable = Math.max(0, Math.floor(cityResidents - previewMilitia))}
                 {@const taxGoldPerResident = ratePerHour(policy?.taxGoldPerPopulation)}
                 {@const previewTaxIncome = Math.round((previewTaxable * taxGoldPerResident * taxDraft) / 100)}
-                {@const policyDirty = garrisonDraft !== sel.city.garrisonPercent || taxDraft !== sel.city.taxRatePercent}
+                {@const policyDirty = militiaDraft !== sel.city.militiaPercent || taxDraft !== sel.city.taxRatePercent}
                 <div class="mt-2.5 border-t border-[#465a5f] pt-2">
                   <div class="mb-1.5 flex items-center justify-between gap-3">
                     <span class="inspector-label">Population use</span>
@@ -2498,12 +2498,12 @@
                   </div>
                   <div class="mt-2 flex h-1.5 overflow-hidden bg-white/[0.06]">
                     <div class="h-full bg-[#7f8e77]" style={`width: ${cityHousing > 0 ? Math.min(100, (cityCore / cityHousing) * 100) : 0}%`}></div>
-                    <div class="h-full bg-blue-300/75" style={`width: ${cityHousing > 0 ? Math.min(100, (cityGarrison / cityHousing) * 100) : 0}%`}></div>
+                    <div class="h-full bg-blue-300/75" style={`width: ${cityHousing > 0 ? Math.min(100, (cityMilitia / cityHousing) * 100) : 0}%`}></div>
                     <div class="h-full bg-emerald-300/70" style={`width: ${cityHousing > 0 ? Math.min(100, (cityRecruitable / cityHousing) * 100) : 0}%`}></div>
                   </div>
                   <div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-[#7f8e8f]">
                     <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#7f8e77]"></i>Protected</span>
-                    <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-blue-300/75"></i>Garrison</span>
+                    <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-blue-300/75"></i>Militia</span>
                     <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-emerald-300/70"></i>Recruitable now</span>
                   </div>
                 </div>
@@ -2522,11 +2522,13 @@
                   <div class="space-y-3 px-2.5 py-2.5">
                     <label class="block">
                       <span class="flex items-center justify-between gap-3 text-[10px]">
-                        <span class="font-semibold text-[#bdc8c7]">Garrison target</span>
-                        <strong class="tabular-nums text-blue-200">{garrisonDraft}% · {Math.floor(previewGarrison).toLocaleString()} present</strong>
+                        <span class="font-semibold text-[#bdc8c7]">Militia target</span>
+                        <strong class="tabular-nums text-blue-200">{militiaDraft}% · {Math.floor(previewMilitia).toLocaleString()} present</strong>
                       </span>
-                      <input class="mt-1.5 block w-full accent-[#78a9b5]" type="range" min={minGarrison} max={maxGarrison} step="1" bind:value={garrisonDraft} />
-                      <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]">Permanent local defenders. Higher targets fill from future growth; lowering releases excess.</span>
+                      <input class="mt-1.5 block w-full accent-[#78a9b5]" type="range" min={minMilitia} max={maxMilitia} step="1" bind:value={militiaDraft} />
+                      <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]"
+                        >Local defenders outside the protected core. They consume food, do not pay tax, and refill through future growth.</span
+                      >
                     </label>
                     <label class="block border-t border-white/[0.06] pt-2.5">
                       <span class="flex items-center justify-between gap-3 text-[10px]">

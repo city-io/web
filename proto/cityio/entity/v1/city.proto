@@ -32,14 +32,14 @@ message City {
   // by anyone watching the city over time.
   Rate population_growth = 13;
   // The current non-mobile defensive reserve and its configured target share
-  // of housing capacity. Garrison losses refill through future growth.
-  double garrison_population = 14;
-  int32 garrison_percent = 15;
+  // of housing capacity. Militia losses refill through future growth.
+  double militia_population = 14;
+  int32 militia_percent = 15;
   // The protected 55% housing share that training can never consume.
   double core_population = 16;
   // Residents currently available to transfer into training orders.
   double recruitable_population = 17;
-  // Residents currently paying tax (all residents except the garrison).
+  // Residents currently paying tax (all residents except the militia).
   double taxable_population = 18;
 
   // --- Owner-only ---
