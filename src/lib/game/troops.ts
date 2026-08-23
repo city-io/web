@@ -1,6 +1,6 @@
 import { Container, Graphics, Text } from 'pixi.js';
 
-import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
+import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
 import { TroopType } from '$lib/gen/cityio/entity/v1/common_pb';
 
 export type TroopStat = {
@@ -28,11 +28,11 @@ export function troopName(type: TroopType, count = 2): string {
 }
 
 export function armySize(army: Army): number {
-  return army.troops.reduce((sum, stack) => sum + stack.count, 0);
+  return army.troops.reduce((sum, stack) => sum + (stack.count ?? 0), 0);
 }
 
 export function armyTitle(army: Army): string {
-  const active = army.troops.filter((stack) => stack.count > 0);
+  const active = army.troops.filter((stack) => (stack.count ?? 1) > 0);
   if (active.length !== 1) return 'Field Army';
   switch (active[0].type) {
     case TroopType.SOLDIER:
@@ -140,7 +140,7 @@ export function createArmyMarker(army: Army, userId?: string, selected = false):
     art.stroke({ color: 0xf0d65a, width: 2, alpha: 1 });
   }
 
-  const dominant = army.troops.filter((stack) => stack.count > 0).sort((a, b) => b.count - a.count)[0]?.type ?? TroopType.SOLDIER;
+  const dominant = army.troops.filter((stack) => (stack.count ?? 1) > 0).sort((a, b) => (b.count ?? 0) - (a.count ?? 0))[0]?.type ?? TroopType.SOLDIER;
   if (dominant === TroopType.CAVALRY) {
     drawCavalry(art, -9, -2, color);
     drawCavalry(art, 8, 0, color);
@@ -161,14 +161,14 @@ export function createArmyMarker(army: Army, userId?: string, selected = false):
       drawFootTroop(art, x, y, color, light, archer);
   }
 
-  if (army.destination) {
+  if (army.marchId) {
     art.poly([23, -3, 28, 1, 23, 5]);
     art.poly([28, -3, 33, 1, 28, 5]);
     art.stroke({ color: 0xeee7b5, width: 1.5, alpha: 0.95 });
   }
 
   const count = new Text({
-    text: armySize(army).toLocaleString(),
+    text: army.compositionVisibility === ArmyCompositionVisibility.EXACT ? armySize(army).toLocaleString() : '?',
     roundPixels: true,
     style: {
       fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],

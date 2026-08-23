@@ -3,6 +3,7 @@
   import {
     token,
     armies as armiesStore,
+    armyMarches as armyMarchesStore,
     buildings as buildingsStore,
     capital,
     cities as citiesStore,
@@ -69,6 +70,7 @@
     citiesStore.set(bag?.cities ?? []);
     buildingsStore.set(bag?.buildings ?? []);
     armiesStore.set(bag?.armies ?? []);
+    armyMarchesStore.set(bag?.armyMarches ?? []);
     tilesStore.set(tileMap(bag));
     tileVisibilityStore.set(visibilityMap(snapshot.tileVisibility));
     setCapital(bag);
@@ -90,7 +92,8 @@
   const removedIds = (deleted?: EntityIdBag, hidden?: EntityIdBag) => ({
     cities: new Set([...(deleted?.cityIds ?? []), ...(hidden?.cityIds ?? [])].map((id) => id.value)),
     buildings: new Set([...(deleted?.buildingIds ?? []), ...(hidden?.buildingIds ?? [])].map((id) => id.value)),
-    armies: new Set([...(deleted?.armyIds ?? []), ...(hidden?.armyIds ?? [])].map((id) => id.value))
+    armies: new Set([...(deleted?.armyIds ?? []), ...(hidden?.armyIds ?? [])].map((id) => id.value)),
+    armyMarches: new Set([...(deleted?.armyMarchIds ?? []), ...(hidden?.armyMarchIds ?? [])].map((id) => id.value))
   });
 
   const applyDelta = (delta: StateDelta) => {
@@ -116,6 +119,13 @@
         previous.filter((army) => !removed.armies.has(army.armyId?.value ?? '')),
         bag?.armies ?? [],
         (army) => army.armyId?.value
+      )
+    );
+    armyMarchesStore.update((previous) =>
+      upsertById(
+        previous.filter((march) => !removed.armyMarches.has(march.armyMarchId?.value ?? '')),
+        bag?.armyMarches ?? [],
+        (march) => march.armyMarchId?.value
       )
     );
     if (bag?.tiles.length) {
@@ -168,6 +178,7 @@
       citiesStore.set(response.entities?.cities ?? []);
       buildingsStore.set(response.entities?.buildings ?? []);
       armiesStore.set(response.entities?.armies ?? []);
+      armyMarchesStore.set(response.entities?.armyMarches ?? []);
 
       const rawTiles = new Map<string, Tile>();
       for (const tile of response.entities?.tiles ?? []) {

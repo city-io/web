@@ -2,11 +2,11 @@
 // @generated from file cityio/entity/v1/army.proto (package cityio.entity.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Coordinates, TroopType } from "./common_pb";
 import { file_cityio_entity_v1_common } from "./common_pb";
-import type { ArmyId, UserId } from "./ids_pb";
+import type { ArmyId, ArmyMarchId, UserId } from "./ids_pb";
 import { file_cityio_entity_v1_ids } from "./ids_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/army.proto.
  */
 export const file_cityio_entity_v1_army: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2FybXkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiRgoKVHJvb3BTdGFjaxIpCgR0eXBlGAEgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSDQoFY291bnQYAiABKAUigAIKBEFybXkSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEicKBW93bmVyGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSLQoGY29vcmRzGAMgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcxIsCgZ0cm9vcHMYBCADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSNwoLZGVzdGluYXRpb24YBSABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzSACIAQFCDgoMX2Rlc3RpbmF0aW9uYgZwcm90bzM", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2FybXkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiVQoKVHJvb3BTdGFjaxIpCgR0eXBlGAEgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSEgoFY291bnQYAiABKAVIAIgBAUIICgZfY291bnQizQIKBEFybXkSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEicKBW93bmVyGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSLQoGY29vcmRzGAMgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcxIsCgZ0cm9vcHMYBCADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSSwoWY29tcG9zaXRpb25fdmlzaWJpbGl0eRgGIAEoDjIrLmNpdHlpby5lbnRpdHkudjEuQXJteUNvbXBvc2l0aW9uVmlzaWJpbGl0eRI0CghtYXJjaF9pZBgHIAEoCzIdLmNpdHlpby5lbnRpdHkudjEuQXJteU1hcmNoSWRIAIgBAUILCglfbWFyY2hfaWRKBAgFEAYqwwEKGUFybXlDb21wb3NpdGlvblZpc2liaWxpdHkSKwonQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX1VOU1BFQ0lGSUVEEAASJgoiQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX0hJRERFThABEioKJkFSTVlfQ09NUE9TSVRJT05fVklTSUJJTElUWV9UWVBFU19PTkxZEAISJQohQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX0VYQUNUEANiBnByb3RvMw", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
 
 /**
  * TroopStack is a count of one troop type within an army.
@@ -28,9 +28,9 @@ export type TroopStack = Message<"cityio.entity.v1.TroopStack"> & {
   type: TroopType;
 
   /**
-   * @generated from field: int32 count = 2;
+   * @generated from field: optional int32 count = 2;
    */
-  count: number;
+  count?: number | undefined;
 };
 
 /**
@@ -41,8 +41,8 @@ export const TroopStackSchema: GenMessage<TroopStack> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_army, 0);
 
 /**
- * Army is a mobile group of troops on the map, owned by a player. destination
- * is set while the army is marching toward a tile and unset when idle.
+ * Army is the physical state of a mobile group of troops. March orders are
+ * separate entities because their disclosure can differ from army visibility.
  *
  * @generated from message cityio.entity.v1.Army
  */
@@ -68,9 +68,14 @@ export type Army = Message<"cityio.entity.v1.Army"> & {
   troops: TroopStack[];
 
   /**
-   * @generated from field: optional cityio.entity.v1.Coordinates destination = 5;
+   * @generated from field: cityio.entity.v1.ArmyCompositionVisibility composition_visibility = 6;
    */
-  destination?: Coordinates | undefined;
+  compositionVisibility: ArmyCompositionVisibility;
+
+  /**
+   * @generated from field: optional cityio.entity.v1.ArmyMarchId march_id = 7;
+   */
+  marchId?: ArmyMarchId | undefined;
 };
 
 /**
@@ -79,4 +84,35 @@ export type Army = Message<"cityio.entity.v1.Army"> & {
  */
 export const ArmySchema: GenMessage<Army> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_army, 1);
+
+/**
+ * @generated from enum cityio.entity.v1.ArmyCompositionVisibility
+ */
+export enum ArmyCompositionVisibility {
+  /**
+   * @generated from enum value: ARMY_COMPOSITION_VISIBILITY_UNSPECIFIED = 0;
+   */
+  UNSPECIFIED = 0,
+
+  /**
+   * @generated from enum value: ARMY_COMPOSITION_VISIBILITY_HIDDEN = 1;
+   */
+  HIDDEN = 1,
+
+  /**
+   * @generated from enum value: ARMY_COMPOSITION_VISIBILITY_TYPES_ONLY = 2;
+   */
+  TYPES_ONLY = 2,
+
+  /**
+   * @generated from enum value: ARMY_COMPOSITION_VISIBILITY_EXACT = 3;
+   */
+  EXACT = 3,
+}
+
+/**
+ * Describes the enum cityio.entity.v1.ArmyCompositionVisibility.
+ */
+export const ArmyCompositionVisibilitySchema: GenEnum<ArmyCompositionVisibility> = /*@__PURE__*/
+  enumDesc(file_cityio_entity_v1_army, 0);
 

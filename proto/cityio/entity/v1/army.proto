@@ -8,15 +8,24 @@ import "cityio/entity/v1/ids.proto";
 // TroopStack is a count of one troop type within an army.
 message TroopStack {
   TroopType type = 1;
-  int32 count = 2;
+  optional int32 count = 2;
 }
 
-// Army is a mobile group of troops on the map, owned by a player. destination
-// is set while the army is marching toward a tile and unset when idle.
+enum ArmyCompositionVisibility {
+  ARMY_COMPOSITION_VISIBILITY_UNSPECIFIED = 0;
+  ARMY_COMPOSITION_VISIBILITY_HIDDEN = 1;
+  ARMY_COMPOSITION_VISIBILITY_TYPES_ONLY = 2;
+  ARMY_COMPOSITION_VISIBILITY_EXACT = 3;
+}
+
+// Army is the physical state of a mobile group of troops. March orders are
+// separate entities because their disclosure can differ from army visibility.
 message Army {
   ArmyId army_id = 1;
   UserId owner = 2;
   Coordinates coords = 3;
   repeated TroopStack troops = 4;
-  optional Coordinates destination = 5;
+  reserved 5;
+  ArmyCompositionVisibility composition_visibility = 6;
+  optional ArmyMarchId march_id = 7;
 }

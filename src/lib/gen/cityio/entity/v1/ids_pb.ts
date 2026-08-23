@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/ids.proto.
  */
 export const file_cityio_entity_v1_ids: GenFile = /*@__PURE__*/
-  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIiAKD1RyYWluaW5nT3JkZXJJZBINCgV2YWx1ZRgBIAEoCSIeCgZUaWxlSWQSCQoBeBgBIAEoBRIJCgF5GAIgASgFIvEBCgtFbnRpdHlJZEJhZxIqCgh1c2VyX2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEioKCGNpdHlfaWRzGAIgAygLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQSMgoMYnVpbGRpbmdfaWRzGAMgAygLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEioKCGFybXlfaWRzGAQgAygLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSKgoIdGlsZV9pZHMYBSADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZGIGcHJvdG8z");
+  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIhwKC0FybXlNYXJjaElkEg0KBXZhbHVlGAEgASgJIiAKD1RyYWluaW5nT3JkZXJJZBINCgV2YWx1ZRgBIAEoCSIeCgZUaWxlSWQSCQoBeBgBIAEoBRIJCgF5GAIgASgFIqgCCgtFbnRpdHlJZEJhZxIqCgh1c2VyX2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEioKCGNpdHlfaWRzGAIgAygLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQSMgoMYnVpbGRpbmdfaWRzGAMgAygLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEioKCGFybXlfaWRzGAQgAygLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSKgoIdGlsZV9pZHMYBSADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZBI1Cg5hcm15X21hcmNoX2lkcxgGIAMoCzIdLmNpdHlpby5lbnRpdHkudjEuQXJteU1hcmNoSWRiBnByb3RvMw");
 
 /**
  * @generated from message cityio.entity.v1.UserId
@@ -81,6 +81,23 @@ export const ArmyIdSchema: GenMessage<ArmyId> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_ids, 3);
 
 /**
+ * @generated from message cityio.entity.v1.ArmyMarchId
+ */
+export type ArmyMarchId = Message<"cityio.entity.v1.ArmyMarchId"> & {
+  /**
+   * @generated from field: string value = 1;
+   */
+  value: string;
+};
+
+/**
+ * Describes the message cityio.entity.v1.ArmyMarchId.
+ * Use `create(ArmyMarchIdSchema)` to create a new message.
+ */
+export const ArmyMarchIdSchema: GenMessage<ArmyMarchId> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_ids, 4);
+
+/**
  * @generated from message cityio.entity.v1.TrainingOrderId
  */
 export type TrainingOrderId = Message<"cityio.entity.v1.TrainingOrderId"> & {
@@ -95,7 +112,7 @@ export type TrainingOrderId = Message<"cityio.entity.v1.TrainingOrderId"> & {
  * Use `create(TrainingOrderIdSchema)` to create a new message.
  */
 export const TrainingOrderIdSchema: GenMessage<TrainingOrderId> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_ids, 4);
+  messageDesc(file_cityio_entity_v1_ids, 5);
 
 /**
  * @generated from message cityio.entity.v1.TileId
@@ -117,7 +134,7 @@ export type TileId = Message<"cityio.entity.v1.TileId"> & {
  * Use `create(TileIdSchema)` to create a new message.
  */
 export const TileIdSchema: GenMessage<TileId> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_ids, 5);
+  messageDesc(file_cityio_entity_v1_ids, 6);
 
 /**
  * @generated from message cityio.entity.v1.EntityIdBag
@@ -147,6 +164,11 @@ export type EntityIdBag = Message<"cityio.entity.v1.EntityIdBag"> & {
    * @generated from field: repeated cityio.entity.v1.TileId tile_ids = 5;
    */
   tileIds: TileId[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.ArmyMarchId army_march_ids = 6;
+   */
+  armyMarchIds: ArmyMarchId[];
 };
 
 /**
@@ -154,5 +176,5 @@ export type EntityIdBag = Message<"cityio.entity.v1.EntityIdBag"> & {
  * Use `create(EntityIdBagSchema)` to create a new message.
  */
 export const EntityIdBagSchema: GenMessage<EntityIdBag> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_ids, 6);
+  messageDesc(file_cityio_entity_v1_ids, 7);
 
