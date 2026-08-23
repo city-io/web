@@ -9,7 +9,7 @@ import "cityio/entity/v1/ids.proto";
 //
 // Visibility: public fields are returned to anyone whose vision covers the
 // city (population, population_cap, starving, identity, location). Private
-// fields (food_production, food_upkeep, net_food_flow) are economy intel and
+// fields (food rates, recruitable population, and tax policy/rate) are economy intel and
 // only populated when the requester is the city's owner; for non-owners they
 // arrive unset. The owner-only restriction is enforced in
 // mapping.HidePrivateCityFields, called from GetMap and GetCity.
@@ -31,15 +31,23 @@ message City {
   // when growing, negative when declining). Public — observable from outside
   // by anyone watching the city over time.
   Rate population_growth = 13;
-  // military_population is the share of population currently reserved as
-  // standing army (bounded by MilitaryPopulationFraction × population).
-  double military_population = 14;
+  // The current non-mobile defensive reserve and its configured target share
+  // of housing capacity. Garrison losses refill through future growth.
+  double garrison_population = 14;
+  int32 garrison_percent = 15;
+  // The protected 55% housing share that training can never consume.
+  double core_population = 16;
+  // Residents currently available to transfer into training orders.
+  double recruitable_population = 17;
+  // Residents currently paying tax (all residents except the garrison).
+  double taxable_population = 18;
 
   // --- Owner-only ---
-  // food_production, food_upkeep, and net_food_flow expose this city's
-  // economy. They are populated when the requester owns the city and unset
-  // otherwise. Non-owners receive nil/zero for these fields.
+  // These fields expose this city's private economy and policy. They are
+  // populated when the requester owns the city and unset otherwise.
   Rate food_production = 9;
   Rate food_upkeep = 10;
   Rate net_food_flow = 11;
+  int32 tax_rate_percent = 19;
+  Rate tax_income = 20;
 }

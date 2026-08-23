@@ -4,7 +4,7 @@
 
 import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { ArmyId, BattleId, TileId, UserId } from "./ids_pb";
+import type { ArmyId, BattleId, CityId, TileId, UserId } from "./ids_pb";
 import { file_cityio_entity_v1_ids } from "./ids_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/battle.proto.
  */
 export const file_cityio_entity_v1_battle: GenFile = /*@__PURE__*/
-  fileDesc("Ch1jaXR5aW8vZW50aXR5L3YxL2JhdHRsZS5wcm90bxIQY2l0eWlvLmVudGl0eS52MSJkCgpCYXR0bGVTaWRlEioKCHVzZXJfaWRzGAEgAygLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSKgoIYXJteV9pZHMYAiADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZCKmAgoGQmF0dGxlEi0KCWJhdHRsZV9pZBgBIAEoCzIaLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlSWQSKQoHdGlsZV9pZBgCIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuVGlsZUlkEi8KCWF0dGFja2VycxgDIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlU2lkZRIvCglkZWZlbmRlcnMYBCABKAsyHC5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVNpZGUSLgoKc3RhcnRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMAoMbmV4dF90aWNrX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcGIGcHJvdG8z", [file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
+  fileDesc("Ch1jaXR5aW8vZW50aXR5L3YxL2JhdHRsZS5wcm90bxIQY2l0eWlvLmVudGl0eS52MSLKAQoKQmF0dGxlU2lkZRIqCgh1c2VyX2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEioKCGFybXlfaWRzGAIgAygLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSNwoQZ2Fycmlzb25fY2l0eV9pZBgDIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkSACIAQESFgoOZ2Fycmlzb25fY291bnQYBCABKANCEwoRX2dhcnJpc29uX2NpdHlfaWQipgIKBkJhdHRsZRItCgliYXR0bGVfaWQYASABKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUlkEikKB3RpbGVfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZBIvCglhdHRhY2tlcnMYAyABKAsyHC5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVNpZGUSLwoJZGVmZW5kZXJzGAQgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVTaWRlEi4KCnN0YXJ0ZWRfYXQYBSABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEjAKDG5leHRfdGlja19hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBiBnByb3RvMw", [file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
 
 /**
  * @generated from message cityio.entity.v1.BattleSide
@@ -29,6 +29,16 @@ export type BattleSide = Message<"cityio.entity.v1.BattleSide"> & {
    * @generated from field: repeated cityio.entity.v1.ArmyId army_ids = 2;
    */
   armyIds: ArmyId[];
+
+  /**
+   * @generated from field: optional cityio.entity.v1.CityId garrison_city_id = 3;
+   */
+  garrisonCityId?: CityId | undefined;
+
+  /**
+   * @generated from field: int64 garrison_count = 4;
+   */
+  garrisonCount: bigint;
 };
 
 /**

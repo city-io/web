@@ -8,7 +8,7 @@ import type { Army } from '$lib/gen/cityio/entity/v1/army_pb';
 import type { ArmyOrder } from '$lib/gen/cityio/entity/v1/army_order_pb';
 import type { Battle } from '$lib/gen/cityio/entity/v1/battle_pb';
 import type { Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
-import type { BuildingConfig } from '$lib/gen/cityio/service/v1/config_pb';
+import type { BuildingConfig, PopulationPolicyConfig } from '$lib/gen/cityio/service/v1/config_pb';
 import type { TileVisibilityState } from '$lib/gen/cityio/service/v1/state_pb';
 
 const persisted = (key: string) => {
@@ -42,6 +42,7 @@ export const gameConfig = writable<{
   buildingTick?: Duration;
   cityTick?: Duration;
   buildings: BuildingConfig[];
+  populationPolicy?: PopulationPolicyConfig;
 }>({ mapSize: 75, citySize: 5, visionRadius: 5, buildings: [] });
 
 export const capital = writable<City | null>(null);

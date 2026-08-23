@@ -14,14 +14,14 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/city.proto.
  */
 export const file_cityio_entity_v1_city: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEi+AMKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGwoTbWlsaXRhcnlfcG9wdWxhdGlvbhgOIAEoARIvCg9mb29kX3Byb2R1Y3Rpb24YCSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSKwoLZm9vZF91cGtlZXAYCiABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSLQoNbmV0X2Zvb2RfZmxvdxgLIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZUIICgZfb3duZXJiBnByb3RvMw", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEirQUKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGwoTZ2Fycmlzb25fcG9wdWxhdGlvbhgOIAEoARIYChBnYXJyaXNvbl9wZXJjZW50GA8gASgFEhcKD2NvcmVfcG9wdWxhdGlvbhgQIAEoARIeChZyZWNydWl0YWJsZV9wb3B1bGF0aW9uGBEgASgBEhoKEnRheGFibGVfcG9wdWxhdGlvbhgSIAEoARIvCg9mb29kX3Byb2R1Y3Rpb24YCSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSKwoLZm9vZF91cGtlZXAYCiABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSLQoNbmV0X2Zvb2RfZmxvdxgLIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIYChB0YXhfcmF0ZV9wZXJjZW50GBMgASgFEioKCnRheF9pbmNvbWUYFCABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGVCCAoGX293bmVyYgZwcm90bzM", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
 
 /**
  * City is a settlement on the map, owned by a player or neutral.
  *
  * Visibility: public fields are returned to anyone whose vision covers the
  * city (population, population_cap, starving, identity, location). Private
- * fields (food_production, food_upkeep, net_food_flow) are economy intel and
+ * fields (food rates, recruitable population, and tax policy/rate) are economy intel and
  * only populated when the requester is the city's owner; for non-owners they
  * arrive unset. The owner-only restriction is enforced in
  * mapping.HidePrivateCityFields, called from GetMap and GetCity.
@@ -90,18 +90,43 @@ export type City = Message<"cityio.entity.v1.City"> & {
   populationGrowth?: Rate | undefined;
 
   /**
-   * military_population is the share of population currently reserved as
-   * standing army (bounded by MilitaryPopulationFraction × population).
+   * The current non-mobile defensive reserve and its configured target share
+   * of housing capacity. Garrison losses refill through future growth.
    *
-   * @generated from field: double military_population = 14;
+   * @generated from field: double garrison_population = 14;
    */
-  militaryPopulation: number;
+  garrisonPopulation: number;
+
+  /**
+   * @generated from field: int32 garrison_percent = 15;
+   */
+  garrisonPercent: number;
+
+  /**
+   * The protected 55% housing share that training can never consume.
+   *
+   * @generated from field: double core_population = 16;
+   */
+  corePopulation: number;
+
+  /**
+   * Residents currently available to transfer into training orders.
+   *
+   * @generated from field: double recruitable_population = 17;
+   */
+  recruitablePopulation: number;
+
+  /**
+   * Residents currently paying tax (all residents except the garrison).
+   *
+   * @generated from field: double taxable_population = 18;
+   */
+  taxablePopulation: number;
 
   /**
    * --- Owner-only ---
-   * food_production, food_upkeep, and net_food_flow expose this city's
-   * economy. They are populated when the requester owns the city and unset
-   * otherwise. Non-owners receive nil/zero for these fields.
+   * These fields expose this city's private economy and policy. They are
+   * populated when the requester owns the city and unset otherwise.
    *
    * @generated from field: cityio.entity.v1.Rate food_production = 9;
    */
@@ -116,6 +141,16 @@ export type City = Message<"cityio.entity.v1.City"> & {
    * @generated from field: cityio.entity.v1.Rate net_food_flow = 11;
    */
   netFoodFlow?: Rate | undefined;
+
+  /**
+   * @generated from field: int32 tax_rate_percent = 19;
+   */
+  taxRatePercent: number;
+
+  /**
+   * @generated from field: cityio.entity.v1.Rate tax_income = 20;
+   */
+  taxIncome?: Rate | undefined;
 };
 
 /**

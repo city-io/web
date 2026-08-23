@@ -21,7 +21,7 @@
   import type { BuildingConfig, BuildingLevelStats, ResourceRate } from '$lib/gen/cityio/service/v1/config_pb';
   import type { Duration, Timestamp } from '@bufbuild/protobuf/wkt';
   import { Code, ConnectError } from '@connectrpc/connect';
-  import { armyClient, buildingClient } from '$lib/api/client';
+  import { armyClient, buildingClient, cityClient } from '$lib/api/client';
 
   // ── constants ──────────────────────────────────────────
   const MIN_ZOOM = 0.4;
@@ -105,6 +105,10 @@
   let trainingOverviewLoading = false;
   let lastTrainingOverviewPoll = 0;
   let trainingNoticeTimer: ReturnType<typeof setTimeout> | null = null;
+  let policyDraftCityId: string | null = null;
+  let garrisonDraft = 10;
+  let taxDraft = 10;
+  let policySaving = false;
 
   // Resource details stay compact; entity management lives in the right rail.
   let ratesOpen = false;
@@ -212,13 +216,12 @@
   const bName = (t: BuildingType) => BN[t] ?? 'Unknown';
   const cName = (t: CityType) => (t === CityType.CITY ? 'City' : t === CityType.TOWN ? 'Town' : 'Settlement');
   const barracksCapacity = (building: Building) => Math.max(0, building.level * 5);
-  const MILITARY_POPULATION_FRACTION = 0.35;
   const residents = (city: City) => Math.max(0, Math.floor(city.population));
   const housingCapacity = (city: City) => Math.max(0, Math.floor(city.populationCap));
-  const mobilizedPopulation = (city: City) => Math.max(0, Math.floor(city.militaryPopulation));
-  const civilianPopulation = (city: City) => Math.max(0, Math.floor(city.population - city.militaryPopulation));
-  const militaryPopulationLimit = (city: City) => Math.max(0, Math.floor(city.population * MILITARY_POPULATION_FRACTION));
-  const trainablePopulation = (city?: City) => (city ? Math.max(0, militaryPopulationLimit(city) - mobilizedPopulation(city)) : 0);
+  const garrisonPopulation = (city: City) => Math.max(0, Math.floor(city.garrisonPopulation));
+  const corePopulation = (city: City) => Math.max(0, Math.ceil(city.corePopulation));
+  const taxablePopulation = (city: City) => Math.max(0, Math.floor(city.taxablePopulation));
+  const trainablePopulation = (city?: City) => (city ? Math.max(0, Math.floor(city.recruitablePopulation)) : 0);
   const troopPopulationCost = (type: TroopType, count: number) => (TROOP_STATS[type as keyof typeof TROOP_STATS]?.population ?? 0) * count;
   const queuePopulationCost = (orders: TrainingOrder[]) => orders.reduce((total, order) => total + troopPopulationCost(order.type, order.count), 0);
   const armyPersonnel = (army: Army) => army.troops.reduce((total, stack) => total + troopPopulationCost(stack.type, stack.count ?? 0), 0);
@@ -270,6 +273,12 @@
   $: queuedTrainingCount = [...trainingQueues.values()].reduce((total, queue) => total + currentTrainingQueue(queue).length, 0);
   $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
   $: selectedTrainingOrders = selectedBarracksId ? currentTrainingQueue(trainingQueues.get(selectedBarracksId) ?? []) : [];
+  $: selectedPolicyCityId = sel?.city?.owner?.value === $userId ? (sel?.city?.cityId?.value ?? null) : null;
+  $: if (selectedPolicyCityId !== policyDraftCityId) {
+    policyDraftCityId = selectedPolicyCityId;
+    garrisonDraft = sel?.city?.garrisonPercent ?? $gameConfig.populationPolicy?.defaultGarrisonPercent ?? 10;
+    taxDraft = sel?.city?.taxRatePercent ?? $gameConfig.populationPolicy?.defaultTaxRatePercent ?? 10;
+  }
   $: if (ownedBarracks.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
     loadTrainingOverview();
   }
@@ -307,7 +316,7 @@
   // breakdown stays exactly consistent with the per-city numbers. Gold has no
   // upkeep (derived from building production); food nets production vs upkeep.
   $: ownedCities = $cities.filter((c) => c.owner?.value === $userId);
-  $: goldPerHour = ownedCities.reduce((s, c) => s + (prodByCity.get(c.cityId?.value ?? '')?.gold ?? 0), 0);
+  $: goldPerHour = ownedCities.reduce((s, c) => s + (prodByCity.get(c.cityId?.value ?? '')?.gold ?? 0) + ratePerHour(c.taxIncome), 0);
   $: foodProdPerHour = ownedCities.reduce((s, c) => s + ratePerHour(c.foodProduction), 0);
   $: foodUpkeepPerHour = ownedCities.reduce((s, c) => s + ratePerHour(c.foodUpkeep), 0);
   $: netFoodPerHour = foodProdPerHour - foodUpkeepPerHour;
@@ -593,6 +602,31 @@
       err = errorText(e, msg);
     } finally {
       busy = false;
+    }
+  };
+
+  const saveCityPolicy = async () => {
+    const city = sel?.city;
+    const cityId = city?.cityId?.value;
+    if (!city || !cityId || city.owner?.value !== $userId) return;
+    policySaving = true;
+    err = '';
+    notice = '';
+    try {
+      const response = await cityClient.updateCityPolicy({
+        cityId: city.cityId,
+        garrisonPercent: garrisonDraft,
+        taxRatePercent: taxDraft
+      });
+      if (response.city) {
+        cities.update((all) => all.map((candidate) => (candidate.cityId?.value === cityId ? response.city! : candidate)));
+        if (sel) sel = { ...sel, city: response.city };
+      }
+      notice = 'City policy updated';
+    } catch (e: unknown) {
+      err = errorText(e, 'Policy update failed');
+    } finally {
+      policySaving = false;
     }
   };
 
@@ -2009,10 +2043,10 @@
                 <span class="text-[10px] tabular-nums text-[#89928b]">{residents(city).toLocaleString()} residents</span>
               </div>
               <div class="mt-2 grid grid-cols-2 gap-x-2 gap-y-1 border-t border-white/[0.06] pt-2 text-[10px] tabular-nums">
-                <span class="text-amber-200/80">{Math.round(prod.gold).toLocaleString()} gold/hr</span>
+                <span class="text-amber-200/80">{Math.round(prod.gold + ratePerHour(city.taxIncome)).toLocaleString()} gold/hr</span>
                 <span class={foodNet < 0 ? 'text-red-400' : 'text-emerald-300/80'}>{fmtPerHour(foodNet)} food/hr</span>
                 <span class="text-blue-200/80">{trainablePopulation(city).toLocaleString()} recruitable</span>
-                <span class="text-[#929c96]">{mobilizedPopulation(city).toLocaleString()} mobilized</span>
+                <span class="text-[#929c96]">{garrisonPopulation(city).toLocaleString()} garrison</span>
               </div>
             </button>
           {/each}
@@ -2249,7 +2283,11 @@
               {#if selectedBattle}
                 <div class="mt-2.5 flex items-center justify-between border-t border-red-300/15 pt-2.5 text-[11px]">
                   <span class="font-semibold uppercase tracking-[0.12em] text-red-300">Battle in progress</span>
-                  <span class="text-[#aab2ac]">{selectedBattle.attackers?.armyIds.length ?? 0} attacking · {selectedBattle.defenders?.armyIds.length ?? 0} defending</span>
+                  <span class="text-[#aab2ac]">
+                    {selectedBattle.attackers?.armyIds.length ?? 0} attacking · {selectedBattle.defenders?.armyIds.length ?? 0} defending{selectedBattle.defenders?.garrisonCount
+                      ? ` · ${selectedBattle.defenders.garrisonCount} garrison`
+                      : ''}
+                  </span>
                 </div>
               {/if}
               <div class="mt-2.5 border-t border-[#465a5f] pt-2.5">
@@ -2347,11 +2385,10 @@
           {#if !selectedArmy && sel.city}
             {@const cityResidents = residents(sel.city)}
             {@const cityHousing = housingCapacity(sel.city)}
-            {@const cityCivilians = civilianPopulation(sel.city)}
-            {@const cityMobilized = mobilizedPopulation(sel.city)}
-            {@const cityMilitaryLimit = militaryPopulationLimit(sel.city)}
+            {@const cityGarrison = garrisonPopulation(sel.city)}
+            {@const cityCore = corePopulation(sel.city)}
+            {@const cityTaxable = taxablePopulation(sel.city)}
             {@const cityRecruitable = trainablePopulation(sel.city)}
-            {@const militaryCapacityUsed = cityMilitaryLimit > 0 ? Math.min(100, (cityMobilized / cityMilitaryLimit) * 100) : 0}
             <section class="inspector-section">
               <div class="mb-2 flex items-center justify-between gap-3">
                 <span class="inspector-label">City ledger</span>
@@ -2364,7 +2401,7 @@
                 {/if}
               </div>
 
-              <div class="grid grid-cols-3 gap-x-4 gap-y-2">
+              <div class="grid grid-cols-4 gap-x-3 gap-y-2">
                 <div>
                   <div class="inspector-stat-label">Residents</div>
                   <div class="inspector-stat-value">{cityResidents.toLocaleString()}</div>
@@ -2372,6 +2409,10 @@
                 <div>
                   <div class="inspector-stat-label">Housing</div>
                   <div class="inspector-stat-value">{cityHousing.toLocaleString()}</div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Garrison</div>
+                  <div class="inspector-stat-value text-blue-200">{cityGarrison.toLocaleString()}</div>
                 </div>
                 <div>
                   <div class="inspector-stat-label">Growth</div>
@@ -2388,34 +2429,100 @@
 
               <!-- Food economy is owner-only intel; non-owners receive these unset -->
               {#if sel.city.owner?.value === $userId}
+                {@const policy = $gameConfig.populationPolicy}
+                {@const maxGarrison = policy?.maxGarrisonPercent ?? 30}
+                {@const maxTax = policy?.maxTaxRatePercent ?? 100}
+                {@const previewTargetGarrison = (cityHousing * garrisonDraft) / 100}
+                {@const previewGarrison = Math.min(sel.city.garrisonPopulation, previewTargetGarrison)}
+                {@const previewRecruitable = Math.max(0, Math.floor(cityResidents - cityCore - previewTargetGarrison))}
+                {@const previewTaxable = Math.max(0, Math.floor(cityResidents - previewGarrison))}
+                {@const taxGoldPerResident = ratePerHour(policy?.taxGoldPerPopulation)}
+                {@const previewTaxIncome = Math.round((previewTaxable * taxGoldPerResident * taxDraft) / 100)}
+                {@const policyDirty = garrisonDraft !== sel.city.garrisonPercent || taxDraft !== sel.city.taxRatePercent}
                 <div class="mt-2.5 border-t border-[#465a5f] pt-2">
                   <div class="mb-1.5 flex items-center justify-between gap-3">
                     <span class="inspector-label">Population use</span>
-                    <span class="text-[9px] tabular-nums text-[#758486]">35% military limit · {cityMilitaryLimit.toLocaleString()} max</span>
+                    <span class="text-[9px] tabular-nums text-[#758486]">55% core protected</span>
                   </div>
                   <div class="grid grid-cols-3 gap-x-4">
                     <div>
-                      <div class="inspector-stat-label">Civilian</div>
-                      <div class="inspector-stat-value">{cityCivilians.toLocaleString()}</div>
+                      <div class="inspector-stat-label">Core residents</div>
+                      <div class="inspector-stat-value">{cityCore.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div class="inspector-stat-label">Mobilized</div>
-                      <div class="inspector-stat-value text-blue-200">{cityMobilized.toLocaleString()}</div>
+                      <div class="inspector-stat-label">Taxpayers</div>
+                      <div class="inspector-stat-value text-amber-100">{cityTaxable.toLocaleString()}</div>
                     </div>
                     <div>
-                      <div class="inspector-stat-label">Recruitable now</div>
+                      <div class="inspector-stat-label">Recruitable</div>
                       <div class="inspector-stat-value text-emerald-200">{cityRecruitable.toLocaleString()}</div>
                     </div>
                   </div>
-                  <div class="mt-2 h-1 overflow-hidden bg-white/[0.07]">
-                    <div class="h-full bg-blue-300/70 transition-[width] duration-300" style={`width: ${militaryCapacityUsed}%`}></div>
+                  <div class="mt-2 flex h-1.5 overflow-hidden bg-white/[0.06]">
+                    <div class="h-full bg-[#7f8e77]" style={`width: ${cityHousing > 0 ? Math.min(100, (cityCore / cityHousing) * 100) : 0}%`}></div>
+                    <div class="h-full bg-blue-300/75" style={`width: ${cityHousing > 0 ? Math.min(100, (cityGarrison / cityHousing) * 100) : 0}%`}></div>
+                    <div class="h-full bg-emerald-300/70" style={`width: ${cityHousing > 0 ? Math.min(100, (cityRecruitable / cityHousing) * 100) : 0}%`}></div>
                   </div>
-                  <div class="mt-1 text-[9px] leading-relaxed text-[#7f8e8f]">
-                    Training moves residents from civilian to mobilized immediately. Mobilized includes queued recruits and deployed troops; total residents do not decrease.
+                  <div class="mt-1.5 flex flex-wrap gap-x-3 gap-y-1 text-[9px] text-[#7f8e8f]">
+                    <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#7f8e77]"></i>Protected</span>
+                    <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-blue-300/75"></i>Garrison</span>
+                    <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-emerald-300/70"></i>Recruitable now</span>
+                  </div>
+                </div>
+                <div class="mt-2.5 border border-[#465a5f] bg-black/[0.08]">
+                  <div class="flex items-center justify-between border-b border-white/[0.07] px-2.5 py-2">
+                    <div>
+                      <div class="inspector-label">City policy</div>
+                      <div class="mt-0.5 text-[9px] text-[#768487]">Balance defense, revenue, and growth</div>
+                    </div>
+                    <button
+                      class="border border-blue-200/20 bg-blue-200/[0.08] px-2.5 py-1 text-[9px] font-semibold text-blue-100 transition-colors hover:bg-blue-200/[0.14] disabled:opacity-35"
+                      disabled={!policyDirty || policySaving}
+                      on:click={saveCityPolicy}>{policySaving ? 'Saving…' : policyDirty ? 'Apply policy' : 'Saved'}</button
+                    >
+                  </div>
+                  <div class="space-y-3 px-2.5 py-2.5">
+                    <label class="block">
+                      <span class="flex items-center justify-between gap-3 text-[10px]">
+                        <span class="font-semibold text-[#bdc8c7]">Garrison target</span>
+                        <strong class="tabular-nums text-blue-200">{garrisonDraft}% · {Math.floor(previewGarrison).toLocaleString()} present</strong>
+                      </span>
+                      <input class="mt-1.5 block w-full accent-[#78a9b5]" type="range" min="0" max={maxGarrison} step="1" bind:value={garrisonDraft} />
+                      <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]">Permanent local defenders. Higher targets fill from future growth; lowering releases excess.</span>
+                    </label>
+                    <label class="block border-t border-white/[0.06] pt-2.5">
+                      <span class="flex items-center justify-between gap-3 text-[10px]">
+                        <span class="font-semibold text-[#bdc8c7]">Tax rate</span>
+                        <strong class="tabular-nums text-amber-200">{taxDraft}%</strong>
+                      </span>
+                      <input class="mt-1.5 block w-full accent-[#d5b95b]" type="range" min="0" max={maxTax} step="1" bind:value={taxDraft} />
+                      <span class="mt-1 block text-[9px] leading-relaxed text-[#748285]">Higher tax earns more gold and slows positive growth by the same percentage.</span>
+                    </label>
+                    <div class="grid grid-cols-3 gap-2 border-t border-white/[0.06] pt-2.5 text-center">
+                      <div>
+                        <span class="block text-[8px] uppercase tracking-wide text-[#687679]">Recruitable</span><strong class="mt-0.5 block text-[11px] tabular-nums text-emerald-200"
+                          >{previewRecruitable.toLocaleString()}</strong
+                        >
+                      </div>
+                      <div>
+                        <span class="block text-[8px] uppercase tracking-wide text-[#687679]">Taxpayers</span><strong class="mt-0.5 block text-[11px] tabular-nums text-[#d8d8c7]"
+                          >{previewTaxable.toLocaleString()}</strong
+                        >
+                      </div>
+                      <div>
+                        <span class="block text-[8px] uppercase tracking-wide text-[#687679]">Tax yield</span><strong class="mt-0.5 block text-[11px] tabular-nums text-amber-200"
+                          >+{previewTaxIncome.toLocaleString()}/hr</strong
+                        >
+                      </div>
+                    </div>
                   </div>
                 </div>
                 {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
                 <div class="mt-2.5 border-t border-[#465a5f] pt-2">
+                  <div class="inspector-row">
+                    <span>Tax revenue</span>
+                    <span class="text-amber-200">+{Math.round(ratePerHour(sel.city.taxIncome)).toLocaleString()}/hr</span>
+                  </div>
                   <div class="inspector-row">
                     <span>Harvest</span>
                     <span class="text-emerald-300">{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
@@ -2614,7 +2721,7 @@
                     {/if}
                     <div class="mt-1 text-[9px] tabular-nums text-blue-200/70">
                       {queuedPopulation.toLocaleString()}
-                      {queuedPopulation === 1 ? 'resident' : 'residents'} already mobilized in this queue
+                      {queuedPopulation === 1 ? 'resident' : 'residents'} transferred into this queue
                     </div>
                   </div>
                 {/if}
@@ -2664,7 +2771,7 @@
                   </div>
                 </div>
                 <div class="mt-2 border border-blue-200/10 bg-blue-200/[0.035] px-2 py-1.5 text-[9px] leading-relaxed text-[#849698]">
-                  Residents are mobilized as soon as the order is queued. They remain part of the city population, but no longer count as civilians.
+                  Recruits leave the city population as soon as the order is queued. Population growth can replenish the available pool.
                 </div>
                 <div class="mt-2 border-t border-[#465a5f] pt-1.5">
                   <div class="inspector-row">
@@ -2672,7 +2779,7 @@
                     <span class={BigInt(trainingCost) <= $gold ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
                   </div>
                   <div class="inspector-row">
-                    <span>Residents mobilized</span>
+                    <span>Residents recruited</span>
                     <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}>{trainingPopulation.toLocaleString()}</span>
                   </div>
                   <div class="inspector-row">

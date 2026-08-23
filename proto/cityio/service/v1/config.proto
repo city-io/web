@@ -32,6 +32,18 @@ message BuildingConfig {
 
 message GetGameConfigRequest {}
 
+message PopulationPolicyConfig {
+  int32 core_civilian_percent = 1;
+  int32 default_garrison_percent = 2;
+  int32 neutral_garrison_percent = 3;
+  int32 max_garrison_percent = 4;
+  int32 max_military_percent = 5;
+  int32 default_tax_rate_percent = 6;
+  int32 max_tax_rate_percent = 7;
+  // Gold per taxable resident at a 100% tax rate.
+  cityio.entity.v1.Rate tax_gold_per_population = 8;
+}
+
 message GetGameConfigResponse {
   int32 map_size = 1;
   int32 city_size = 2;
@@ -39,6 +51,7 @@ message GetGameConfigResponse {
   google.protobuf.Duration building_tick = 4;
   repeated BuildingConfig buildings = 5;
   google.protobuf.Duration city_tick = 6;
+  PopulationPolicyConfig population_policy = 7;
 }
 
 service ConfigService {
