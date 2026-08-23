@@ -1015,15 +1015,12 @@
   </div>
 
   <!-- Selection details live in a bottom command dock instead of a map-obscuring sidebar. -->
-  <div class="pointer-events-none absolute bottom-3 left-3 right-3 z-10 ml-auto max-w-[1000px] sm:bottom-4 sm:left-[232px] sm:right-4">
+  <div class="pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[1000px] -translate-x-1/2 sm:bottom-4">
     {#if sel}
-      <div class="inspector-panel pointer-events-auto max-h-[60vh] overflow-y-auto sm:max-h-64" transition:fly={{ y: 16, duration: 180 }}>
-        <div class="inspector-header flex items-start justify-between gap-4">
+      <div class="inspector-panel pointer-events-auto" transition:fly={{ y: 16, duration: 180 }}>
+        <div class="inspector-header flex items-center justify-between gap-4">
           <div class="min-w-0">
-            <div class="inspector-label mb-1">
-              {#if sel.building}Structure{:else if sel.armies?.length}Forces{:else if sel.city}{cName(sel.city.type)}{:else}Terrain{/if}
-            </div>
-            <h2 class="truncate text-lg font-semibold text-[#f0f2e8]">
+            <h2 class="truncate text-base font-semibold text-[#f0f2e8]">
               {#if sel.building}
                 {bName(sel.building.type)}
               {:else if sel.armies?.length}
@@ -1034,11 +1031,14 @@
                 Open ground
               {/if}
             </h2>
-            <div class="mt-1 text-[11px] tabular-nums text-[#85897c]">Tile {sel.x}, {sel.y}</div>
+            <div class="mt-0.5 text-[11px] text-[#b0b2a5]">
+              {#if sel.city}{sel.city.name} · {cName(sel.city.type)} ·
+              {/if}Tile {sel.x}, {sel.y}
+            </div>
           </div>
           <button
             aria-label="Close"
-            class="flex h-7 w-7 shrink-0 items-center justify-center border border-white/[0.07] text-[#707a72] transition-colors duration-150 hover:border-white/[0.14] hover:text-white"
+            class="flex h-7 w-7 shrink-0 items-center justify-center border border-white/[0.12] text-[#c6c8bb] transition-colors duration-150 hover:border-white/30 hover:text-white"
             on:click={deselect}
           >
             <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
@@ -1048,254 +1048,252 @@
         </div>
 
         {#if err}
-          <div class="inspector-error mx-5 mt-3 border-l-2 border-red-400 bg-red-500/[0.08] px-3 py-2 text-[11px] text-red-400">{err}</div>
+          <div class="border-b border-red-400/30 bg-red-500/[0.08] px-4 py-2 text-xs text-red-300">{err}</div>
         {/if}
 
-        {#if sel.city}
-          <section class="inspector-section">
-            <div class="mb-3 flex items-center justify-between gap-3">
-              <span class="inspector-label">Settlement</span>
-              {#if sel.city.owner?.value === $userId}
-                <span class="flex items-center gap-1.5 text-xs font-medium text-blue-300"><span class="h-1.5 w-1.5 bg-blue-400"></span>Yours</span>
-              {:else if sel.city.owner}
-                <span class="flex items-center gap-1.5 text-xs font-medium text-red-300"><span class="h-1.5 w-1.5 bg-red-400"></span>Foreign</span>
-              {:else}
-                <span class="flex items-center gap-1.5 text-xs font-medium text-[#8c958e]"><span class="h-1.5 w-1.5 bg-[#788179]"></span>Neutral</span>
-              {/if}
-            </div>
+        <div class="inspector-body">
+          {#if sel.city}
+            <section class="inspector-section">
+              <div class="mb-3 flex items-center justify-between gap-3">
+                <span class="inspector-label">City resources</span>
+                {#if sel.city.owner?.value === $userId}
+                  <span class="flex items-center gap-1.5 text-xs font-medium text-blue-300"><span class="h-1.5 w-1.5 bg-blue-400"></span>Yours</span>
+                {:else if sel.city.owner}
+                  <span class="flex items-center gap-1.5 text-xs font-medium text-red-300"><span class="h-1.5 w-1.5 bg-red-400"></span>Foreign</span>
+                {:else}
+                  <span class="flex items-center gap-1.5 text-xs font-medium text-[#8c958e]"><span class="h-1.5 w-1.5 bg-[#788179]"></span>Neutral</span>
+                {/if}
+              </div>
 
-            {#if sel.building || sel.armies?.length}
-              <div class="mb-3 truncate text-sm font-medium text-[#d6dbd7]">{sel.city.name}</div>
-            {/if}
-
-            <div class="grid grid-cols-2 gap-x-5 gap-y-3">
-              <div>
-                <div class="inspector-stat-label">Population</div>
-                <div class="inspector-stat-value">{sel.city.population.toFixed(0)} <span class="text-[#636d65]">/ {sel.city.populationCap.toFixed(0)}</span></div>
-              </div>
-              <div>
-                <div class="inspector-stat-label">Military</div>
-                <div class="inspector-stat-value">{sel.city.militaryPopulation.toFixed(0)}</div>
-              </div>
-              <div>
-                <div class="inspector-stat-label">Growth</div>
-                <div class="mt-1 text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</div>
-              </div>
-              {#if sel.city.starving}
+              <div class="grid grid-cols-2 gap-x-5 gap-y-3">
                 <div>
-                  <div class="inspector-stat-label">Status</div>
-                  <div class="mt-1 flex items-center gap-1.5 text-xs font-medium text-red-400"><span class="h-1.5 w-1.5 animate-pulse bg-red-400"></span>Starving</div>
+                  <div class="inspector-stat-label">Population</div>
+                  <div class="inspector-stat-value">{sel.city.population.toFixed(0)} <span class="text-[#636d65]">/ {sel.city.populationCap.toFixed(0)}</span></div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Military</div>
+                  <div class="inspector-stat-value">{sel.city.militaryPopulation.toFixed(0)}</div>
+                </div>
+                <div>
+                  <div class="inspector-stat-label">Growth</div>
+                  <div class="mt-1 text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</div>
+                </div>
+                {#if sel.city.starving}
+                  <div>
+                    <div class="inspector-stat-label">Status</div>
+                    <div class="mt-1 flex items-center gap-1.5 text-xs font-medium text-red-400"><span class="h-1.5 w-1.5 animate-pulse bg-red-400"></span>Starving</div>
+                  </div>
+                {/if}
+              </div>
+
+              <!-- Food economy is owner-only intel; non-owners receive these unset -->
+              {#if sel.city.owner?.value === $userId}
+                {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
+                <div class="mt-4 border-t border-white/[0.07] pt-3">
+                  <div class="inspector-row">
+                    <span>Food produced</span>
+                    <span class="text-emerald-300">{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
+                  </div>
+                  <div class="inspector-row">
+                    <span>Food upkeep</span>
+                    <span class="text-red-300/80">{fmtPerHour(-ratePerHour(sel.city.foodUpkeep))}/hr</span>
+                  </div>
+                  <div class="inspector-row mt-1 border-t border-white/[0.05] pt-2">
+                    <span>{netFlow >= 0 ? 'Net surplus' : 'Pool draw'}</span>
+                    <span class="font-semibold {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerHour(netFlow)}/hr</span>
+                  </div>
                 </div>
               {/if}
-            </div>
-
-            <!-- Food economy is owner-only intel; non-owners receive these unset -->
-            {#if sel.city.owner?.value === $userId}
-              {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
-              <div class="mt-4 border-t border-white/[0.07] pt-3">
-                <div class="inspector-row">
-                  <span>Food produced</span>
-                  <span class="text-emerald-300">{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
-                </div>
-                <div class="inspector-row">
-                  <span>Food upkeep</span>
-                  <span class="text-red-300/80">{fmtPerHour(-ratePerHour(sel.city.foodUpkeep))}/hr</span>
-                </div>
-                <div class="inspector-row mt-1 border-t border-white/[0.05] pt-2">
-                  <span>{netFlow >= 0 ? 'Net surplus' : 'Pool draw'}</span>
-                  <span class="font-semibold {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerHour(netFlow)}/hr</span>
-                </div>
-              </div>
-            {/if}
-          </section>
-        {/if}
-
-        {#if sel.armies?.length}
-          <section class="inspector-section">
-            <div class="mb-3 flex items-center justify-between">
-              <span class="inspector-label">Forces on tile</span>
-              <span class="text-xs font-medium tabular-nums text-[#9aa39c]">{sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops</span>
-            </div>
-            <div class="space-y-3">
-              {#each sel.armies as army, index}
-                <div class="border-l-2 pl-3 {army.owner?.value === $userId ? 'border-blue-400/70' : 'border-red-400/70'} {index > 0 ? 'pt-0.5' : ''}">
-                  <div class="flex items-center justify-between gap-2 text-xs">
-                    <span class={army.owner?.value === $userId ? 'font-semibold text-blue-300' : 'font-semibold text-red-300'}>{army.owner?.value === $userId ? 'Your army' : 'Foreign army'}</span>
-                    <span class="text-[#778179]">{army.destination ? `To ${army.destination.x}, ${army.destination.y}` : 'Holding'}</span>
-                  </div>
-                  <p class="mt-1.5 text-xs leading-relaxed text-[#b3bab5]">
-                    {army.troops
-                      .filter((stack) => stack.count > 0)
-                      .map((stack) => `${stack.count} ${troopName(stack.type)}`)
-                      .join(', ') || 'No troops'}
-                  </p>
-                </div>
-              {/each}
-            </div>
-          </section>
-        {/if}
-
-        <!-- Building information -->
-        {#if sel.building}
-          {@const isBuilding = sel.building.level === 0}
-          {@const stats = isBuilding ? null : getLevelStats(sel.building.type, sel.building.level)}
-          {@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
-          <section class="inspector-section">
-            <div class="flex items-center justify-between">
-              <span class="inspector-label">Structure</span>
-              {#if !isBuilding}
-                <span class="text-xs font-semibold tabular-nums text-amber-200">Level {sel.building.level}</span>
-              {/if}
-            </div>
-            {#if sel.building.constructionStart && sel.building.constructionEnd}
-              {@const startMs = Number(sel.building.constructionStart.seconds) * 1000}
-              {@const endMs = Number(sel.building.constructionEnd.seconds) * 1000}
-              {@const totalMs = endMs - startMs}
-              {@const elapsedMs = now - startMs}
-              {@const remainMs = endMs - now}
-              {@const pct = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100))}
-              <div class="mt-3 space-y-2">
-                <div class="flex items-center justify-between text-[10px]">
-                  <span class="font-medium text-amber-300/80">
-                    {isBuilding ? 'Building' : `Upgrading to Lv ${sel.building.targetLevel}`}
-                  </span>
-                  <span class="font-medium tabular-nums text-amber-200">{remainMs > 0 ? fmtCountdown(remainMs) : 'Done'}</span>
-                </div>
-                <div class="h-1 overflow-hidden bg-white/[0.07]">
-                  <div class="h-full transition-all duration-1000 ease-linear {remainMs <= 0 ? 'bg-emerald-400' : 'bg-amber-300'}" style="width: {pct.toFixed(1)}%"></div>
-                </div>
-              </div>
-            {/if}
-            {#if stats}
-              <div class="mt-3 border-t border-white/[0.07] pt-2">
-                {#if stats.production.length > 0}
-                  <div class="inspector-row">
-                    <span>Production</span>
-                    <span class="text-emerald-300">{stats.production.map(fmtProd).join(', ')}</span>
-                  </div>
-                {/if}
-                {#if stats.population > 0}
-                  <div class="inspector-row">
-                    <span>Population capacity</span>
-                    <span class="text-blue-300">+{stats.population}</span>
-                  </div>
-                {/if}
-              </div>
-            {/if}
-            {#if nextStats && sel.city?.owner?.value === $userId}
-              <div class="mt-3 border-t border-white/[0.07] pt-3">
-                <div class="inspector-label mb-1">Next level</div>
-                <div class="inspector-row">
-                  <span>Cost</span>
-                  <span class="text-amber-200">{nextStats.cost.map(fmtRes).join(', ')}</span>
-                </div>
-                <div class="inspector-row">
-                  <span>Build time</span>
-                  <span>{fmtTime(nextStats.constructionTime)}</span>
-                </div>
-                {#if nextStats.production.length > 0}
-                  <div class="inspector-row">
-                    <span>Production</span>
-                    <span>
-                      {#if stats}
-                        <span class="text-[#646e66]">{stats.production.map(fmtProdNum).join(', ')}</span>
-                        <span class="mx-1 text-[#555e57]">&rarr;</span>
-                      {/if}
-                      <span class="text-emerald-300">{nextStats.production.map(fmtProdNum).join(', ')}</span>
-                      <span class="text-[#717b73]">{prodUnit(nextStats.production)}</span>
-                    </span>
-                  </div>
-                {/if}
-                {#if nextStats.population > 0}
-                  <div class="inspector-row">
-                    <span>Population capacity</span>
-                    <span>
-                      {#if stats}
-                        <span class="text-[#646e66]">+{stats.population}</span>
-                        <span class="mx-1 text-[#555e57]">&rarr;</span>
-                      {/if}
-                      <span class="text-blue-300">+{nextStats.population}</span>
-                    </span>
-                  </div>
-                {/if}
-              </div>
-            {/if}
-          </section>
-          {#if sel.city?.owner?.value === $userId}
-            {@const upgrading = !!(sel.building.constructionStart && sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
-            <div class="inspector-actions flex gap-2">
-              <button
-                class="game-action game-action-primary flex-1"
-                disabled={busy || upgrading}
-                on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}>{busy ? '...' : 'Upgrade'}</button
-              >
-              <button
-                class="game-action game-action-danger flex-1"
-                disabled={busy || upgrading}
-                on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}>{busy ? '...' : 'Demolish'}</button
-              >
-            </div>
+            </section>
           {/if}
-        {:else if sel.city?.owner?.value === $userId}
-          {#if showBuild}
-            {@const buildStats = getLevelStats(buildType, 1)}
+
+          {#if sel.armies?.length}
             <section class="inspector-section">
               <div class="mb-3 flex items-center justify-between">
-                <span class="inspector-label">Choose structure</span>
-                <button class="text-xs font-medium text-[#9ba097] transition-colors hover:text-white" on:click={() => (showBuild = false)}>Cancel</button>
+                <span class="inspector-label">Units present</span>
+                <span class="text-xs font-medium tabular-nums text-[#9aa39c]">{sel.armies.reduce((sum, army) => sum + armySize(army), 0)} troops</span>
               </div>
-              <div class="grid grid-cols-2 border-l border-t border-white/[0.07]">
-                {#each placeTypes as bt}
-                  <button
-                    class="border-b border-r border-white/[0.07] px-2 py-2.5 text-xs font-medium transition-colors
-										{buildType === bt ? 'bg-emerald-300/10 text-emerald-200' : 'text-[#8f9891] hover:bg-white/[0.04] hover:text-white'}"
-                    on:click={() => (buildType = bt)}>{bName(bt)}</button
-                  >
+              <div class="space-y-3">
+                {#each sel.armies as army, index}
+                  <div class="border-l-2 pl-3 {army.owner?.value === $userId ? 'border-blue-400/70' : 'border-red-400/70'} {index > 0 ? 'pt-0.5' : ''}">
+                    <div class="flex items-center justify-between gap-2 text-xs">
+                      <span class={army.owner?.value === $userId ? 'font-semibold text-blue-300' : 'font-semibold text-red-300'}>{army.owner?.value === $userId ? 'Your army' : 'Foreign army'}</span>
+                      <span class="text-[#778179]">{army.destination ? `To ${army.destination.x}, ${army.destination.y}` : 'Holding'}</span>
+                    </div>
+                    <p class="mt-1.5 text-xs leading-relaxed text-[#b3bab5]">
+                      {army.troops
+                        .filter((stack) => stack.count > 0)
+                        .map((stack) => `${stack.count} ${troopName(stack.type)}`)
+                        .join(', ') || 'No troops'}
+                    </p>
+                  </div>
                 {/each}
               </div>
-              {#if buildStats}
-                <div class="mt-4 border-t border-white/[0.07] pt-2">
+            </section>
+          {/if}
+
+          <!-- Building information -->
+          {#if sel.building}
+            {@const isBuilding = sel.building.level === 0}
+            {@const stats = isBuilding ? null : getLevelStats(sel.building.type, sel.building.level)}
+            {@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
+            <section class="inspector-section">
+              <div class="flex items-center justify-between">
+                <span class="inspector-label">Improvement</span>
+                {#if !isBuilding}
+                  <span class="text-xs font-semibold tabular-nums text-amber-200">Level {sel.building.level}</span>
+                {/if}
+              </div>
+              {#if sel.building.constructionStart && sel.building.constructionEnd}
+                {@const startMs = Number(sel.building.constructionStart.seconds) * 1000}
+                {@const endMs = Number(sel.building.constructionEnd.seconds) * 1000}
+                {@const totalMs = endMs - startMs}
+                {@const elapsedMs = now - startMs}
+                {@const remainMs = endMs - now}
+                {@const pct = Math.min(100, Math.max(0, (elapsedMs / totalMs) * 100))}
+                <div class="mt-3 space-y-2">
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="font-medium text-amber-300/80">
+                      {isBuilding ? 'Building' : `Upgrading to Lv ${sel.building.targetLevel}`}
+                    </span>
+                    <span class="font-medium tabular-nums text-amber-200">{remainMs > 0 ? fmtCountdown(remainMs) : 'Done'}</span>
+                  </div>
+                  <div class="h-1 overflow-hidden bg-white/[0.07]">
+                    <div class="h-full transition-all duration-1000 ease-linear {remainMs <= 0 ? 'bg-emerald-400' : 'bg-amber-300'}" style="width: {pct.toFixed(1)}%"></div>
+                  </div>
+                </div>
+              {/if}
+              {#if stats}
+                <div class="mt-3 border-t border-white/[0.07] pt-2">
+                  {#if stats.production.length > 0}
+                    <div class="inspector-row">
+                      <span>Production</span>
+                      <span class="text-emerald-300">{stats.production.map(fmtProd).join(', ')}</span>
+                    </div>
+                  {/if}
+                  {#if stats.population > 0}
+                    <div class="inspector-row">
+                      <span>Population capacity</span>
+                      <span class="text-blue-300">+{stats.population}</span>
+                    </div>
+                  {/if}
+                </div>
+              {/if}
+              {#if nextStats && sel.city?.owner?.value === $userId}
+                <div class="mt-3 border-t border-white/[0.07] pt-3">
+                  <div class="inspector-label mb-1">Upgrade</div>
                   <div class="inspector-row">
                     <span>Cost</span>
-                    <span class="text-amber-200">{buildStats.cost.map(fmtRes).join(', ')}</span>
+                    <span class="text-amber-200">{nextStats.cost.map(fmtRes).join(', ')}</span>
                   </div>
                   <div class="inspector-row">
                     <span>Build time</span>
-                    <span>{fmtTime(buildStats.constructionTime)}</span>
+                    <span>{fmtTime(nextStats.constructionTime)}</span>
                   </div>
-                  {#if buildStats.production.length > 0}
+                  {#if nextStats.production.length > 0}
                     <div class="inspector-row">
-                      <span>Produces</span>
-                      <span class="text-emerald-300">{buildStats.production.map(fmtProd).join(', ')}</span>
+                      <span>Production</span>
+                      <span>
+                        {#if stats}
+                          <span class="text-[#646e66]">{stats.production.map(fmtProdNum).join(', ')}</span>
+                          <span class="mx-1 text-[#555e57]">&rarr;</span>
+                        {/if}
+                        <span class="text-emerald-300">{nextStats.production.map(fmtProdNum).join(', ')}</span>
+                        <span class="text-[#717b73]">{prodUnit(nextStats.production)}</span>
+                      </span>
                     </div>
                   {/if}
-                  {#if buildStats.population > 0}
+                  {#if nextStats.population > 0}
                     <div class="inspector-row">
                       <span>Population capacity</span>
-                      <span class="text-blue-300">+{buildStats.population}</span>
+                      <span>
+                        {#if stats}
+                          <span class="text-[#646e66]">+{stats.population}</span>
+                          <span class="mx-1 text-[#555e57]">&rarr;</span>
+                        {/if}
+                        <span class="text-blue-300">+{nextStats.population}</span>
+                      </span>
                     </div>
                   {/if}
                 </div>
               {/if}
             </section>
-            <div class="inspector-actions">
-              <button
-                class="game-action game-action-primary w-full"
-                disabled={busy}
-                on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Build failed')}
-                >{busy ? '...' : `Place ${bName(buildType)}`}</button
-              >
-            </div>
-          {:else}
-            <div class="inspector-actions">
-              <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>Build structure</button>
+            {#if sel.city?.owner?.value === $userId}
+              {@const upgrading = !!(sel.building.constructionStart && sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
+              <div class="inspector-actions">
+                <button
+                  class="game-action game-action-primary"
+                  disabled={busy || upgrading}
+                  on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}>{busy ? '...' : 'Upgrade'}</button
+                >
+                <button
+                  class="game-action game-action-danger"
+                  disabled={busy || upgrading}
+                  on:click={() => sel?.building && doAction(() => buildingClient.deleteBuilding({ buildingId: sel!.building!.buildingId }), 'Demolish failed')}>{busy ? '...' : 'Demolish'}</button
+                >
+              </div>
+            {/if}
+          {:else if sel.city?.owner?.value === $userId}
+            {#if showBuild}
+              {@const buildStats = getLevelStats(buildType, 1)}
+              <section class="inspector-section">
+                <div class="mb-3 flex items-center justify-between">
+                  <span class="inspector-label">City improvements</span>
+                  <button class="text-xs font-medium text-[#9ba097] transition-colors hover:text-white" on:click={() => (showBuild = false)}>Cancel</button>
+                </div>
+                <div class="grid grid-cols-2 border-l border-t border-white/[0.07]">
+                  {#each placeTypes as bt}
+                    <button
+                      class="border-b border-r border-white/[0.07] px-2 py-2.5 text-xs font-medium transition-colors
+										{buildType === bt ? 'bg-emerald-300/10 text-emerald-200' : 'text-[#8f9891] hover:bg-white/[0.04] hover:text-white'}"
+                      on:click={() => (buildType = bt)}>{bName(bt)}</button
+                    >
+                  {/each}
+                </div>
+                {#if buildStats}
+                  <div class="mt-4 border-t border-white/[0.07] pt-2">
+                    <div class="inspector-row">
+                      <span>Cost</span>
+                      <span class="text-amber-200">{buildStats.cost.map(fmtRes).join(', ')}</span>
+                    </div>
+                    <div class="inspector-row">
+                      <span>Build time</span>
+                      <span>{fmtTime(buildStats.constructionTime)}</span>
+                    </div>
+                    {#if buildStats.production.length > 0}
+                      <div class="inspector-row">
+                        <span>Produces</span>
+                        <span class="text-emerald-300">{buildStats.production.map(fmtProd).join(', ')}</span>
+                      </div>
+                    {/if}
+                    {#if buildStats.population > 0}
+                      <div class="inspector-row">
+                        <span>Population capacity</span>
+                        <span class="text-blue-300">+{buildStats.population}</span>
+                      </div>
+                    {/if}
+                  </div>
+                {/if}
+              </section>
+              <div class="inspector-actions">
+                <button
+                  class="game-action game-action-primary w-full"
+                  disabled={busy}
+                  on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Build failed')}
+                  >{busy ? '...' : `Place ${bName(buildType)}`}</button
+                >
+              </div>
+            {:else}
+              <div class="inspector-actions">
+                <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>Build structure</button>
+              </div>
+            {/if}
+          {:else if !sel.city && !sel.armies?.length}
+            <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
+              {myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius ? 'Beyond visibility range' : 'No structures on this tile'}
             </div>
           {/if}
-        {:else if !sel.city && !sel.armies?.length}
-          <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
-            {myCities.length > 0 && getVisDist(sel.x, sel.y) > $gameConfig.visionRadius ? 'Beyond visibility range' : 'No structures on this tile'}
-          </div>
-        {/if}
+        </div>
       </div>
     {/if}
   </div>
@@ -1308,14 +1306,14 @@
   {/if}
 
   <!-- Minimap -->
-  <div class="pointer-events-auto absolute bottom-4 left-4 {sel ? 'hidden sm:block' : ''}">
+  <div class="pointer-events-auto absolute bottom-4 left-4 {sel ? 'hidden' : ''}">
     <MiniMap onPan={(col, row) => centerCam(col, row)} viewCols={viewTilesW} viewRows={viewTilesH} />
   </div>
 
   <!-- Keyboard shortcuts toggle -->
   <button
     class="hud-surface pointer-events-auto absolute bottom-4 left-[186px] h-8 w-8 items-center justify-center text-xs font-medium text-white/70 transition-colors hover:text-white {sel
-      ? 'hidden sm:flex'
+      ? 'hidden'
       : 'flex'}"
     title="Keyboard shortcuts (?)"
     on:click={() => (showHelp = !showHelp)}>?</button
