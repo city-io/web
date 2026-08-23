@@ -94,6 +94,7 @@
   let movePreviewDestination: { x: number; y: number } | null = null;
   let moveOrderActive = false;
   let moveDestinationObserved = false;
+  let moveAttackIntent = false;
   let moveGfx: Graphics | null = null;
   let moveConfirmationGfx: Graphics | null = null;
   let moveConfirmationPending = false;
@@ -699,16 +700,23 @@
     moveConfirmationGfx = null;
   };
 
+  const moveAttacksDestination = (destination: { x: number; y: number }, order?: ArmyOrder) => {
+    if (order?.objective.case === 'attackArmy') return true;
+    return !!tileData.get(tileKey(destination.x, destination.y))?.armies?.some((army) => army.owner?.value && army.owner.value !== $userId);
+  };
+
   const drawMoveConfirmation = (destination: { x: number; y: number }) => {
     clearMoveConfirmation();
     if (!cont) return;
+    moveAttackIntent = moveAttacksDestination(destination);
+    const color = moveAttackIntent ? 0xf87171 : 0x63b978;
     const target = tileToScreen(destination.x, destination.y);
     const indicator = new Graphics();
     indicator.position.set(target.sx, target.sy);
     indicator.poly(DIAMOND_VERTS);
-    indicator.fill({ color: 0xef4444, alpha: 0.2 });
+    indicator.fill({ color, alpha: 0.18 });
     indicator.poly(DIAMOND_VERTS);
-    indicator.stroke({ color: 0xf87171, width: 3, alpha: 1 });
+    indicator.stroke({ color, width: 3, alpha: 1 });
     indicator.zIndex = 9e6 + 1;
     cont.addChild(indicator);
     moveConfirmationGfx = indicator;
@@ -718,6 +726,8 @@
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
     moveRouteError = '';
     if (!cont || !army?.armyId || !army.coords || !destination) return 'failed';
+    const attackIntent = moveAttacksDestination(destination, streamedOrder);
+    moveAttackIntent = attackIntent;
 
     const refreshing = movePreviewDestination?.x === destination.x && movePreviewDestination.y === destination.y && moveRoute !== null;
     if (!refreshing) {
@@ -757,6 +767,8 @@
     const points = [army.coords, ...(moveRoute ?? [])].map((step) => tileToScreen(step.x, step.y));
 
     const route = new Graphics();
+    const routeColor = attackIntent ? 0xf87171 : 0x7eb5ec;
+    const directionColor = attackIntent ? 0xfca5a5 : 0xe2f1fb;
     if (moveRoute) {
       for (let index = 1; index < points.length; index++) {
         const point = points[index];
@@ -775,7 +787,7 @@
         route.stroke({ color: 0x111611, width: 7, alpha: 0.85 });
         route.moveTo(from.sx, from.sy);
         route.lineTo(to.sx, to.sy);
-        route.stroke({ color: 0x7eb5ec, width: 3, alpha: 1 });
+        route.stroke({ color: routeColor, width: 3, alpha: 1 });
       }
       if (moveHiddenSegmentEnd) {
         const from = points.at(-1) ?? tileToScreen(army.coords.x, army.coords.y);
@@ -808,16 +820,17 @@
         const cx = (from.sx + to.sx) / 2;
         const cy = (from.sy + to.sy) / 2;
         route.poly([cx + nx * 5, cy + ny * 5, cx - nx * 4 + px * 3.5, cy - ny * 4 + py * 3.5, cx - nx * 4 - px * 3.5, cy - ny * 4 - py * 3.5]);
-        route.fill({ color: 0xe2f1fb, alpha: 1 });
+        route.fill({ color: directionColor, alpha: 1 });
         route.poly([cx + nx * 5, cy + ny * 5, cx - nx * 4 + px * 3.5, cy - ny * 4 + py * 3.5, cx - nx * 4 - px * 3.5, cy - ny * 4 - py * 3.5]);
         route.stroke({ color: 0x17202a, width: 1, alpha: 0.9 });
       }
     }
     const target = tileToScreen(destination.x, destination.y);
+    const endpointColor = attackIntent ? 0xf87171 : 0x63b978;
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
-    route.fill({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, alpha: 0.13 });
+    route.fill({ color: endpointColor, alpha: 0.14 });
     route.poly(DIAMOND_VERTS.map((value, index) => value + (index % 2 === 0 ? target.sx : target.sy)));
-    route.stroke({ color: moveRouteComplete ? 0xf0d65a : 0xd99a57, width: 2, alpha: 0.95 });
+    route.stroke({ color: endpointColor, width: 2, alpha: 0.95 });
     if (moveRouteComplete && !moveHiddenSegmentEnd && points.length > 1) {
       const from = points.at(-2)!;
       const dx = target.sx - from.sx;
@@ -834,7 +847,7 @@
       const innerBaseX = target.sx - nx * 11;
       const innerBaseY = target.sy - ny * 11;
       route.poly([target.sx, target.sy, innerBaseX + px * 5, innerBaseY + py * 5, innerBaseX - px * 5, innerBaseY - py * 5]);
-      route.fill({ color: 0xb9dff5, alpha: 1 });
+      route.fill({ color: routeColor, alpha: 1 });
     }
     route.zIndex = 9e6;
     clearMovePreview();
@@ -855,6 +868,7 @@
     movePreviewDestination = null;
     moveOrderActive = false;
     moveDestinationObserved = false;
+    moveAttackIntent = false;
     moveConfirmationPending = false;
     moveConfirmationPreview = null;
     movePreviewRequest++;
@@ -1212,14 +1226,45 @@
     plate.stroke({ color: 0x6f8d8b, width: 1, alpha: 1 });
 
     const glyph = new Graphics();
-    glyph.arc(-9, 1, 5, Math.PI, Math.PI * 2);
-    glyph.moveTo(-14, 1);
-    glyph.lineTo(-4, 1);
-    glyph.moveTo(-13, 1);
-    glyph.lineTo(-13, 4);
-    glyph.moveTo(-5, 1);
-    glyph.lineTo(-5, 4);
-    glyph.stroke({ color: 0xb8cbc5, width: 1.3, alpha: 1 });
+    if (active.type === TroopType.ARCHER) {
+      glyph.arc(-11, 0, 4.5, -Math.PI / 2, Math.PI / 2);
+      glyph.moveTo(-11, -4.5);
+      glyph.lineTo(-11, 4.5);
+      glyph.moveTo(-14, 0);
+      glyph.lineTo(-5, 0);
+      glyph.moveTo(-7, -2);
+      glyph.lineTo(-5, 0);
+      glyph.lineTo(-7, 2);
+    } else if (active.type === TroopType.CAVALRY) {
+      glyph.moveTo(-14, 4);
+      glyph.lineTo(-13, -1);
+      glyph.lineTo(-10, -4);
+      glyph.lineTo(-6, -2);
+      glyph.lineTo(-5, 2);
+      glyph.lineTo(-8, 4);
+      glyph.lineTo(-14, 4);
+      glyph.moveTo(-12, -2);
+      glyph.lineTo(-14, -5);
+      glyph.moveTo(-9, -3.5);
+      glyph.lineTo(-8, -6);
+      glyph.circle(-7.5, -0.5, 0.7);
+      glyph.fill({ color: 0xb8cbc5, alpha: 1 });
+    } else if (active.type === TroopType.ARTILLERY) {
+      glyph.circle(-12, 2, 3);
+      glyph.circle(-12, 2, 1);
+      glyph.moveTo(-11, -1);
+      glyph.lineTo(-5, -4);
+      glyph.lineTo(-4, -2);
+      glyph.lineTo(-10, 1);
+    } else {
+      glyph.moveTo(-14, 4.5);
+      glyph.lineTo(-6, -3.5);
+      glyph.moveTo(-8, -5.5);
+      glyph.lineTo(-4, -1.5);
+      glyph.moveTo(-12, 1);
+      glyph.lineTo(-9, 4);
+    }
+    glyph.stroke({ color: 0xb8cbc5, width: 1.35, alpha: 1 });
 
     const label = new Text({
       text: active.count.toLocaleString(),
@@ -2099,20 +2144,39 @@
           {@const previewTarget = moveTarget ?? moveHover}
           {@const steps = moveRoute?.length ?? 0}
           {@const includesUnknown = !!moveHiddenSegmentEnd}
-          <div class="flex flex-wrap items-center gap-2.5 border-b px-3 py-1.5 {moveConfirmationPending ? 'border-red-300/30 bg-red-400/[0.09]' : 'border-blue-300/20 bg-blue-300/[0.07]'}">
-            <span class="selection-crest h-7 w-7 {moveConfirmationPending ? 'text-red-200' : 'text-blue-200'}">
+          {@const pendingAttack = moveConfirmationPending && moveAttackIntent}
+          <div
+            class="flex flex-wrap items-center gap-2.5 border-b px-3 py-1.5 {pendingAttack
+              ? 'border-red-300/30 bg-red-400/[0.09]'
+              : moveConfirmationPending
+                ? 'border-emerald-300/25 bg-emerald-300/[0.07]'
+                : 'border-blue-300/20 bg-blue-300/[0.07]'}"
+          >
+            <span class="selection-crest h-7 w-7 {pendingAttack ? 'text-red-200' : moveConfirmationPending ? 'text-emerald-200' : 'text-blue-200'}">
               <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
                 <circle cx="5" cy="18" r="2" /><circle cx="19" cy="6" r="2" /><path d="M7 18c7 0 3-12 10-12M13 4l4 2-2 4" />
               </svg>
             </span>
             <div class="min-w-0 flex-1">
-              <div class="text-[11px] font-bold {moveConfirmationPending || (previewTarget && !moveRoute && !moveRouteLoading) ? 'text-red-200' : 'text-blue-200'}">
+              <div
+                class="text-[11px] font-bold {previewTarget && !moveRoute && !moveRouteLoading
+                  ? 'text-red-200'
+                  : pendingAttack
+                    ? 'text-red-200'
+                    : moveConfirmationPending
+                      ? 'text-emerald-200'
+                      : 'text-blue-200'}"
+              >
                 {busy
-                  ? 'Sending march order…'
+                  ? moveAttackIntent
+                    ? 'Sending attack order…'
+                    : 'Sending march order…'
                   : moveRouteLoading
                     ? 'Plotting route…'
                     : moveConfirmationPending && previewTarget
-                      ? `Confirm march to ${previewTarget.x}, ${previewTarget.y}`
+                      ? moveAttackIntent
+                        ? `Confirm attack at ${previewTarget.x}, ${previewTarget.y}`
+                        : `Confirm march to ${previewTarget.x}, ${previewTarget.y}`
                       : moveOrderActive && previewTarget
                         ? `On march to ${previewTarget.x}, ${previewTarget.y}`
                         : previewTarget
