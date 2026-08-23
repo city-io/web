@@ -1702,6 +1702,7 @@
             {@const batchCount = Number.isFinite(recruitCount) ? Math.floor(recruitCount) : 1}
             {@const trainingCost = batchCount * recruitStat.gold}
             {@const trainingPopulation = batchCount * recruitStat.population}
+            {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && trainingOrdersBarracksId === selectedBarracksId && trainingOrders.length > 0}
             {@const canTrain =
               isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && BigInt(trainingCost) <= $gold && trainingPopulation <= availablePopulation}
             <section class="inspector-section">
@@ -1749,6 +1750,9 @@
               {#if nextStats && sel.city?.owner?.value === $userId}
                 <div class="mt-3 border-t border-white/[0.07] pt-3">
                   <div class="inspector-label mb-1">Upgrade</div>
+                  {#if barracksTrainingInProgress}
+                    <div class="mb-2 text-[10px] text-amber-200/80">Finish the training queue before upgrading this barracks.</div>
+                  {/if}
                   <div class="inspector-row">
                     <span>Cost</span>
                     <span class="text-amber-200">{nextStats.cost.map(fmtRes).join(', ')}</span>
@@ -1899,7 +1903,8 @@
                 {/if}
                 <button
                   class="game-action game-action-primary"
-                  disabled={busy || upgrading}
+                  disabled={busy || upgrading || barracksTrainingInProgress}
+                  title={barracksTrainingInProgress ? 'Finish the training queue before upgrading' : undefined}
                   on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}>{busy ? '...' : 'Upgrade'}</button
                 >
                 <button
