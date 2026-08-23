@@ -6,7 +6,7 @@ import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2"
 import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Coordinates, TroopType } from "./common_pb";
 import { file_cityio_entity_v1_common } from "./common_pb";
-import type { ArmyId, ArmyMarchId, UserId } from "./ids_pb";
+import type { ArmyId, ArmyOrderId, BattleId, UserId } from "./ids_pb";
 import { file_cityio_entity_v1_ids } from "./ids_pb";
 import type { Message } from "@bufbuild/protobuf";
 
@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/army.proto.
  */
 export const file_cityio_entity_v1_army: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2FybXkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiVQoKVHJvb3BTdGFjaxIpCgR0eXBlGAEgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSEgoFY291bnQYAiABKAVIAIgBAUIICgZfY291bnQizQIKBEFybXkSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEicKBW93bmVyGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSLQoGY29vcmRzGAMgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcxIsCgZ0cm9vcHMYBCADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSSwoWY29tcG9zaXRpb25fdmlzaWJpbGl0eRgGIAEoDjIrLmNpdHlpby5lbnRpdHkudjEuQXJteUNvbXBvc2l0aW9uVmlzaWJpbGl0eRI0CghtYXJjaF9pZBgHIAEoCzIdLmNpdHlpby5lbnRpdHkudjEuQXJteU1hcmNoSWRIAIgBAUILCglfbWFyY2hfaWRKBAgFEAYqwwEKGUFybXlDb21wb3NpdGlvblZpc2liaWxpdHkSKwonQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX1VOU1BFQ0lGSUVEEAASJgoiQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX0hJRERFThABEioKJkFSTVlfQ09NUE9TSVRJT05fVklTSUJJTElUWV9UWVBFU19PTkxZEAISJQohQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX0VYQUNUEANiBnByb3RvMw", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2FybXkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiVQoKVHJvb3BTdGFjaxIpCgR0eXBlGAEgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSEgoFY291bnQYAiABKAVIAIgBAUIICgZfY291bnQijwMKBEFybXkSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEicKBW93bmVyGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSLQoGY29vcmRzGAMgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcxIsCgZ0cm9vcHMYBCADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSSwoWY29tcG9zaXRpb25fdmlzaWJpbGl0eRgGIAEoDjIrLmNpdHlpby5lbnRpdHkudjEuQXJteUNvbXBvc2l0aW9uVmlzaWJpbGl0eRI0CghvcmRlcl9pZBgHIAEoCzIdLmNpdHlpby5lbnRpdHkudjEuQXJteU9yZGVySWRIAIgBARIyCgliYXR0bGVfaWQYCCABKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUlkSAGIAQFCCwoJX29yZGVyX2lkQgwKCl9iYXR0bGVfaWRKBAgFEAYqwwEKGUFybXlDb21wb3NpdGlvblZpc2liaWxpdHkSKwonQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX1VOU1BFQ0lGSUVEEAASJgoiQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX0hJRERFThABEioKJkFSTVlfQ09NUE9TSVRJT05fVklTSUJJTElUWV9UWVBFU19PTkxZEAISJQohQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX0VYQUNUEANiBnByb3RvMw", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
 
 /**
  * TroopStack is a count of one troop type within an army.
@@ -41,8 +41,8 @@ export const TroopStackSchema: GenMessage<TroopStack> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_army, 0);
 
 /**
- * Army is the physical state of a mobile group of troops. March orders are
- * separate entities because their disclosure can differ from army visibility.
+ * Army is the physical state of a mobile group of troops. Active orders and
+ * battles are separate entities because their disclosure can differ.
  *
  * @generated from message cityio.entity.v1.Army
  */
@@ -73,9 +73,14 @@ export type Army = Message<"cityio.entity.v1.Army"> & {
   compositionVisibility: ArmyCompositionVisibility;
 
   /**
-   * @generated from field: optional cityio.entity.v1.ArmyMarchId march_id = 7;
+   * @generated from field: optional cityio.entity.v1.ArmyOrderId order_id = 7;
    */
-  marchId?: ArmyMarchId | undefined;
+  orderId?: ArmyOrderId | undefined;
+
+  /**
+   * @generated from field: optional cityio.entity.v1.BattleId battle_id = 8;
+   */
+  battleId?: BattleId | undefined;
 };
 
 /**

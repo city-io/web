@@ -18,7 +18,11 @@ message ArmyId {
   string value = 1;
 }
 
-message ArmyMarchId {
+message ArmyOrderId {
+  string value = 1;
+}
+
+message BattleId {
   string value = 1;
 }
 
@@ -37,5 +41,6 @@ message EntityIdBag {
   repeated BuildingId building_ids = 3;
   repeated ArmyId army_ids = 4;
   repeated TileId tile_ids = 5;
-  repeated ArmyMarchId army_march_ids = 6;
+  repeated ArmyOrderId army_order_ids = 6;
+  repeated BattleId battle_ids = 7;
 }

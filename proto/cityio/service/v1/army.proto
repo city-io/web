@@ -2,7 +2,8 @@ syntax = "proto3";
 
 package cityio.service.v1;
 
-import "cityio/entity/v1/army_march.proto";
+import "cityio/entity/v1/army_order.proto";
+import "cityio/entity/v1/army.proto";
 import "cityio/entity/v1/bag.proto";
 import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/ids.proto";
@@ -49,6 +50,23 @@ message MoveArmyRequest {
 }
 message MoveArmyResponse {}
 
+message AttackArmyRequest {
+  cityio.entity.v1.ArmyId army_id = 1;
+  cityio.entity.v1.ArmyId target_army_id = 2;
+}
+message AttackArmyResponse {}
+
+message ConquerSettlementRequest {
+  cityio.entity.v1.ArmyId army_id = 1;
+  cityio.entity.v1.CityId city_id = 2;
+}
+message ConquerSettlementResponse {}
+
+message RetreatArmyRequest {
+  cityio.entity.v1.ArmyId army_id = 1;
+}
+message RetreatArmyResponse {}
+
 message PreviewArmyRouteRequest {
   cityio.entity.v1.ArmyId army_id = 1;
   cityio.entity.v1.Coordinates destination = 2;
@@ -65,19 +83,32 @@ message MergeArmiesRequest {
 }
 message MergeArmiesResponse {}
 
+message SplitArmyRequest {
+  cityio.entity.v1.ArmyId army_id = 1;
+  repeated cityio.entity.v1.TroopStack troops = 2;
+}
+message SplitArmyResponse {
+  cityio.entity.v1.ArmyId army_id = 1;
+  cityio.entity.v1.EntityBag entities = 2;
+}
+
 message ListArmiesRequest {}
 message ListArmiesResponse {
   repeated cityio.entity.v1.ArmyId army_ids = 1;
   cityio.entity.v1.EntityBag entities = 2;
 }
 
-// ArmyService trains, moves and merges armies.
+// ArmyService trains, commands, fights, retreats, splits, and merges armies.
 service ArmyService {
   rpc TrainTroops(TrainTroopsRequest) returns (TrainTroopsResponse);
   rpc ListTrainingOrders(ListTrainingOrdersRequest) returns (ListTrainingOrdersResponse);
   rpc GetArmy(GetArmyRequest) returns (GetArmyResponse);
   rpc PreviewArmyRoute(PreviewArmyRouteRequest) returns (PreviewArmyRouteResponse);
   rpc MoveArmy(MoveArmyRequest) returns (MoveArmyResponse);
+  rpc AttackArmy(AttackArmyRequest) returns (AttackArmyResponse);
+  rpc ConquerSettlement(ConquerSettlementRequest) returns (ConquerSettlementResponse);
+  rpc RetreatArmy(RetreatArmyRequest) returns (RetreatArmyResponse);
   rpc MergeArmies(MergeArmiesRequest) returns (MergeArmiesResponse);
+  rpc SplitArmy(SplitArmyRequest) returns (SplitArmyResponse);
   rpc ListArmies(ListArmiesRequest) returns (ListArmiesResponse);
 }

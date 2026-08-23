@@ -6,8 +6,10 @@ import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { Army } from "./army_pb";
 import { file_cityio_entity_v1_army } from "./army_pb";
-import type { ArmyMarch } from "./army_march_pb";
-import { file_cityio_entity_v1_army_march } from "./army_march_pb";
+import type { ArmyOrder } from "./army_order_pb";
+import { file_cityio_entity_v1_army_order } from "./army_order_pb";
+import type { Battle } from "./battle_pb";
+import { file_cityio_entity_v1_battle } from "./battle_pb";
 import type { Building } from "./building_pb";
 import { file_cityio_entity_v1_building } from "./building_pb";
 import type { City } from "./city_pb";
@@ -22,7 +24,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/bag.proto.
  */
 export const file_cityio_entity_v1_bag: GenFile = /*@__PURE__*/
-  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2JhZy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSKLAgoJRW50aXR5QmFnEiUKBXVzZXJzGAEgAygLMhYuY2l0eWlvLmVudGl0eS52MS5Vc2VyEiYKBmNpdGllcxgCIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQ2l0eRItCglidWlsZGluZ3MYAyADKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJ1aWxkaW5nEiYKBmFybWllcxgEIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQXJteRIlCgV0aWxlcxgFIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuVGlsZRIxCgxhcm15X21hcmNoZXMYBiADKAsyGy5jaXR5aW8uZW50aXR5LnYxLkFybXlNYXJjaGIGcHJvdG8z", [file_cityio_entity_v1_army, file_cityio_entity_v1_army_march, file_cityio_entity_v1_building, file_cityio_entity_v1_city, file_cityio_entity_v1_tile, file_cityio_entity_v1_user]);
+  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2JhZy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSK1AgoJRW50aXR5QmFnEiUKBXVzZXJzGAEgAygLMhYuY2l0eWlvLmVudGl0eS52MS5Vc2VyEiYKBmNpdGllcxgCIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQ2l0eRItCglidWlsZGluZ3MYAyADKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJ1aWxkaW5nEiYKBmFybWllcxgEIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuQXJteRIlCgV0aWxlcxgFIAMoCzIWLmNpdHlpby5lbnRpdHkudjEuVGlsZRIwCgthcm15X29yZGVycxgGIAMoCzIbLmNpdHlpby5lbnRpdHkudjEuQXJteU9yZGVyEikKB2JhdHRsZXMYByADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZWIGcHJvdG8z", [file_cityio_entity_v1_army, file_cityio_entity_v1_army_order, file_cityio_entity_v1_battle, file_cityio_entity_v1_building, file_cityio_entity_v1_city, file_cityio_entity_v1_tile, file_cityio_entity_v1_user]);
 
 /**
  * EntityBag groups raw entities returned in snapshots and state updates.
@@ -56,9 +58,14 @@ export type EntityBag = Message<"cityio.entity.v1.EntityBag"> & {
   tiles: Tile[];
 
   /**
-   * @generated from field: repeated cityio.entity.v1.ArmyMarch army_marches = 6;
+   * @generated from field: repeated cityio.entity.v1.ArmyOrder army_orders = 6;
    */
-  armyMarches: ArmyMarch[];
+  armyOrders: ArmyOrder[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.Battle battles = 7;
+   */
+  battles: Battle[];
 };
 
 /**

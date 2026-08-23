@@ -3,7 +3,8 @@
   import {
     token,
     armies as armiesStore,
-    armyMarches as armyMarchesStore,
+    armyOrders as armyOrdersStore,
+    battles as battlesStore,
     buildings as buildingsStore,
     capital,
     cities as citiesStore,
@@ -70,7 +71,8 @@
     citiesStore.set(bag?.cities ?? []);
     buildingsStore.set(bag?.buildings ?? []);
     armiesStore.set(bag?.armies ?? []);
-    armyMarchesStore.set(bag?.armyMarches ?? []);
+    armyOrdersStore.set(bag?.armyOrders ?? []);
+    battlesStore.set(bag?.battles ?? []);
     tilesStore.set(tileMap(bag));
     tileVisibilityStore.set(visibilityMap(snapshot.tileVisibility));
     setCapital(bag);
@@ -93,7 +95,8 @@
     cities: new Set([...(deleted?.cityIds ?? []), ...(hidden?.cityIds ?? [])].map((id) => id.value)),
     buildings: new Set([...(deleted?.buildingIds ?? []), ...(hidden?.buildingIds ?? [])].map((id) => id.value)),
     armies: new Set([...(deleted?.armyIds ?? []), ...(hidden?.armyIds ?? [])].map((id) => id.value)),
-    armyMarches: new Set([...(deleted?.armyMarchIds ?? []), ...(hidden?.armyMarchIds ?? [])].map((id) => id.value))
+    armyOrders: new Set([...(deleted?.armyOrderIds ?? []), ...(hidden?.armyOrderIds ?? [])].map((id) => id.value)),
+    battles: new Set([...(deleted?.battleIds ?? []), ...(hidden?.battleIds ?? [])].map((id) => id.value))
   });
 
   const applyDelta = (delta: StateDelta) => {
@@ -121,11 +124,18 @@
         (army) => army.armyId?.value
       )
     );
-    armyMarchesStore.update((previous) =>
+    armyOrdersStore.update((previous) =>
       upsertById(
-        previous.filter((march) => !removed.armyMarches.has(march.armyMarchId?.value ?? '')),
-        bag?.armyMarches ?? [],
-        (march) => march.armyMarchId?.value
+        previous.filter((order) => !removed.armyOrders.has(order.armyOrderId?.value ?? '')),
+        bag?.armyOrders ?? [],
+        (order) => order.armyOrderId?.value
+      )
+    );
+    battlesStore.update((previous) =>
+      upsertById(
+        previous.filter((battle) => !removed.battles.has(battle.battleId?.value ?? '')),
+        bag?.battles ?? [],
+        (battle) => battle.battleId?.value
       )
     );
     if (bag?.tiles.length) {
@@ -178,7 +188,8 @@
       citiesStore.set(response.entities?.cities ?? []);
       buildingsStore.set(response.entities?.buildings ?? []);
       armiesStore.set(response.entities?.armies ?? []);
-      armyMarchesStore.set(response.entities?.armyMarches ?? []);
+      armyOrdersStore.set(response.entities?.armyOrders ?? []);
+      battlesStore.set(response.entities?.battles ?? []);
 
       const rawTiles = new Map<string, Tile>();
       for (const tile of response.entities?.tiles ?? []) {

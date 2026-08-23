@@ -1,0 +1,48 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/ids.proto";
+import "google/protobuf/duration.proto";
+import "google/protobuf/timestamp.proto";
+
+message ArmyRouteStep {
+  Coordinates coords = 1;
+}
+
+message MoveObjective {
+  Coordinates destination = 1;
+}
+
+message AttackArmyObjective {
+  ArmyId target_army_id = 1;
+  Coordinates last_known_coords = 2;
+}
+
+message ConquerSettlementObjective {
+  CityId city_id = 1;
+  Coordinates destination = 2;
+  optional google.protobuf.Timestamp capture_started_at = 3;
+  optional google.protobuf.Duration capture_duration = 4;
+}
+
+message RetreatObjective {
+  CityId settlement_id = 1;
+  Coordinates destination = 2;
+}
+
+// ArmyOrder exists only while its objective is active. Completion,
+// cancellation, or failure deletes the entity and clears Army.order_id.
+message ArmyOrder {
+  ArmyOrderId army_order_id = 1;
+  ArmyId army_id = 2;
+  oneof objective {
+    MoveObjective move = 3;
+    AttackArmyObjective attack_army = 4;
+    ConquerSettlementObjective conquer_settlement = 5;
+    RetreatObjective retreat = 6;
+  }
+  repeated ArmyRouteStep remaining_route = 7;
+  optional google.protobuf.Duration estimated_remaining_duration = 8;
+}

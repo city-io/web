@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/ids.proto";
+import "google/protobuf/timestamp.proto";
+
+message BattleSide {
+  repeated UserId user_ids = 1;
+  repeated ArmyId army_ids = 2;
+}
+
+// Battle exists only while combat is active. Each side can contain armies
+// owned by multiple users so alliances can join a side later without a schema
+// change.
+message Battle {
+  BattleId battle_id = 1;
+  TileId tile_id = 2;
+  BattleSide attackers = 3;
+  BattleSide defenders = 4;
+  google.protobuf.Timestamp started_at = 5;
+  google.protobuf.Timestamp next_tick_at = 6;
+}
