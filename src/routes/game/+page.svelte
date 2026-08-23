@@ -1188,6 +1188,7 @@
     const name = new Text({
       text: city.name,
       roundPixels: true,
+      resolution: 4,
       style: {
         fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
         fontSize: 11,
