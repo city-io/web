@@ -171,19 +171,12 @@
   ></canvas>
   <div class="absolute right-2 top-2 flex overflow-hidden border border-white/15 bg-[#101512]/90 text-[9px] font-bold text-white/75 shadow-md">
     <button
-      class="h-5 w-5 hover:bg-white/10 hover:text-white disabled:opacity-30"
+      class="h-5 w-5 border-r border-white/10 hover:bg-white/10 hover:text-white disabled:opacity-30"
       type="button"
       aria-label="Zoom minimap out"
       title="Zoom minimap out"
       disabled={minimapZoom <= MIN_ZOOM}
       on:click={() => setMinimapZoom(minimapZoom / 1.4)}>−</button
-    >
-    <button
-      class="h-5 min-w-8 border-x border-white/10 px-1 tabular-nums hover:bg-white/10 hover:text-white"
-      type="button"
-      aria-label="Reset minimap zoom"
-      title="Reset minimap zoom"
-      on:click={() => setMinimapZoom(MIN_ZOOM)}>{minimapZoom.toFixed(1)}×</button
     >
     <button
       class="h-5 w-5 hover:bg-white/10 hover:text-white disabled:opacity-30"
