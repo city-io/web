@@ -27,6 +27,7 @@
   const MIN_ZOOM = 0.4;
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
+  const MOVE_ORDER_SUBMIT_DELAY_MS = 1000;
 
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
@@ -86,6 +87,9 @@
   let moveOrderActive = false;
   let moveDestinationObserved = false;
   let moveGfx: Graphics | null = null;
+  let moveConfirmationGfx: Graphics | null = null;
+  let moveConfirmationPending = false;
+  let moveConfirmationPreview: Promise<boolean> | null = null;
   let movePreviewRequest = 0;
   let trainingOrders: TrainingOrder[] = [];
   let trainingOrdersBarracksId: string | null = null;
@@ -101,6 +105,14 @@
   let ratesEl: HTMLDivElement;
   let managementOpen = true;
   let managementTab: 'armies' | 'cities' | 'training' = 'armies';
+  const toggleManagementTab = (tab: typeof managementTab) => {
+    if (managementOpen && managementTab === tab) {
+      managementOpen = false;
+      return;
+    }
+    managementTab = tab;
+    managementOpen = true;
+  };
 
   // Keyboard navigation
   let showHelp = false;
@@ -631,6 +643,28 @@
     moveGfx = null;
   };
 
+  const clearMoveConfirmation = () => {
+    if (!moveConfirmationGfx) return;
+    cont?.removeChild(moveConfirmationGfx);
+    moveConfirmationGfx.destroy();
+    moveConfirmationGfx = null;
+  };
+
+  const drawMoveConfirmation = (destination: { x: number; y: number }) => {
+    clearMoveConfirmation();
+    if (!cont) return;
+    const target = tileToScreen(destination.x, destination.y);
+    const indicator = new Graphics();
+    indicator.position.set(target.sx, target.sy);
+    indicator.poly(DIAMOND_VERTS);
+    indicator.fill({ color: 0xef4444, alpha: 0.2 });
+    indicator.poly(DIAMOND_VERTS);
+    indicator.stroke({ color: 0xf87171, width: 3, alpha: 1 });
+    indicator.zIndex = 9e6 + 1;
+    cont.addChild(indicator);
+    moveConfirmationGfx = indicator;
+  };
+
   const drawMovePreview = async (destination: { x: number; y: number } | null, streamedMarch?: ArmyMarch): Promise<boolean> => {
     clearMovePreview();
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
@@ -738,8 +772,11 @@
     moveRouteDurationMs = 0;
     moveOrderActive = false;
     moveDestinationObserved = false;
+    moveConfirmationPending = false;
+    moveConfirmationPreview = null;
     movePreviewRequest++;
     clearMovePreview();
+    clearMoveConfirmation();
   };
 
   const cancelMoveMode = () => {
@@ -794,10 +831,14 @@
   const issueMove = async (destination: { x: number; y: number }) => {
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
     if (!army?.armyId || !army.coords || busy) return;
+    moveConfirmationPending = false;
+    moveConfirmationPreview = null;
+    clearMoveConfirmation();
     busy = true;
     err = '';
     notice = '';
     try {
+      await new Promise((resolve) => setTimeout(resolve, MOVE_ORDER_SUBMIT_DELAY_MS));
       await armyClient.moveArmy({ armyId: army.armyId, destination });
       if (destination.x === army.coords.x && destination.y === army.coords.y) {
         notice = 'Army ordered to hold its current position.';
@@ -1284,14 +1325,34 @@
     const rect = app.canvas.getBoundingClientRect();
     const tile = screenToTile((e.clientX - rect.left - cont.x) / cont.scale.x, (e.clientY - rect.top - cont.y) / cont.scale.y);
     if (tile.x < 0 || tile.y < 0 || tile.x >= worldWidth || tile.y >= worldHeight) return;
+
+    if (moveConfirmationPending) {
+      if (moveTarget?.x !== tile.x || moveTarget.y !== tile.y) {
+        cancelMoveMode();
+        notice = 'Movement order cancelled.';
+        return;
+      }
+      const pendingPreview = moveConfirmationPreview;
+      if (pendingPreview) await pendingPreview;
+      if (!moveConfirmationPending || moveTarget?.x !== tile.x || moveTarget.y !== tile.y) return;
+      await issueMove(tile);
+      return;
+    }
+
     moveArmyId = army.armyId.value;
     moveTarget = tile;
     moveHover = tile;
+    moveOrderActive = false;
+    moveConfirmationPending = true;
     err = '';
     notice = '';
-    const previewLoaded = await drawMovePreview(tile);
-    if (!previewLoaded) notice = `${moveRouteError || 'Route preview unavailable'}. Sending the order directly…`;
-    await issueMove(tile);
+    drawMoveConfirmation(tile);
+    const preview = drawMovePreview(tile);
+    moveConfirmationPreview = preview;
+    const previewLoaded = await preview;
+    if (moveConfirmationPreview === preview) moveConfirmationPreview = null;
+    if (!moveConfirmationPending || moveTarget?.x !== tile.x || moveTarget.y !== tile.y) return;
+    if (!previewLoaded) notice = `${moveRouteError || 'Route preview unavailable'}. Right-click the tile again to let the server validate it.`;
   };
 
   const logout = () => {
@@ -1387,6 +1448,9 @@
 <!-- Keyboard shortcuts; close pinned menus when clicking outside them -->
 <svelte:window
   on:keydown={onKeydown}
+  on:pointerdown={(e) => {
+    if (e.button === 0 && moveConfirmationPending) cancelMoveMode();
+  }}
   on:click={(e) => {
     if (ratesOpen && ratesEl && !ratesEl.contains(e.target as Node)) ratesOpen = false;
   }}
@@ -1415,9 +1479,21 @@
 
   <!-- Separate HUD clusters keep the map from feeling boxed in by one navbar. -->
   <div class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2 sm:inset-x-4 sm:top-4">
-    <div class="hud-surface pointer-events-auto hidden h-12 min-w-10 items-center gap-2.5 px-3 sm:flex">
-      <span class="h-2 w-2 shrink-0 rounded-sm bg-emerald-400"></span>
-      <span class="hidden max-w-32 truncate text-xs font-medium text-[#d5dbd6] sm:block">{$username}</span>
+    <div class="hud-surface pointer-events-auto flex h-12 min-w-10 items-center">
+      <div class="flex min-w-0 items-center gap-2.5 px-3">
+        <span class="h-2 w-2 shrink-0 rounded-sm bg-emerald-400"></span>
+        <span class="hidden max-w-32 truncate text-xs font-medium text-[#d5dbd6] sm:block">{$username}</span>
+      </div>
+      <button
+        class="flex h-12 w-10 items-center justify-center border-l border-white/[0.08] text-[#778078] transition-colors hover:text-white"
+        title="Sign out"
+        aria-label="Sign out"
+        on:click={logout}
+      >
+        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4"
+          ><path d="M8 4H5.5A1.5 1.5 0 004 5.5v9A1.5 1.5 0 005.5 16H8M12.5 6.5L16 10l-3.5 3.5M8 10h8" stroke-linecap="round" stroke-linejoin="round" /></svg
+        >
+      </button>
     </div>
 
     <!-- Resources (hover for per-hour rates, click to pin) -->
@@ -1468,21 +1544,17 @@
       </div>
     </div>
 
-    <div class="pointer-events-auto ml-auto flex items-center gap-2">
-      <button
-        type="button"
-        class="hud-surface flex h-12 items-center gap-2.5 px-3 text-xs font-medium transition-colors {managementOpen ? 'text-blue-200' : 'text-[#c7cec8] hover:text-white'}"
-        on:click={() => (managementOpen = !managementOpen)}
-        aria-expanded={managementOpen}
-      >
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.4" class="h-4 w-4"><path d="M3 4h14v12H3zM7 4v12M7 8h10" /></svg>
-        <span class="hidden sm:inline">Manage</span>
-      </button>
-      <button class="hud-surface flex h-12 w-11 items-center justify-center text-[#778078] transition-colors hover:text-white" title="Sign out" aria-label="Sign out" on:click={logout}>
-        <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4"
-          ><path d="M8 4H5.5A1.5 1.5 0 004 5.5v9A1.5 1.5 0 005.5 16H8M12.5 6.5L16 10l-3.5 3.5M8 10h8" stroke-linecap="round" stroke-linejoin="round" /></svg
+    <div class="hud-surface pointer-events-auto ml-auto flex h-12 items-stretch overflow-hidden p-1">
+      {#each [['armies', `Armies ${ownedArmies.length}`], ['cities', `Cities ${ownedCities.length}`], ['training', `Training ${queuedTrainingCount}`]] as [tab, label]}
+        <button
+          type="button"
+          class="px-2.5 text-[10px] font-semibold uppercase tracking-[0.07em] transition-colors sm:px-3 {managementOpen && managementTab === tab
+            ? 'bg-blue-300/[0.12] text-blue-200'
+            : 'text-[#778078] hover:bg-white/[0.04] hover:text-[#c8cec9]'}"
+          on:click={() => toggleManagementTab(tab as typeof managementTab)}
+          aria-expanded={managementOpen && managementTab === tab}>{label}</button
         >
-      </button>
+      {/each}
     </div>
   </div>
 
@@ -1494,20 +1566,12 @@
       <div class="border-b border-white/[0.08] px-3 pb-2 pt-3">
         <div class="flex items-center justify-between gap-3">
           <div>
-            <div class="panel-title">Command</div>
-            <div class="mt-0.5 text-[10px] text-[#727b74]">Empire management</div>
+            <div class="panel-title">{managementTab === 'armies' ? 'Armies' : managementTab === 'cities' ? 'Cities' : 'Training'}</div>
+            <div class="mt-0.5 text-[10px] text-[#727b74]">Live command overview</div>
           </div>
-          <button class="flex h-7 w-7 items-center justify-center text-[#788179] transition-colors hover:text-white" aria-label="Close management" on:click={() => (managementOpen = false)}>×</button>
-        </div>
-        <div class="mt-3 grid grid-cols-3 gap-1 bg-black/20 p-1">
-          {#each [['armies', `Armies ${ownedArmies.length}`], ['cities', `Cities ${ownedCities.length}`], ['training', `Training ${queuedTrainingCount}`]] as [tab, label]}
-            <button
-              class="px-2 py-1.5 text-[10px] font-semibold uppercase tracking-[0.08em] transition-colors {managementTab === tab
-                ? 'bg-blue-300/[0.12] text-blue-200'
-                : 'text-[#778078] hover:bg-white/[0.04] hover:text-[#c8cec9]'}"
-              on:click={() => (managementTab = tab as typeof managementTab)}>{label}</button
-            >
-          {/each}
+          <button class="flex h-7 w-7 items-center justify-center text-[#788179] transition-colors hover:text-white" aria-label="Close command panel" on:click={() => (managementOpen = false)}
+            >×</button
+          >
         </div>
       </div>
 
@@ -1663,33 +1727,39 @@
           {@const previewTarget = moveTarget ?? moveHover}
           {@const steps = moveRoute?.length ?? 0}
           {@const unknownSteps = moveRoute?.filter((step) => !step.explored).length ?? 0}
-          <div class="flex flex-wrap items-center gap-3 border-b border-blue-300/20 bg-blue-300/[0.07] px-4 py-2.5">
+          <div class="flex flex-wrap items-center gap-3 border-b px-4 py-2.5 {moveConfirmationPending ? 'border-red-300/30 bg-red-400/[0.09]' : 'border-blue-300/20 bg-blue-300/[0.07]'}">
             <div class="min-w-0 flex-1">
-              <div class="text-xs font-semibold {previewTarget && !moveRoute && !moveRouteLoading ? 'text-red-200' : 'text-blue-200'}">
+              <div class="text-xs font-semibold {moveConfirmationPending || (previewTarget && !moveRoute && !moveRouteLoading) ? 'text-red-200' : 'text-blue-200'}">
                 {busy
-                  ? 'Issuing movement order…'
+                  ? 'Submitting movement order…'
                   : moveRouteLoading
                     ? 'Calculating route…'
-                    : moveOrderActive && previewTarget
-                      ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
-                      : previewTarget
-                        ? moveRoute
-                          ? moveRouteComplete
-                            ? `Route to ${previewTarget.x}, ${previewTarget.y}`
-                            : `Best known approach to ${previewTarget.x}, ${previewTarget.y}`
-                          : moveRouteError || 'Route unavailable'
-                        : 'Move army'}
+                    : moveConfirmationPending && previewTarget
+                      ? `Right-click tile ${previewTarget.x}, ${previewTarget.y} again to confirm`
+                      : moveOrderActive && previewTarget
+                        ? `Marching to ${previewTarget.x}, ${previewTarget.y}`
+                        : previewTarget
+                          ? moveRoute
+                            ? moveRouteComplete
+                              ? `Route to ${previewTarget.x}, ${previewTarget.y}`
+                              : `Best known approach to ${previewTarget.x}, ${previewTarget.y}`
+                            : moveRouteError || 'Route unavailable'
+                          : 'Move army'}
               </div>
               <div class="mt-0.5 text-[11px] text-[#9ba9b1]">
-                {previewTarget
+                {moveConfirmationPending && previewTarget
                   ? moveRouteLoading
-                    ? 'Checking the known terrain and plotting through the fog.'
-                    : moveRoute
-                      ? `${steps} ${steps === 1 ? 'tile' : 'tiles'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteDurationMs)}${unknownSteps ? ` · ${unknownSteps} through unexplored terrain` : ''}${!moveRouteComplete ? ' · stops at the closest reachable land' : ''}`
-                      : moveRouteError
-                        ? 'You can still right-click to send the order; the server will validate it directly.'
-                        : 'Land armies cannot cross water or cut through a blocked corner.'
-                  : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
+                    ? 'Plotting the route. A second right-click here will confirm once it is ready; any other click cancels.'
+                    : `${moveRoute ? `${steps} ${steps === 1 ? 'tile' : 'tiles'} · about ${fmtCountdown(moveRouteDurationMs)}` : 'Route unavailable'} · right-click this tile again to confirm; any other click cancels.`
+                  : previewTarget
+                    ? moveRouteLoading
+                      ? 'Checking the known terrain and plotting through the fog.'
+                      : moveRoute
+                        ? `${steps} ${steps === 1 ? 'tile' : 'tiles'}${moveOrderActive ? ' remaining' : ''} · about ${fmtCountdown(moveRouteDurationMs)}${unknownSteps ? ` · ${unknownSteps} through unexplored terrain` : ''}${!moveRouteComplete ? ' · stops at the closest reachable land' : ''}`
+                        : moveRouteError
+                          ? 'You can still right-click to send the order; the server will validate it directly.'
+                          : 'Land armies cannot cross water or cut through a blocked corner.'
+                    : 'Hover to preview a route, then right-click the destination. Left-drag still pans.'}
               </div>
             </div>
             <span class="text-[10px] text-[#7e8981]">{moveOrderActive ? 'Esc hides route' : 'Esc cancels'}</span>
@@ -1844,7 +1914,7 @@
                       <span class={march?.destination ? 'text-amber-200/80' : 'text-[#79827b]'}
                         >{march?.destination ? `Marching to ${march.destination.x}, ${march.destination.y}` : army.marchId ? 'Marching' : 'Holding position'}</span
                       >
-                      <span class="font-semibold text-[#aeb7b0]">Manage army →</span>
+                      <span class="font-semibold text-[#aeb7b0]">View army →</span>
                     </div>
                   </button>
                 {/each}
