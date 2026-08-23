@@ -9,9 +9,9 @@ import "cityio/entity/v1/ids.proto";
 //
 // Visibility: public fields are returned to anyone whose vision covers the
 // city (population, population_cap, starving, identity, location). Private
-// fields (food rates, recruitable population, and tax policy/rate) are economy intel and
-// only populated when the requester is the city's owner; for non-owners they
-// arrive unset. The owner-only restriction is enforced in
+// fields (food rates, recruitable population, core floor, and tax policy/rate)
+// are economy intel and only populated when the requester is the city's owner;
+// for non-owners they arrive unset. The owner-only restriction is enforced in
 // mapping.HidePrivateCityFields, called from GetMap and GetCity.
 // StreamState is already owner-scoped (publishes only to *City.Owner) so it
 // always carries the full set.
@@ -36,8 +36,9 @@ message City {
   // through future growth.
   double militia_population = 14;
   double militia_target = 15;
-  // The protected 55% share of the city's peak population that training can
-  // never consume. Adding housing does not reclassify existing residents.
+  // Core civilians currently present. Recruitment protects up to 55% of the
+  // city's peak population, but population loss can reduce the actual count
+  // below that floor after recruitable civilians are exhausted.
   double core_population = 16;
   // Residents currently available to transfer into training orders.
   double recruitable_population = 17;
@@ -57,4 +58,7 @@ message City {
   // simulation's food and logistic-growth inputs.
   Rate population_growth_before_tax = 21;
   double militia_percent = 22;
+  // The peak-derived civilian floor used by recruitment and militia policy.
+  // Actual core_population may be lower after severe population loss.
+  double core_population_floor = 23;
 }

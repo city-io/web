@@ -2796,10 +2796,11 @@
                 {@const policyDirty = militiaPolicyDirty || taxPolicyDirty}
                 {@const previewTargetMilitia = militiaTargetDraft}
                 {@const previewMilitia = militiaPolicyDirty
-                  ? Math.min(previewTargetMilitia, Math.max(sel.city.militiaPopulation, sel.city.population - sel.city.corePopulation, 0))
+                  ? Math.min(previewTargetMilitia, Math.max(sel.city.militiaPopulation, sel.city.population - sel.city.corePopulationFloor, 0))
                   : sel.city.militiaPopulation}
-                {@const previewRecruitable = Math.max(0, Math.floor(sel.city.population - sel.city.corePopulation - previewTargetMilitia))}
                 {@const previewTaxableRaw = Math.max(0, sel.city.population - previewMilitia)}
+                {@const previewCore = Math.min(sel.city.corePopulationFloor, previewTaxableRaw)}
+                {@const previewRecruitable = Math.max(0, Math.floor(previewTaxableRaw - previewCore))}
                 {@const previewTaxable = Math.floor(previewTaxableRaw)}
                 {@const taxGoldPerResident = ratePerHour(policy?.taxGoldPerPopulation)}
                 {@const previewTaxIncome = Math.round((previewTaxableRaw * taxGoldPerResident * taxDraft) / 100)}
