@@ -1,0 +1,23 @@
+syntax = "proto3";
+
+package cityio.service.v1;
+
+import "cityio/entity/v1/mailbox.proto";
+import "cityio/entity/v1/ids.proto";
+
+message ListMailboxMessagesRequest {}
+message ListMailboxMessagesResponse {
+  repeated cityio.entity.v1.MailboxMessage messages = 1;
+}
+
+message MarkMailboxMessageReadRequest {
+  cityio.entity.v1.MailboxMessageId mailbox_message_id = 1;
+}
+message MarkMailboxMessageReadResponse {
+  cityio.entity.v1.MailboxMessage message = 1;
+}
+
+service MailboxService {
+  rpc ListMailboxMessages(ListMailboxMessagesRequest) returns (ListMailboxMessagesResponse);
+  rpc MarkMailboxMessageRead(MarkMailboxMessageReadRequest) returns (MarkMailboxMessageReadResponse);
+}

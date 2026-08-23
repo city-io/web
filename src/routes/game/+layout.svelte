@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { mapClient, userClient, configClient } from '$lib/api/client';
+  import { mailboxClient, mapClient, userClient, configClient } from '$lib/api/client';
   import {
     token,
     armies as armiesStore,
@@ -13,6 +13,7 @@
     foodUpkeepPerHour,
     gameConfig,
     gold,
+    mailboxMessages as mailboxMessagesStore,
     mapCenter,
     tileVisibility as tileVisibilityStore,
     tiles as tilesStore,
@@ -96,7 +97,8 @@
     buildings: new Set([...(deleted?.buildingIds ?? []), ...(hidden?.buildingIds ?? [])].map((id) => id.value)),
     armies: new Set([...(deleted?.armyIds ?? []), ...(hidden?.armyIds ?? [])].map((id) => id.value)),
     armyOrders: new Set([...(deleted?.armyOrderIds ?? []), ...(hidden?.armyOrderIds ?? [])].map((id) => id.value)),
-    battles: new Set([...(deleted?.battleIds ?? []), ...(hidden?.battleIds ?? [])].map((id) => id.value))
+    battles: new Set([...(deleted?.battleIds ?? []), ...(hidden?.battleIds ?? [])].map((id) => id.value)),
+    mailboxMessages: new Set([...(deleted?.mailboxMessageIds ?? []), ...(hidden?.mailboxMessageIds ?? [])].map((id) => id.value))
   });
 
   const applyDelta = (delta: StateDelta) => {
@@ -138,6 +140,13 @@
         (battle) => battle.battleId?.value
       )
     );
+    mailboxMessagesStore.update((previous) =>
+      upsertById(
+        previous.filter((message) => !removed.mailboxMessages.has(message.mailboxMessageId?.value ?? '')),
+        bag?.mailboxMessages ?? [],
+        (message) => message.mailboxMessageId?.value
+      )
+    );
     if (bag?.tiles.length) {
       tilesStore.update((previous) => {
         const result = new Map(previous);
@@ -163,7 +172,9 @@
 
     const abortController = new AbortController();
 
+    mailboxMessagesStore.set([]);
     loadConfig();
+    loadMailbox();
     // Load map first, then let the stream's initial authoritative snapshot
     // reconcile it with fresh actor state.
     loadMap().then(() => startStream(abortController.signal));
@@ -179,6 +190,15 @@
       gameConfig.set(cfg);
     } catch {
       /* use defaults */
+    }
+  };
+
+  const loadMailbox = async () => {
+    try {
+      const response = await mailboxClient.listMailboxMessages({});
+      mailboxMessagesStore.update((previous) => upsertById(response.messages, previous, (message) => message.mailboxMessageId?.value));
+    } catch (err) {
+      if (err instanceof ConnectError && err.code === Code.Unauthenticated) return;
     }
   };
 

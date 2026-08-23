@@ -26,6 +26,10 @@ message BattleId {
   string value = 1;
 }
 
+message MailboxMessageId {
+  string value = 1;
+}
+
 message TrainingOrderId {
   string value = 1;
 }
@@ -43,4 +47,5 @@ message EntityIdBag {
   repeated TileId tile_ids = 5;
   repeated ArmyOrderId army_order_ids = 6;
   repeated BattleId battle_ids = 7;
+  repeated MailboxMessageId mailbox_message_ids = 8;
 }

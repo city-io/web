@@ -14,25 +14,21 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/city.proto.
  */
 export const file_cityio_entity_v1_city: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEioAYKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGgoSbWlsaXRpYV9wb3B1bGF0aW9uGA4gASgBEhYKDm1pbGl0aWFfdGFyZ2V0GA8gASgBEhcKD2NvcmVfcG9wdWxhdGlvbhgQIAEoARIeChZyZWNydWl0YWJsZV9wb3B1bGF0aW9uGBEgASgBEhoKEnRheGFibGVfcG9wdWxhdGlvbhgSIAEoARIvCg9mb29kX3Byb2R1Y3Rpb24YCSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSKwoLZm9vZF91cGtlZXAYCiABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSLQoNbmV0X2Zvb2RfZmxvdxgLIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIYChB0YXhfcmF0ZV9wZXJjZW50GBMgASgFEioKCnRheF9pbmNvbWUYFCABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSPAoccG9wdWxhdGlvbl9ncm93dGhfYmVmb3JlX3RheBgVIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIXCg9taWxpdGlhX3BlcmNlbnQYFiABKAESHQoVY29yZV9wb3B1bGF0aW9uX2Zsb29yGBcgASgBQggKBl9vd25lcmIGcHJvdG8z", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEivgYKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGgoSbWlsaXRpYV9wb3B1bGF0aW9uGA4gASgBEhYKDm1pbGl0aWFfdGFyZ2V0GA8gASgBEhcKD2NvcmVfcG9wdWxhdGlvbhgQIAEoARIeChZyZWNydWl0YWJsZV9wb3B1bGF0aW9uGBEgASgBEhoKEnRheGFibGVfcG9wdWxhdGlvbhgSIAEoARIvCg9mb29kX3Byb2R1Y3Rpb24YCSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSKwoLZm9vZF91cGtlZXAYCiABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSLQoNbmV0X2Zvb2RfZmxvdxgLIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIYChB0YXhfcmF0ZV9wZXJjZW50GBMgASgFEioKCnRheF9pbmNvbWUYFCABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSPAoccG9wdWxhdGlvbl9ncm93dGhfYmVmb3JlX3RheBgVIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIXCg9taWxpdGlhX3BlcmNlbnQYFiABKAESHQoVY29yZV9wb3B1bGF0aW9uX2Zsb29yGBcgASgBEhwKFGRlbW9ncmFwaGljc192aXNpYmxlGBggASgIQggKBl9vd25lcmIGcHJvdG8z", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
 
 /**
  * City is a settlement on the map, owned by a player or neutral.
  *
- * Visibility: public fields are returned to anyone whose vision covers the
- * city (population, population_cap, starving, identity, location). Private
- * fields (food rates, recruitable population, core floor, and tax policy/rate)
- * are economy intel and only populated when the requester is the city's owner;
- * for non-owners they arrive unset. The owner-only restriction is enforced in
- * mapping.HidePrivateCityFields, called from GetMap and GetCity.
- * StreamState is already owner-scoped (publishes only to *City.Owner) so it
- * always carries the full set.
+ * Visibility: identity, ownership, type, and location are visible when the
+ * settlement is in vision. Exact demographics, defensive strength, and
+ * economy are owner-only until a future scouting system discloses them.
+ * demographics_visible tells clients whether those numeric fields are real.
  *
  * @generated from message cityio.entity.v1.City
  */
 export type City = Message<"cityio.entity.v1.City"> & {
   /**
-   * --- Public ---
+   * --- Identity, location, and disclosure-gated demographics ---
    *
    * @generated from field: cityio.entity.v1.CityId city_id = 1;
    */
@@ -74,16 +70,13 @@ export type City = Message<"cityio.entity.v1.City"> & {
   size: number;
 
   /**
-   * starving is public: visible from outside ("refugees, failed crops").
-   *
    * @generated from field: bool starving = 12;
    */
   starving: boolean;
 
   /**
    * population_growth is the signed per-hour change in population (positive
-   * when growing, negative when declining). Public — observable from outside
-   * by anyone watching the city over time.
+   * when growing, negative when declining).
    *
    * @generated from field: cityio.entity.v1.Rate population_growth = 13;
    */
@@ -176,6 +169,15 @@ export type City = Message<"cityio.entity.v1.City"> & {
    * @generated from field: double core_population_floor = 23;
    */
   corePopulationFloor: number;
+
+  /**
+   * False when demographic and defensive-strength fields are intentionally
+   * undisclosed to this viewer. Scouting systems can reveal them later by
+   * returning the same city with this flag enabled.
+   *
+   * @generated from field: bool demographics_visible = 24;
+   */
+  demographicsVisible: boolean;
 };
 
 /**

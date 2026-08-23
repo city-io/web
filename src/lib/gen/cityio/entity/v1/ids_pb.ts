@@ -10,7 +10,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/ids.proto.
  */
 export const file_cityio_entity_v1_ids: GenFile = /*@__PURE__*/
-  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIhwKC0FybXlPcmRlcklkEg0KBXZhbHVlGAEgASgJIhkKCEJhdHRsZUlkEg0KBXZhbHVlGAEgASgJIiAKD1RyYWluaW5nT3JkZXJJZBINCgV2YWx1ZRgBIAEoCSIeCgZUaWxlSWQSCQoBeBgBIAEoBRIJCgF5GAIgASgFItgCCgtFbnRpdHlJZEJhZxIqCgh1c2VyX2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEioKCGNpdHlfaWRzGAIgAygLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQSMgoMYnVpbGRpbmdfaWRzGAMgAygLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEioKCGFybXlfaWRzGAQgAygLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSKgoIdGlsZV9pZHMYBSADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZBI1Cg5hcm15X29yZGVyX2lkcxgGIAMoCzIdLmNpdHlpby5lbnRpdHkudjEuQXJteU9yZGVySWQSLgoKYmF0dGxlX2lkcxgHIAMoCzIaLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlSWRiBnByb3RvMw");
+  fileDesc("ChpjaXR5aW8vZW50aXR5L3YxL2lkcy5wcm90bxIQY2l0eWlvLmVudGl0eS52MSIXCgZVc2VySWQSDQoFdmFsdWUYASABKAkiFwoGQ2l0eUlkEg0KBXZhbHVlGAEgASgJIhsKCkJ1aWxkaW5nSWQSDQoFdmFsdWUYASABKAkiFwoGQXJteUlkEg0KBXZhbHVlGAEgASgJIhwKC0FybXlPcmRlcklkEg0KBXZhbHVlGAEgASgJIhkKCEJhdHRsZUlkEg0KBXZhbHVlGAEgASgJIiEKEE1haWxib3hNZXNzYWdlSWQSDQoFdmFsdWUYASABKAkiIAoPVHJhaW5pbmdPcmRlcklkEg0KBXZhbHVlGAEgASgJIh4KBlRpbGVJZBIJCgF4GAEgASgFEgkKAXkYAiABKAUimQMKC0VudGl0eUlkQmFnEioKCHVzZXJfaWRzGAEgAygLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSKgoIY2l0eV9pZHMYAiADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZBIyCgxidWlsZGluZ19pZHMYAyADKAsyHC5jaXR5aW8uZW50aXR5LnYxLkJ1aWxkaW5nSWQSKgoIYXJteV9pZHMYBCADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIqCgh0aWxlX2lkcxgFIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVGlsZUlkEjUKDmFybXlfb3JkZXJfaWRzGAYgAygLMh0uY2l0eWlvLmVudGl0eS52MS5Bcm15T3JkZXJJZBIuCgpiYXR0bGVfaWRzGAcgAygLMhouY2l0eWlvLmVudGl0eS52MS5CYXR0bGVJZBI/ChNtYWlsYm94X21lc3NhZ2VfaWRzGAggAygLMiIuY2l0eWlvLmVudGl0eS52MS5NYWlsYm94TWVzc2FnZUlkYgZwcm90bzM");
 
 /**
  * @generated from message cityio.entity.v1.UserId
@@ -115,6 +115,23 @@ export const BattleIdSchema: GenMessage<BattleId> = /*@__PURE__*/
   messageDesc(file_cityio_entity_v1_ids, 5);
 
 /**
+ * @generated from message cityio.entity.v1.MailboxMessageId
+ */
+export type MailboxMessageId = Message<"cityio.entity.v1.MailboxMessageId"> & {
+  /**
+   * @generated from field: string value = 1;
+   */
+  value: string;
+};
+
+/**
+ * Describes the message cityio.entity.v1.MailboxMessageId.
+ * Use `create(MailboxMessageIdSchema)` to create a new message.
+ */
+export const MailboxMessageIdSchema: GenMessage<MailboxMessageId> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_ids, 6);
+
+/**
  * @generated from message cityio.entity.v1.TrainingOrderId
  */
 export type TrainingOrderId = Message<"cityio.entity.v1.TrainingOrderId"> & {
@@ -129,7 +146,7 @@ export type TrainingOrderId = Message<"cityio.entity.v1.TrainingOrderId"> & {
  * Use `create(TrainingOrderIdSchema)` to create a new message.
  */
 export const TrainingOrderIdSchema: GenMessage<TrainingOrderId> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_ids, 6);
+  messageDesc(file_cityio_entity_v1_ids, 7);
 
 /**
  * @generated from message cityio.entity.v1.TileId
@@ -151,7 +168,7 @@ export type TileId = Message<"cityio.entity.v1.TileId"> & {
  * Use `create(TileIdSchema)` to create a new message.
  */
 export const TileIdSchema: GenMessage<TileId> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_ids, 7);
+  messageDesc(file_cityio_entity_v1_ids, 8);
 
 /**
  * @generated from message cityio.entity.v1.EntityIdBag
@@ -191,6 +208,11 @@ export type EntityIdBag = Message<"cityio.entity.v1.EntityIdBag"> & {
    * @generated from field: repeated cityio.entity.v1.BattleId battle_ids = 7;
    */
   battleIds: BattleId[];
+
+  /**
+   * @generated from field: repeated cityio.entity.v1.MailboxMessageId mailbox_message_ids = 8;
+   */
+  mailboxMessageIds: MailboxMessageId[];
 };
 
 /**
@@ -198,5 +220,5 @@ export type EntityIdBag = Message<"cityio.entity.v1.EntityIdBag"> & {
  * Use `create(EntityIdBagSchema)` to create a new message.
  */
 export const EntityIdBagSchema: GenMessage<EntityIdBag> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_ids, 8);
+  messageDesc(file_cityio_entity_v1_ids, 9);
 

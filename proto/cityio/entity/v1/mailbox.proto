@@ -1,0 +1,109 @@
+syntax = "proto3";
+
+package cityio.entity.v1;
+
+import "cityio/entity/v1/army.proto";
+import "cityio/entity/v1/common.proto";
+import "cityio/entity/v1/ids.proto";
+import "google/protobuf/timestamp.proto";
+
+enum BattleReportRole {
+  BATTLE_REPORT_ROLE_UNSPECIFIED = 0;
+  BATTLE_REPORT_ROLE_ATTACKER = 1;
+  BATTLE_REPORT_ROLE_DEFENDER = 2;
+}
+
+enum BattleReportOutcome {
+  BATTLE_REPORT_OUTCOME_UNSPECIFIED = 0;
+  BATTLE_REPORT_OUTCOME_VICTORY = 1;
+  BATTLE_REPORT_OUTCOME_DEFEAT = 2;
+  BATTLE_REPORT_OUTCOME_DRAW = 3;
+}
+
+enum BattleReportEngagement {
+  BATTLE_REPORT_ENGAGEMENT_UNSPECIFIED = 0;
+  BATTLE_REPORT_ENGAGEMENT_FIELD_BATTLE = 1;
+  BATTLE_REPORT_ENGAGEMENT_SETTLEMENT_SIEGE = 2;
+}
+
+enum BattleReportResolution {
+  BATTLE_REPORT_RESOLUTION_UNSPECIFIED = 0;
+  BATTLE_REPORT_RESOLUTION_ELIMINATION = 1;
+  BATTLE_REPORT_RESOLUTION_RETREAT = 2;
+  BATTLE_REPORT_RESOLUTION_MUTUAL_DESTRUCTION = 3;
+}
+
+message BattleReportArmy {
+  ArmyId army_id = 1;
+  UserId owner_id = 2;
+  repeated TroopStack starting_troops = 3;
+  repeated TroopStack surviving_troops = 4;
+  bool retreated = 5;
+  bool destroyed = 6;
+}
+
+message BattleReportCommander {
+  UserId user_id = 1;
+  string username = 2;
+}
+
+message BattleReportSettlement {
+  CityId city_id = 1;
+  string name = 2;
+  CityType type = 3;
+  optional UserId owner_id = 4;
+  double starting_population = 5;
+  double ending_population = 6;
+}
+
+message BattleReportSide {
+  repeated UserId user_ids = 1;
+  repeated BattleReportArmy armies = 2;
+  optional CityId militia_city_id = 3;
+  int64 starting_militia = 4;
+  int64 surviving_militia = 5;
+  repeated BattleReportCommander commanders = 6;
+  optional BattleReportSettlement settlement = 7;
+}
+
+message BattleReportLoss {
+  optional ArmyId army_id = 1;
+  optional CityId militia_city_id = 2;
+  repeated TroopStack troops = 3;
+  int64 militia = 4;
+}
+
+message BattleReportRound {
+  int32 number = 1;
+  google.protobuf.Timestamp occurred_at = 2;
+  double attacker_power = 3;
+  double defender_power = 4;
+  repeated BattleReportLoss attacker_losses = 5;
+  repeated BattleReportLoss defender_losses = 6;
+}
+
+message BattleReport {
+  BattleId battle_id = 1;
+  TileId tile_id = 2;
+  BattleReportRole role = 3;
+  BattleReportOutcome outcome = 4;
+  BattleReportEngagement engagement = 5;
+  BattleReportResolution resolution = 6;
+  BattleReportSide attackers = 7;
+  BattleReportSide defenders = 8;
+  repeated BattleReportRound rounds = 9;
+  google.protobuf.Timestamp started_at = 10;
+  google.protobuf.Timestamp ended_at = 11;
+}
+
+// MailboxMessage is a durable, recipient-owned envelope. New notification
+// categories extend content without replacing the inbox API or UI model.
+message MailboxMessage {
+  MailboxMessageId mailbox_message_id = 1;
+  UserId recipient_id = 2;
+  google.protobuf.Timestamp created_at = 3;
+  optional google.protobuf.Timestamp read_at = 4;
+  oneof content {
+    BattleReport battle_report = 10;
+  }
+}
