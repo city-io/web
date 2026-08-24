@@ -679,6 +679,14 @@
     drawSel(col, row);
   };
 
+  const openSettlementPolicy = (city: City) => {
+    centerOnCity(city);
+    if (sel?.city?.cityId?.value !== city.cityId?.value) return;
+    cityManagementView = 'city';
+    showCityManagement = true;
+    managementOpen = false;
+  };
+
   const openMailboxMessage = async (message: MailboxMessage) => {
     const id = message.mailboxMessageId?.value;
     if (!id) return;
@@ -2692,7 +2700,7 @@
                   <strong class="block truncate text-xs text-[#e1e7e2]">{city.name}</strong>
                   <span class="mt-0.5 block text-[9px] tabular-nums text-[#79857d]">{trainablePopulation(city).toLocaleString()} recruitable</span>
                 </span>
-                <span class="text-[9px] tabular-nums text-[#879089]">{cityOrders.length} {cityOrders.length === 1 ? 'batch' : 'batches'}</span>
+                <span class="text-[9px] tabular-nums text-[#879089]">{pendingOrders.length} upcoming</span>
               </div>
 
               <div class="border-t border-white/[0.06] px-2 pb-2 pt-1.5">
@@ -2714,21 +2722,16 @@
 
               <div class="border-t border-white/[0.06] px-2 pb-2 pt-1.5">
                 <div class="mb-1 flex items-center justify-between px-1 text-[8px] font-bold uppercase tracking-[0.1em] text-[#78837b]">
-                  <span>Current queue</span><span>{pendingOrders.length} waiting</span>
+                  <span>Upcoming queue</span><span>{pendingOrders.length} waiting</span>
                 </div>
-                {#each cityOrders as order, queueIndex}
-                  {@const assignedLane = cityBarracks.findIndex((building) => building.buildingId?.value === order.barracksId?.value)}
+                {#each pendingOrders as order, queueIndex}
                   <div class="flex items-center gap-2 border-t border-white/[0.05] px-1 py-1.5 first:border-t-0">
                     <span class="training-order-icon">{@render troopGlyph(order.type)}</span>
                     <span class="min-w-0 flex-1 truncate text-[10px] text-[#b6c0b9]">{order.count} {troopName(order.type, order.count)}</span>
-                    <span class="shrink-0 text-[8px] tabular-nums {order.startedAt ? 'text-blue-200/70' : 'text-amber-200/70'}">
-                      {order.startedAt
-                        ? `${assignedLane >= 0 ? `Lane ${assignedLane + 1}` : 'Assigned'} · ${fmtCountdown(timestampMs(order.completesAt) - now)}`
-                        : `Waiting ${queueIndex - (cityOrders.length - pendingOrders.length) + 1}`}
-                    </span>
+                    <span class="shrink-0 text-[8px] tabular-nums text-amber-200/70">Waiting {queueIndex + 1}</span>
                   </div>
                 {:else}
-                  <div class="px-2 py-2 text-[9px] text-[#68736d]">Queue empty</div>
+                  <div class="px-2 py-2 text-[9px] text-[#68736d]">No upcoming batches</div>
                 {/each}
               </div>
 
@@ -3715,9 +3718,15 @@
                     <span class="text-[#7d8881]">Base lane time</span><span class="text-right text-blue-100">{fmtCountdown(batchCount * recruitStat.trainSeconds * 1000)}</span>
                   </div>
                   <button class="game-action game-action-primary mt-2 w-full" disabled={busy || !canQueueTraining} on:click={() => queueTroops(trainingCity)}>
-                    {busy ? 'Working…' : `Queue ${batchCount} ${troopName(recruitType, batchCount)}`}
+                    {busy ? 'Working…' : 'Queue batch'}
                   </button>
                 </div>
+
+                <div class="mt-2">{@render populationUse(trainingCity)}</div>
+                <button class="game-action game-action-secondary mt-2 w-full" on:click={() => openSettlementPolicy(trainingCity)}>
+                  {@render managementGlyph('cities')}
+                  Manage {cName(trainingCity.type)} policy
+                </button>
 
                 <div class="mt-2 border border-white/[0.08] bg-black/[0.08]">
                   <div class="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-2">
@@ -3756,34 +3765,27 @@
 
                 <div class="mt-2 border border-white/[0.08] bg-black/[0.08]">
                   <div class="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-2">
-                    <span class="text-[8px] font-bold uppercase tracking-[0.1em] text-[#78837b]">Shared city queue</span>
+                    <span class="text-[8px] font-bold uppercase tracking-[0.1em] text-[#78837b]">Upcoming city queue</span>
                     <span class="text-[8px] tabular-nums text-[#77847d]">{pendingOrders.length} waiting</span>
                   </div>
                   <div class="px-2">
-                    {#each cityOrders as order, queueIndex}
-                      {@const assignedLane = cityBarracks.findIndex((building) => building.buildingId?.value === order.barracksId?.value)}
+                    {#each pendingOrders as order, queueIndex}
                       <div class="flex items-center gap-2 border-t border-white/[0.05] px-1 py-2 first:border-t-0">
                         <span class="training-order-icon">{@render troopGlyph(order.type)}</span>
                         <span class="min-w-0 flex-1">
                           <span class="block truncate text-[10px] text-[#b6c0b9]">{order.count} {troopName(order.type, order.count)}</span>
                           <span class="block truncate text-[8px] tabular-nums text-[#707b74]">
-                            {order.startedAt
-                              ? `${assignedLane >= 0 ? `Lane ${assignedLane + 1}` : 'Assigned'} · in progress`
-                              : `Waiting ${queueIndex - (cityOrders.length - pendingOrders.length) + 1} · refund ${order.goldCost.toLocaleString()}g + ${order.populationCost.toLocaleString()} residents`}
+                            Waiting {queueIndex + 1} · refund {order.goldCost.toLocaleString()}g + {order.populationCost.toLocaleString()} residents
                           </span>
                         </span>
-                        {#if !order.startedAt}
-                          <button
-                            class="border border-red-300/20 px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-red-200/80 hover:bg-red-300/10 disabled:opacity-30"
-                            disabled={busy}
-                            on:click={() => cancelTrainingOrder(trainingCity, order)}>Cancel</button
-                          >
-                        {:else}
-                          <span class="text-[8px] tabular-nums text-blue-200/70">{fmtCountdown(timestampMs(order.completesAt) - now)}</span>
-                        {/if}
+                        <button
+                          class="border border-red-300/20 px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-red-200/80 hover:bg-red-300/10 disabled:opacity-30"
+                          disabled={busy}
+                          on:click={() => cancelTrainingOrder(trainingCity, order)}>Cancel</button
+                        >
                       </div>
                     {:else}
-                      <div class="px-2 py-3 text-center text-[9px] text-[#68736d]">No training batches queued.</div>
+                      <div class="px-2 py-3 text-center text-[9px] text-[#68736d]">No upcoming training batches.</div>
                     {/each}
                   </div>
                 </div>
