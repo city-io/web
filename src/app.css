@@ -365,8 +365,9 @@
 
   .barracks-training-section {
     display: flex;
+    flex: 1.6 1 0;
     flex-direction: column;
-    overflow: hidden;
+    overflow-y: auto;
   }
 
   .inspector-label {
