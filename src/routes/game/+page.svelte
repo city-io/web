@@ -2962,7 +2962,43 @@
 
         <div class="inspector-body">
           {#if sel.building && !selectedArmy && !showCityManagement}
-            <div class="inspector-actions inspector-actions-compact">
+            {@const compactConstructionStart = timestampMs(sel.building.constructionStart)}
+            {@const compactConstructionEnd = timestampMs(sel.building.constructionEnd)}
+            {@const compactConstructionActive = compactConstructionStart > 0 && compactConstructionEnd > compactConstructionStart && compactConstructionEnd > now}
+            {@const compactConstructing = sel.building.level === 0}
+            {@const compactConstructionVisible = compactConstructionActive || (compactConstructing && compactConstructionEnd > 0)}
+            {@const compactConstructionProgress =
+              compactConstructionEnd > compactConstructionStart ? Math.max(0, Math.min(100, ((now - compactConstructionStart) / (compactConstructionEnd - compactConstructionStart)) * 100)) : 0}
+            <section class="inspector-section">
+              <div class="flex items-center gap-2.5">
+                {@render structureGlyph(sel.building.type, Math.max(1, sel.building.level))}
+                <div class="min-w-0 flex-1">
+                  <div class="inspector-stat-label">Building level</div>
+                  <strong class="mt-0.5 block truncate text-[13px] font-semibold text-[#edf2ef]">
+                    {compactConstructing
+                      ? `Level ${sel.building.targetLevel || 1} planned`
+                      : compactConstructionActive
+                        ? `Level ${sel.building.level} → ${sel.building.targetLevel || sel.building.level + 1}`
+                        : `Level ${sel.building.level}`}
+                  </strong>
+                  <span class="mt-0.5 block text-[9px] {compactConstructionVisible ? 'text-amber-200/80' : 'text-emerald-200/70'}">
+                    {compactConstructing ? 'Under construction' : compactConstructionActive ? 'Upgrade in progress' : 'Operational'}
+                  </span>
+                </div>
+              </div>
+              {#if compactConstructionVisible}
+                <div class="mt-2.5 border-t border-white/[0.07] pt-2">
+                  <div class="flex items-center justify-between gap-3 text-[9px]">
+                    <span class="text-[#87938c]">{compactConstructing ? 'Construction' : `Upgrade to level ${sel.building.targetLevel}`}</span>
+                    <strong class="tabular-nums text-amber-100">{compactConstructionEnd > now ? fmtCountdown(compactConstructionEnd - now) : 'Completing'}</strong>
+                  </div>
+                  <div class="mt-1.5 h-1 overflow-hidden bg-white/[0.08]">
+                    <div class="h-full bg-amber-300 transition-[width] duration-500" style={`width: ${compactConstructionProgress}%`}></div>
+                  </div>
+                </div>
+              {/if}
+            </section>
+            <div class="inspector-actions">
               <button class="game-action game-action-primary" on:click={openSelectedManagement}>
                 {#if selectedSettlementCenter}
                   {@render managementGlyph('cities')}
