@@ -30,9 +30,19 @@ message ListCitiesResponse {
   cityio.entity.v1.EntityBag entities = 2;
 }
 
+message UpdateCityPolicyRequest {
+  cityio.entity.v1.CityId city_id = 1;
+  double militia_target = 2;
+  int32 tax_rate_percent = 3;
+}
+message UpdateCityPolicyResponse {
+  cityio.entity.v1.City city = 1;
+}
+
 // CityService creates and reads cities.
 service CityService {
   rpc GetCity(GetCityRequest) returns (GetCityResponse);
   rpc CreateCity(CreateCityRequest) returns (CreateCityResponse);
   rpc ListCities(ListCitiesRequest) returns (ListCitiesResponse);
+  rpc UpdateCityPolicy(UpdateCityPolicyRequest) returns (UpdateCityPolicyResponse);
 }

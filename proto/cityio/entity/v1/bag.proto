@@ -5,6 +5,7 @@ package cityio.entity.v1;
 import "cityio/entity/v1/army.proto";
 import "cityio/entity/v1/army_order.proto";
 import "cityio/entity/v1/battle.proto";
+import "cityio/entity/v1/mailbox.proto";
 import "cityio/entity/v1/building.proto";
 import "cityio/entity/v1/city.proto";
 import "cityio/entity/v1/tile.proto";
@@ -19,4 +20,5 @@ message EntityBag {
   repeated Tile tiles = 5;
   repeated ArmyOrder army_orders = 6;
   repeated Battle battles = 7;
+  repeated MailboxMessage mailbox_messages = 8;
 }

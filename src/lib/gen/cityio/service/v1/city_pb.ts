@@ -18,7 +18,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/service/v1/city.proto.
  */
 export const file_cityio_service_v1_city: GenFile = /*@__PURE__*/
-  fileDesc("ChxjaXR5aW8vc2VydmljZS92MS9jaXR5LnByb3RvEhFjaXR5aW8uc2VydmljZS52MSI7Cg5HZXRDaXR5UmVxdWVzdBIpCgdjaXR5X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQiNwoPR2V0Q2l0eVJlc3BvbnNlEiQKBGNpdHkYASABKAsyFi5jaXR5aW8uZW50aXR5LnYxLkNpdHkikQEKEUNyZWF0ZUNpdHlSZXF1ZXN0EigKBHR5cGUYASABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAMgASgJEgwKBHNpemUYBCABKAVCCAoGX293bmVyIjoKEkNyZWF0ZUNpdHlSZXNwb25zZRIkCgRjaXR5GAEgASgLMhYuY2l0eWlvLmVudGl0eS52MS5DaXR5IhMKEUxpc3RDaXRpZXNSZXF1ZXN0Im8KEkxpc3RDaXRpZXNSZXNwb25zZRIqCghjaXR5X2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEi0KCGVudGl0aWVzGAIgASgLMhsuY2l0eWlvLmVudGl0eS52MS5FbnRpdHlCYWcylQIKC0NpdHlTZXJ2aWNlElAKB0dldENpdHkSIS5jaXR5aW8uc2VydmljZS52MS5HZXRDaXR5UmVxdWVzdBoiLmNpdHlpby5zZXJ2aWNlLnYxLkdldENpdHlSZXNwb25zZRJZCgpDcmVhdGVDaXR5EiQuY2l0eWlvLnNlcnZpY2UudjEuQ3JlYXRlQ2l0eVJlcXVlc3QaJS5jaXR5aW8uc2VydmljZS52MS5DcmVhdGVDaXR5UmVzcG9uc2USWQoKTGlzdENpdGllcxIkLmNpdHlpby5zZXJ2aWNlLnYxLkxpc3RDaXRpZXNSZXF1ZXN0GiUuY2l0eWlvLnNlcnZpY2UudjEuTGlzdENpdGllc1Jlc3BvbnNlYgZwcm90bzM", [file_cityio_entity_v1_bag, file_cityio_entity_v1_city, file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+  fileDesc("ChxjaXR5aW8vc2VydmljZS92MS9jaXR5LnByb3RvEhFjaXR5aW8uc2VydmljZS52MSI7Cg5HZXRDaXR5UmVxdWVzdBIpCgdjaXR5X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQiNwoPR2V0Q2l0eVJlc3BvbnNlEiQKBGNpdHkYASABKAsyFi5jaXR5aW8uZW50aXR5LnYxLkNpdHkikQEKEUNyZWF0ZUNpdHlSZXF1ZXN0EigKBHR5cGUYASABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAMgASgJEgwKBHNpemUYBCABKAVCCAoGX293bmVyIjoKEkNyZWF0ZUNpdHlSZXNwb25zZRIkCgRjaXR5GAEgASgLMhYuY2l0eWlvLmVudGl0eS52MS5DaXR5IhMKEUxpc3RDaXRpZXNSZXF1ZXN0Im8KEkxpc3RDaXRpZXNSZXNwb25zZRIqCghjaXR5X2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEi0KCGVudGl0aWVzGAIgASgLMhsuY2l0eWlvLmVudGl0eS52MS5FbnRpdHlCYWcidgoXVXBkYXRlQ2l0eVBvbGljeVJlcXVlc3QSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEhYKDm1pbGl0aWFfdGFyZ2V0GAIgASgBEhgKEHRheF9yYXRlX3BlcmNlbnQYAyABKAUiQAoYVXBkYXRlQ2l0eVBvbGljeVJlc3BvbnNlEiQKBGNpdHkYASABKAsyFi5jaXR5aW8uZW50aXR5LnYxLkNpdHkyggMKC0NpdHlTZXJ2aWNlElAKB0dldENpdHkSIS5jaXR5aW8uc2VydmljZS52MS5HZXRDaXR5UmVxdWVzdBoiLmNpdHlpby5zZXJ2aWNlLnYxLkdldENpdHlSZXNwb25zZRJZCgpDcmVhdGVDaXR5EiQuY2l0eWlvLnNlcnZpY2UudjEuQ3JlYXRlQ2l0eVJlcXVlc3QaJS5jaXR5aW8uc2VydmljZS52MS5DcmVhdGVDaXR5UmVzcG9uc2USWQoKTGlzdENpdGllcxIkLmNpdHlpby5zZXJ2aWNlLnYxLkxpc3RDaXRpZXNSZXF1ZXN0GiUuY2l0eWlvLnNlcnZpY2UudjEuTGlzdENpdGllc1Jlc3BvbnNlEmsKEFVwZGF0ZUNpdHlQb2xpY3kSKi5jaXR5aW8uc2VydmljZS52MS5VcGRhdGVDaXR5UG9saWN5UmVxdWVzdBorLmNpdHlpby5zZXJ2aWNlLnYxLlVwZGF0ZUNpdHlQb2xpY3lSZXNwb25zZWIGcHJvdG8z", [file_cityio_entity_v1_bag, file_cityio_entity_v1_city, file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
 
 /**
  * @generated from message cityio.service.v1.GetCityRequest
@@ -139,6 +139,50 @@ export const ListCitiesResponseSchema: GenMessage<ListCitiesResponse> = /*@__PUR
   messageDesc(file_cityio_service_v1_city, 5);
 
 /**
+ * @generated from message cityio.service.v1.UpdateCityPolicyRequest
+ */
+export type UpdateCityPolicyRequest = Message<"cityio.service.v1.UpdateCityPolicyRequest"> & {
+  /**
+   * @generated from field: cityio.entity.v1.CityId city_id = 1;
+   */
+  cityId?: CityId | undefined;
+
+  /**
+   * @generated from field: double militia_target = 2;
+   */
+  militiaTarget: number;
+
+  /**
+   * @generated from field: int32 tax_rate_percent = 3;
+   */
+  taxRatePercent: number;
+};
+
+/**
+ * Describes the message cityio.service.v1.UpdateCityPolicyRequest.
+ * Use `create(UpdateCityPolicyRequestSchema)` to create a new message.
+ */
+export const UpdateCityPolicyRequestSchema: GenMessage<UpdateCityPolicyRequest> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_city, 6);
+
+/**
+ * @generated from message cityio.service.v1.UpdateCityPolicyResponse
+ */
+export type UpdateCityPolicyResponse = Message<"cityio.service.v1.UpdateCityPolicyResponse"> & {
+  /**
+   * @generated from field: cityio.entity.v1.City city = 1;
+   */
+  city?: City | undefined;
+};
+
+/**
+ * Describes the message cityio.service.v1.UpdateCityPolicyResponse.
+ * Use `create(UpdateCityPolicyResponseSchema)` to create a new message.
+ */
+export const UpdateCityPolicyResponseSchema: GenMessage<UpdateCityPolicyResponse> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_city, 7);
+
+/**
  * CityService creates and reads cities.
  *
  * @generated from service cityio.service.v1.CityService
@@ -167,6 +211,14 @@ export const CityService: GenService<{
     methodKind: "unary";
     input: typeof ListCitiesRequestSchema;
     output: typeof ListCitiesResponseSchema;
+  },
+  /**
+   * @generated from rpc cityio.service.v1.CityService.UpdateCityPolicy
+   */
+  updateCityPolicy: {
+    methodKind: "unary";
+    input: typeof UpdateCityPolicyRequestSchema;
+    output: typeof UpdateCityPolicyResponseSchema;
   },
 }> = /*@__PURE__*/
   serviceDesc(file_cityio_service_v1_city, 0);

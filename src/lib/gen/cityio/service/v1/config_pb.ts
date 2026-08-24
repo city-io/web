@@ -14,7 +14,7 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/service/v1/config.proto.
  */
 export const file_cityio_service_v1_config: GenFile = /*@__PURE__*/
-  fileDesc("Ch5jaXR5aW8vc2VydmljZS92MS9jb25maWcucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIjIKDlJlc291cmNlQW1vdW50EhAKCHJlc291cmNlGAEgASgJEg4KBmFtb3VudBgCIAEoAyJGCgxSZXNvdXJjZVJhdGUSEAoIcmVzb3VyY2UYASABKAkSJAoEcmF0ZRgCIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZSLTAQoSQnVpbGRpbmdMZXZlbFN0YXRzEg0KBWxldmVsGAEgASgFEi8KBGNvc3QYAiADKAsyIS5jaXR5aW8uc2VydmljZS52MS5SZXNvdXJjZUFtb3VudBI0ChFjb25zdHJ1Y3Rpb25fdGltZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIzCgpwcm9kdWN0aW9uGAQgAygLMh8uY2l0eWlvLnNlcnZpY2UudjEuUmVzb3VyY2VSYXRlEhIKCnBvcHVsYXRpb24YBSABKAEidQoOQnVpbGRpbmdDb25maWcSLAoEdHlwZRgBIAEoDjIeLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdUeXBlEjUKBmxldmVscxgCIAMoCzIlLmNpdHlpby5zZXJ2aWNlLnYxLkJ1aWxkaW5nTGV2ZWxTdGF0cyIWChRHZXRHYW1lQ29uZmlnUmVxdWVzdCLpAQoVR2V0R2FtZUNvbmZpZ1Jlc3BvbnNlEhAKCG1hcF9zaXplGAEgASgFEhEKCWNpdHlfc2l6ZRgCIAEoBRIVCg12aXNpb25fcmFkaXVzGAMgASgFEjAKDWJ1aWxkaW5nX3RpY2sYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SNAoJYnVpbGRpbmdzGAUgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdDb25maWcSLAoJY2l0eV90aWNrGAYgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uMnMKDUNvbmZpZ1NlcnZpY2USYgoNR2V0R2FtZUNvbmZpZxInLmNpdHlpby5zZXJ2aWNlLnYxLkdldEdhbWVDb25maWdSZXF1ZXN0GiguY2l0eWlvLnNlcnZpY2UudjEuR2V0R2FtZUNvbmZpZ1Jlc3BvbnNlYgZwcm90bzM", [file_cityio_entity_v1_common, file_google_protobuf_duration]);
+  fileDesc("Ch5jaXR5aW8vc2VydmljZS92MS9jb25maWcucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIjIKDlJlc291cmNlQW1vdW50EhAKCHJlc291cmNlGAEgASgJEg4KBmFtb3VudBgCIAEoAyJGCgxSZXNvdXJjZVJhdGUSEAoIcmVzb3VyY2UYASABKAkSJAoEcmF0ZRgCIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZSLTAQoSQnVpbGRpbmdMZXZlbFN0YXRzEg0KBWxldmVsGAEgASgFEi8KBGNvc3QYAiADKAsyIS5jaXR5aW8uc2VydmljZS52MS5SZXNvdXJjZUFtb3VudBI0ChFjb25zdHJ1Y3Rpb25fdGltZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIzCgpwcm9kdWN0aW9uGAQgAygLMh8uY2l0eWlvLnNlcnZpY2UudjEuUmVzb3VyY2VSYXRlEhIKCnBvcHVsYXRpb24YBSABKAEidQoOQnVpbGRpbmdDb25maWcSLAoEdHlwZRgBIAEoDjIeLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdUeXBlEjUKBmxldmVscxgCIAMoCzIlLmNpdHlpby5zZXJ2aWNlLnYxLkJ1aWxkaW5nTGV2ZWxTdGF0cyIWChRHZXRHYW1lQ29uZmlnUmVxdWVzdCLyAgoWUG9wdWxhdGlvblBvbGljeUNvbmZpZxIdChVjb3JlX2NpdmlsaWFuX3BlcmNlbnQYASABKAUSHwoXZGVmYXVsdF9taWxpdGlhX3BlcmNlbnQYAiABKAUSHwoXbmV1dHJhbF9taWxpdGlhX3BlcmNlbnQYAyABKAUSGwoTbWF4X21pbGl0aWFfcGVyY2VudBgEIAEoBRIcChRtYXhfbWlsaXRhcnlfcGVyY2VudBgFIAEoBRIgChhkZWZhdWx0X3RheF9yYXRlX3BlcmNlbnQYBiABKAUSHAoUbWF4X3RheF9yYXRlX3BlcmNlbnQYByABKAUSNwoXdGF4X2dvbGRfcGVyX3BvcHVsYXRpb24YCCABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGwoTbWluX21pbGl0aWFfcGVyY2VudBgJIAEoBRImCh5tYXhfdGF4X2dyb3d0aF9wZW5hbHR5X3BlcmNlbnQYCiABKAUirwIKFUdldEdhbWVDb25maWdSZXNwb25zZRIQCghtYXBfc2l6ZRgBIAEoBRIRCgljaXR5X3NpemUYAiABKAUSFQoNdmlzaW9uX3JhZGl1cxgDIAEoBRIwCg1idWlsZGluZ190aWNrGAQgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEjQKCWJ1aWxkaW5ncxgFIAMoCzIhLmNpdHlpby5zZXJ2aWNlLnYxLkJ1aWxkaW5nQ29uZmlnEiwKCWNpdHlfdGljaxgGIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhJEChFwb3B1bGF0aW9uX3BvbGljeRgHIAEoCzIpLmNpdHlpby5zZXJ2aWNlLnYxLlBvcHVsYXRpb25Qb2xpY3lDb25maWcycwoNQ29uZmlnU2VydmljZRJiCg1HZXRHYW1lQ29uZmlnEicuY2l0eWlvLnNlcnZpY2UudjEuR2V0R2FtZUNvbmZpZ1JlcXVlc3QaKC5jaXR5aW8uc2VydmljZS52MS5HZXRHYW1lQ29uZmlnUmVzcG9uc2ViBnByb3RvMw", [file_cityio_entity_v1_common, file_google_protobuf_duration]);
 
 /**
  * ResourceAmount is a one-shot amount (e.g. a build cost).
@@ -137,6 +137,73 @@ export const GetGameConfigRequestSchema: GenMessage<GetGameConfigRequest> = /*@_
   messageDesc(file_cityio_service_v1_config, 4);
 
 /**
+ * @generated from message cityio.service.v1.PopulationPolicyConfig
+ */
+export type PopulationPolicyConfig = Message<"cityio.service.v1.PopulationPolicyConfig"> & {
+  /**
+   * @generated from field: int32 core_civilian_percent = 1;
+   */
+  coreCivilianPercent: number;
+
+  /**
+   * @generated from field: int32 default_militia_percent = 2;
+   */
+  defaultMilitiaPercent: number;
+
+  /**
+   * @generated from field: int32 neutral_militia_percent = 3;
+   */
+  neutralMilitiaPercent: number;
+
+  /**
+   * @generated from field: int32 max_militia_percent = 4;
+   */
+  maxMilitiaPercent: number;
+
+  /**
+   * @generated from field: int32 max_military_percent = 5;
+   */
+  maxMilitaryPercent: number;
+
+  /**
+   * @generated from field: int32 default_tax_rate_percent = 6;
+   */
+  defaultTaxRatePercent: number;
+
+  /**
+   * @generated from field: int32 max_tax_rate_percent = 7;
+   */
+  maxTaxRatePercent: number;
+
+  /**
+   * Gold per taxable resident at a 100% tax rate.
+   *
+   * @generated from field: cityio.entity.v1.Rate tax_gold_per_population = 8;
+   */
+  taxGoldPerPopulation?: Rate | undefined;
+
+  /**
+   * @generated from field: int32 min_militia_percent = 9;
+   */
+  minMilitiaPercent: number;
+
+  /**
+   * Percentage of untaxed growth removed at the maximum tax rate. Values over
+   * 100 allow sufficiently high tax to cause population decline.
+   *
+   * @generated from field: int32 max_tax_growth_penalty_percent = 10;
+   */
+  maxTaxGrowthPenaltyPercent: number;
+};
+
+/**
+ * Describes the message cityio.service.v1.PopulationPolicyConfig.
+ * Use `create(PopulationPolicyConfigSchema)` to create a new message.
+ */
+export const PopulationPolicyConfigSchema: GenMessage<PopulationPolicyConfig> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 5);
+
+/**
  * @generated from message cityio.service.v1.GetGameConfigResponse
  */
 export type GetGameConfigResponse = Message<"cityio.service.v1.GetGameConfigResponse"> & {
@@ -169,6 +236,11 @@ export type GetGameConfigResponse = Message<"cityio.service.v1.GetGameConfigResp
    * @generated from field: google.protobuf.Duration city_tick = 6;
    */
   cityTick?: Duration | undefined;
+
+  /**
+   * @generated from field: cityio.service.v1.PopulationPolicyConfig population_policy = 7;
+   */
+  populationPolicy?: PopulationPolicyConfig | undefined;
 };
 
 /**
@@ -176,7 +248,7 @@ export type GetGameConfigResponse = Message<"cityio.service.v1.GetGameConfigResp
  * Use `create(GetGameConfigResponseSchema)` to create a new message.
  */
 export const GetGameConfigResponseSchema: GenMessage<GetGameConfigResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_config, 5);
+  messageDesc(file_cityio_service_v1_config, 6);
 
 /**
  * @generated from service cityio.service.v1.ConfigService

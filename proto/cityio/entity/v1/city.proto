@@ -7,16 +7,12 @@ import "cityio/entity/v1/ids.proto";
 
 // City is a settlement on the map, owned by a player or neutral.
 //
-// Visibility: public fields are returned to anyone whose vision covers the
-// city (population, population_cap, starving, identity, location). Private
-// fields (food_production, food_upkeep, net_food_flow) are economy intel and
-// only populated when the requester is the city's owner; for non-owners they
-// arrive unset. The owner-only restriction is enforced in
-// mapping.HidePrivateCityFields, called from GetMap and GetCity.
-// StreamState is already owner-scoped (publishes only to *City.Owner) so it
-// always carries the full set.
+// Visibility: identity, ownership, type, and location are visible when the
+// settlement is in vision. Exact demographics, defensive strength, and
+// economy are owner-only until a future scouting system discloses them.
+// demographics_visible tells clients whether those numeric fields are real.
 message City {
-  // --- Public ---
+  // --- Identity, location, and disclosure-gated demographics ---
   CityId city_id = 1;
   CityType type = 2;
   optional UserId owner = 3;
@@ -25,21 +21,42 @@ message City {
   double population_cap = 6;
   Coordinates start = 7;
   int32 size = 8;
-  // starving is public: visible from outside ("refugees, failed crops").
   bool starving = 12;
   // population_growth is the signed per-hour change in population (positive
-  // when growing, negative when declining). Public — observable from outside
-  // by anyone watching the city over time.
+  // when growing, negative when declining).
   Rate population_growth = 13;
-  // military_population is the share of population currently reserved as
-  // standing army (bounded by MilitaryPopulationFraction × population).
-  double military_population = 14;
+  // The current non-mobile defensive reserve, its exact configured target, and
+  // that target as a derived share of housing capacity. Militia losses refill
+  // through future growth.
+  double militia_population = 14;
+  double militia_target = 15;
+  // Core civilians currently present. Recruitment protects up to 55% of the
+  // city's peak population, but population loss can reduce the actual count
+  // below that floor after recruitable civilians are exhausted.
+  double core_population = 16;
+  // Residents currently available to transfer into training orders.
+  double recruitable_population = 17;
+  // Residents currently paying tax (all residents except the militia).
+  double taxable_population = 18;
 
   // --- Owner-only ---
-  // food_production, food_upkeep, and net_food_flow expose this city's
-  // economy. They are populated when the requester owns the city and unset
-  // otherwise. Non-owners receive nil/zero for these fields.
+  // These fields expose this city's private economy and policy. They are
+  // populated when the requester owns the city and unset otherwise.
   Rate food_production = 9;
   Rate food_upkeep = 10;
   Rate net_food_flow = 11;
+  int32 tax_rate_percent = 19;
+  Rate tax_income = 20;
+  // Current population change before tax policy is applied. This owner-only
+  // baseline lets clients preview policy changes without guessing the city
+  // simulation's food and logistic-growth inputs.
+  Rate population_growth_before_tax = 21;
+  double militia_percent = 22;
+  // The peak-derived civilian floor used by recruitment and militia policy.
+  // Actual core_population may be lower after severe population loss.
+  double core_population_floor = 23;
+  // False when demographic and defensive-strength fields are intentionally
+  // undisclosed to this viewer. Scouting systems can reveal them later by
+  // returning the same city with this flag enabled.
+  bool demographics_visible = 24;
 }

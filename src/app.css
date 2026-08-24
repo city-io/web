@@ -53,7 +53,8 @@
   input[type='submit'],
   input[type='reset'],
   input[type='checkbox'],
-  input[type='radio'] {
+  input[type='radio'],
+  input[type='range'] {
     cursor: var(--cursor-action);
   }
 
@@ -198,6 +199,150 @@
       inset 0 -1px rgba(0, 0, 0, 0.7);
   }
 
+  .city-dialog {
+    width: min(980px, calc(100vw - 2rem));
+    max-height: calc(100vh - 5rem);
+    border: 2px solid #8b835f;
+    background: #1b292b;
+    box-shadow:
+      0 0 0 1px #20291f,
+      0 0 0 3px #4e553f,
+      0 22px 64px rgba(0, 0, 0, 0.62),
+      inset 0 1px rgba(255, 242, 181, 0.12),
+      inset 0 -1px rgba(0, 0, 0, 0.82);
+  }
+
+  .city-dialog .inspector-header {
+    border-color: #777354;
+    background: linear-gradient(180deg, #465b59 0%, #344846 100%);
+  }
+
+  .city-dialog .inspector-body {
+    max-height: min(650px, calc(100vh - 7.5rem));
+  }
+
+  .city-dialog .inspector-section {
+    padding: 1rem;
+  }
+
+  .city-dialog .inspector-label {
+    color: #d2c89a;
+  }
+
+  .mail-dialog {
+    display: flex;
+    width: min(780px, calc(100vw - 2rem));
+    max-height: calc(100vh - 4rem);
+    flex-direction: column;
+    overflow: hidden;
+    border: 2px solid #777354;
+    background: #1b292b;
+    box-shadow:
+      0 0 0 1px #20291f,
+      0 0 0 3px #4e553f,
+      0 22px 64px rgba(0, 0, 0, 0.62),
+      inset 0 1px rgba(255, 242, 181, 0.12);
+  }
+
+  .mail-dialog-header {
+    @apply flex items-center gap-3 border-b border-[#777354] bg-[#3a4e4c] px-4 py-3;
+    box-shadow: inset 0 1px rgba(222, 240, 238, 0.12);
+  }
+
+  .mail-dialog-body {
+    min-height: 0;
+    overflow-y: auto;
+    scrollbar-color: #5e7378 #1c292c;
+    scrollbar-width: thin;
+    background: #172326;
+  }
+
+  .mail-dialog-footer {
+    @apply flex items-center justify-between gap-4 border-t border-[#526367] bg-[#202e30] px-4 py-3 text-[9px] text-[#75817b];
+  }
+
+  .battle-dialog {
+    display: flex;
+    width: min(980px, calc(100vw - 2rem));
+    max-height: calc(100vh - 4rem);
+    flex-direction: column;
+    overflow: hidden;
+    border: 2px solid #8d4c45;
+    background: #182326;
+    box-shadow:
+      0 0 0 1px #1c1513,
+      0 0 0 3px #49352f,
+      0 24px 70px rgba(0, 0, 0, 0.68),
+      inset 0 1px rgba(255, 210, 190, 0.1);
+  }
+
+  .battle-dialog-header {
+    @apply flex items-center gap-3 border-b border-[#754943] bg-[#352725] px-4 py-3;
+    box-shadow: inset 0 1px rgba(255, 225, 200, 0.08);
+  }
+
+  .battle-dialog-emblem {
+    @apply flex h-11 w-11 shrink-0 items-center justify-center border border-red-300/25 bg-red-300/[0.08] text-red-300;
+  }
+
+  .battle-dialog-emblem svg {
+    @apply h-8 w-8;
+  }
+
+  .battle-dialog-close {
+    @apply flex h-8 w-8 shrink-0 items-center justify-center border border-white/[0.12] text-lg text-[#b9aaa2] hover:border-red-200/30 hover:text-white;
+  }
+
+  .battle-dialog-timing {
+    @apply grid grid-cols-3 gap-px border-b border-[#4d4d42] bg-[#4d4d42];
+  }
+
+  .battle-dialog-timing > div {
+    @apply flex items-center justify-between gap-3 bg-[#202c2e] px-4 py-2 text-[10px];
+  }
+
+  .battle-dialog-timing span {
+    @apply uppercase tracking-[0.08em] text-[#77827c];
+  }
+
+  .battle-dialog-timing strong {
+    @apply tabular-nums text-[#d9ded5];
+  }
+
+  .battle-dialog-body {
+    display: grid;
+    min-height: 0;
+    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    overflow-y: auto;
+    scrollbar-color: #6f514a #182326;
+    scrollbar-width: thin;
+    background: #141c1e;
+  }
+
+  .battle-side {
+    @apply min-w-0 border-white/[0.08] bg-[#1a2527];
+  }
+
+  .battle-side-attackers {
+    @apply border-r;
+  }
+
+  .battle-side-defenders {
+    @apply border-l;
+  }
+
+  .battle-versus {
+    @apply flex w-11 shrink-0 items-center justify-center bg-[#12191a] text-[10px] font-black tracking-[0.12em] text-[#867b68];
+  }
+
+  .battle-dialog-footer {
+    @apply flex items-center justify-between gap-4 border-t border-[#5f4943] bg-[#202a2b] px-4 py-3;
+  }
+
+  .battle-dialog-footer p {
+    @apply text-[9px] leading-relaxed text-[#75817b];
+  }
+
   .inspector-header {
     @apply border-b border-[#5b6e73] bg-[#34474b] px-3 py-2;
     box-shadow: inset 0 1px rgba(222, 240, 238, 0.12);
@@ -216,6 +361,28 @@
     scrollbar-color: #5e7378 #1c292c;
     scrollbar-width: thin;
     @apply border-r border-[#465a5f] px-3 py-2.5 last:border-r-0;
+  }
+
+  .barracks-training-section {
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .barracks-training-scroll {
+    min-height: 0;
+    flex: 1 1 auto;
+    overflow-y: auto;
+    padding-right: 0.25rem;
+    scrollbar-color: #5e7378 #1c292c;
+    scrollbar-width: thin;
+  }
+
+  .barracks-training-action {
+    flex: 0 0 auto;
+    margin-top: 0.75rem;
+    border-top: 1px solid #465a5f;
+    padding-top: 0.75rem;
   }
 
   .inspector-label {
@@ -245,6 +412,11 @@
   .inspector-actions {
     flex: 0 0 154px;
     @apply flex flex-col justify-center gap-1.5 border-l border-[#465a5f] bg-[#1c292c] p-2.5;
+  }
+
+  .inspector-actions-compact {
+    flex: 1 1 auto;
+    @apply border-l-0;
   }
 
   .game-action {
@@ -287,6 +459,62 @@
     @apply h-7 w-7;
   }
 
+  .unit-token-soldier {
+    color: #fff;
+  }
+
+  .training-order-icon .unit-token {
+    height: 1.75rem;
+    width: 1.75rem;
+  }
+
+  .training-order-icon .unit-token > svg {
+    height: 1.35rem;
+    width: 1.35rem;
+  }
+
+  .training-order-icon .unit-tier {
+    display: none;
+  }
+
+  .numeric-entry {
+    appearance: textfield;
+    width: 3rem;
+    border: 1px solid #61777a;
+    border-radius: 1px;
+    background: #172426;
+    padding: 0.125rem 0.25rem;
+    color: #cbe4ec;
+    font: inherit;
+    font-weight: 700;
+    text-align: right;
+    outline: none;
+  }
+
+  .numeric-entry-tax {
+    color: #fde68a;
+  }
+
+  .numeric-entry-count {
+    width: 3.5rem;
+    font-size: 0.875rem;
+  }
+
+  .numeric-entry-target {
+    width: 3.75rem;
+  }
+
+  .numeric-entry::-webkit-inner-spin-button,
+  .numeric-entry::-webkit-outer-spin-button {
+    margin: 0;
+    appearance: none;
+  }
+
+  .numeric-entry:focus {
+    border-color: #a9c7ca;
+    box-shadow: 0 0 0 1px rgba(169, 199, 202, 0.2);
+  }
+
   .unit-tier {
     @apply absolute -bottom-px -right-px min-w-3.5 bg-[#132024] px-0.5 text-center text-[7px] font-bold leading-3 text-[#f0d86d];
     border-left: 1px solid #62767b;
@@ -294,7 +522,20 @@
   }
 
   .unit-chip {
-    @apply flex min-w-[8.5rem] items-center gap-2 border border-[#465a5f] bg-[#233235] p-1.5;
+    @apply flex min-w-[8.5rem] items-center gap-2 border border-[#465a5f] bg-[#233235] p-1.5 transition-colors;
+  }
+
+  .unit-chip:not(:disabled):hover {
+    @apply border-[#6b858a] bg-[#2e4246];
+  }
+
+  .unit-chip:disabled {
+    cursor: default;
+  }
+
+  .unit-chip-selected {
+    @apply border-blue-200/50 bg-blue-200/[0.12];
+    box-shadow: inset 0 0 0 1px rgba(191, 219, 254, 0.08);
   }
 
   .structure-token {
@@ -360,8 +601,72 @@
       @apply border-b border-r-0 border-[#4a4b3e];
     }
 
+    .barracks-training-section {
+      display: block;
+    }
+
+    .barracks-training-scroll {
+      overflow: visible;
+      padding-right: 0;
+    }
+
+    .barracks-training-action {
+      position: sticky;
+      bottom: 0;
+      z-index: 1;
+      background: #1b292b;
+      padding-bottom: 0.625rem;
+    }
+
     .inspector-actions {
       @apply sticky bottom-0 flex-row border-l-0 border-t border-[#4a4b3e];
+    }
+
+    .city-dialog {
+      width: calc(100vw - 1rem);
+      max-height: calc(100vh - 1rem);
+    }
+
+    .city-dialog .inspector-body {
+      max-height: calc(100vh - 5.5rem);
+    }
+
+    .mail-dialog {
+      width: calc(100vw - 1rem);
+      max-height: calc(100vh - 1rem);
+    }
+
+    .mail-dialog-footer {
+      @apply block;
+    }
+
+    .mail-dialog-footer > span {
+      @apply mb-2 block;
+    }
+
+    .battle-dialog {
+      width: calc(100vw - 1rem);
+      max-height: calc(100vh - 1rem);
+    }
+
+    .battle-dialog-timing {
+      @apply grid-cols-1;
+    }
+
+    .battle-dialog-body {
+      display: block;
+    }
+
+    .battle-versus {
+      @apply h-8 w-full;
+    }
+
+    .battle-dialog-footer {
+      @apply block;
+    }
+
+    .battle-dialog-footer p {
+      @apply mb-2;
     }
   }
 

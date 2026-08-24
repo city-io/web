@@ -14,25 +14,21 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/city.proto.
  */
 export const file_cityio_entity_v1_city: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEi+AMKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGwoTbWlsaXRhcnlfcG9wdWxhdGlvbhgOIAEoARIvCg9mb29kX3Byb2R1Y3Rpb24YCSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSKwoLZm9vZF91cGtlZXAYCiABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSLQoNbmV0X2Zvb2RfZmxvdxgLIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZUIICgZfb3duZXJiBnByb3RvMw", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2NpdHkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEivgYKBENpdHkSKQoHY2l0eV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkEigKBHR5cGUYAiABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEiwKBW93bmVyGAMgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIMCgRuYW1lGAQgASgJEhIKCnBvcHVsYXRpb24YBSABKAESFgoOcG9wdWxhdGlvbl9jYXAYBiABKAESLAoFc3RhcnQYByABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEgwKBHNpemUYCCABKAUSEAoIc3RhcnZpbmcYDCABKAgSMQoRcG9wdWxhdGlvbl9ncm93dGgYDSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSGgoSbWlsaXRpYV9wb3B1bGF0aW9uGA4gASgBEhYKDm1pbGl0aWFfdGFyZ2V0GA8gASgBEhcKD2NvcmVfcG9wdWxhdGlvbhgQIAEoARIeChZyZWNydWl0YWJsZV9wb3B1bGF0aW9uGBEgASgBEhoKEnRheGFibGVfcG9wdWxhdGlvbhgSIAEoARIvCg9mb29kX3Byb2R1Y3Rpb24YCSABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSKwoLZm9vZF91cGtlZXAYCiABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSLQoNbmV0X2Zvb2RfZmxvdxgLIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIYChB0YXhfcmF0ZV9wZXJjZW50GBMgASgFEioKCnRheF9pbmNvbWUYFCABKAsyFi5jaXR5aW8uZW50aXR5LnYxLlJhdGUSPAoccG9wdWxhdGlvbl9ncm93dGhfYmVmb3JlX3RheBgVIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIXCg9taWxpdGlhX3BlcmNlbnQYFiABKAESHQoVY29yZV9wb3B1bGF0aW9uX2Zsb29yGBcgASgBEhwKFGRlbW9ncmFwaGljc192aXNpYmxlGBggASgIQggKBl9vd25lcmIGcHJvdG8z", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
 
 /**
  * City is a settlement on the map, owned by a player or neutral.
  *
- * Visibility: public fields are returned to anyone whose vision covers the
- * city (population, population_cap, starving, identity, location). Private
- * fields (food_production, food_upkeep, net_food_flow) are economy intel and
- * only populated when the requester is the city's owner; for non-owners they
- * arrive unset. The owner-only restriction is enforced in
- * mapping.HidePrivateCityFields, called from GetMap and GetCity.
- * StreamState is already owner-scoped (publishes only to *City.Owner) so it
- * always carries the full set.
+ * Visibility: identity, ownership, type, and location are visible when the
+ * settlement is in vision. Exact demographics, defensive strength, and
+ * economy are owner-only until a future scouting system discloses them.
+ * demographics_visible tells clients whether those numeric fields are real.
  *
  * @generated from message cityio.entity.v1.City
  */
 export type City = Message<"cityio.entity.v1.City"> & {
   /**
-   * --- Public ---
+   * --- Identity, location, and disclosure-gated demographics ---
    *
    * @generated from field: cityio.entity.v1.CityId city_id = 1;
    */
@@ -74,34 +70,59 @@ export type City = Message<"cityio.entity.v1.City"> & {
   size: number;
 
   /**
-   * starving is public: visible from outside ("refugees, failed crops").
-   *
    * @generated from field: bool starving = 12;
    */
   starving: boolean;
 
   /**
    * population_growth is the signed per-hour change in population (positive
-   * when growing, negative when declining). Public — observable from outside
-   * by anyone watching the city over time.
+   * when growing, negative when declining).
    *
    * @generated from field: cityio.entity.v1.Rate population_growth = 13;
    */
   populationGrowth?: Rate | undefined;
 
   /**
-   * military_population is the share of population currently reserved as
-   * standing army (bounded by MilitaryPopulationFraction × population).
+   * The current non-mobile defensive reserve, its exact configured target, and
+   * that target as a derived share of housing capacity. Militia losses refill
+   * through future growth.
    *
-   * @generated from field: double military_population = 14;
+   * @generated from field: double militia_population = 14;
    */
-  militaryPopulation: number;
+  militiaPopulation: number;
+
+  /**
+   * @generated from field: double militia_target = 15;
+   */
+  militiaTarget: number;
+
+  /**
+   * Core civilians currently present. Recruitment protects up to 55% of the
+   * city's peak population, but population loss can reduce the actual count
+   * below that floor after recruitable civilians are exhausted.
+   *
+   * @generated from field: double core_population = 16;
+   */
+  corePopulation: number;
+
+  /**
+   * Residents currently available to transfer into training orders.
+   *
+   * @generated from field: double recruitable_population = 17;
+   */
+  recruitablePopulation: number;
+
+  /**
+   * Residents currently paying tax (all residents except the militia).
+   *
+   * @generated from field: double taxable_population = 18;
+   */
+  taxablePopulation: number;
 
   /**
    * --- Owner-only ---
-   * food_production, food_upkeep, and net_food_flow expose this city's
-   * economy. They are populated when the requester owns the city and unset
-   * otherwise. Non-owners receive nil/zero for these fields.
+   * These fields expose this city's private economy and policy. They are
+   * populated when the requester owns the city and unset otherwise.
    *
    * @generated from field: cityio.entity.v1.Rate food_production = 9;
    */
@@ -116,6 +137,47 @@ export type City = Message<"cityio.entity.v1.City"> & {
    * @generated from field: cityio.entity.v1.Rate net_food_flow = 11;
    */
   netFoodFlow?: Rate | undefined;
+
+  /**
+   * @generated from field: int32 tax_rate_percent = 19;
+   */
+  taxRatePercent: number;
+
+  /**
+   * @generated from field: cityio.entity.v1.Rate tax_income = 20;
+   */
+  taxIncome?: Rate | undefined;
+
+  /**
+   * Current population change before tax policy is applied. This owner-only
+   * baseline lets clients preview policy changes without guessing the city
+   * simulation's food and logistic-growth inputs.
+   *
+   * @generated from field: cityio.entity.v1.Rate population_growth_before_tax = 21;
+   */
+  populationGrowthBeforeTax?: Rate | undefined;
+
+  /**
+   * @generated from field: double militia_percent = 22;
+   */
+  militiaPercent: number;
+
+  /**
+   * The peak-derived civilian floor used by recruitment and militia policy.
+   * Actual core_population may be lower after severe population loss.
+   *
+   * @generated from field: double core_population_floor = 23;
+   */
+  corePopulationFloor: number;
+
+  /**
+   * False when demographic and defensive-strength fields are intentionally
+   * undisclosed to this viewer. Scouting systems can reveal them later by
+   * returning the same city with this flag enabled.
+   *
+   * @generated from field: bool demographics_visible = 24;
+   */
+  demographicsVisible: boolean;
 };
 
 /**

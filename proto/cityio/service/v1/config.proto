@@ -32,6 +32,22 @@ message BuildingConfig {
 
 message GetGameConfigRequest {}
 
+message PopulationPolicyConfig {
+  int32 core_civilian_percent = 1;
+  int32 default_militia_percent = 2;
+  int32 neutral_militia_percent = 3;
+  int32 max_militia_percent = 4;
+  int32 max_military_percent = 5;
+  int32 default_tax_rate_percent = 6;
+  int32 max_tax_rate_percent = 7;
+  // Gold per taxable resident at a 100% tax rate.
+  cityio.entity.v1.Rate tax_gold_per_population = 8;
+  int32 min_militia_percent = 9;
+  // Percentage of untaxed growth removed at the maximum tax rate. Values over
+  // 100 allow sufficiently high tax to cause population decline.
+  int32 max_tax_growth_penalty_percent = 10;
+}
+
 message GetGameConfigResponse {
   int32 map_size = 1;
   int32 city_size = 2;
@@ -39,6 +55,7 @@ message GetGameConfigResponse {
   google.protobuf.Duration building_tick = 4;
   repeated BuildingConfig buildings = 5;
   google.protobuf.Duration city_tick = 6;
+  PopulationPolicyConfig population_policy = 7;
 }
 
 service ConfigService {

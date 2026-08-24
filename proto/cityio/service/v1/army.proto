@@ -80,7 +80,11 @@ message MergeArmiesRequest {
   cityio.entity.v1.ArmyId target_army_id = 1;
   cityio.entity.v1.ArmyId source_army_id = 2;
 }
-message MergeArmiesResponse {}
+message MergeArmiesResponse {
+  cityio.entity.v1.ArmyId army_id = 1;
+  cityio.entity.v1.EntityBag entities = 2;
+  cityio.entity.v1.EntityIdBag deleted = 3;
+}
 
 message SplitArmyRequest {
   cityio.entity.v1.ArmyId army_id = 1;
