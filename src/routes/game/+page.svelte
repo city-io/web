@@ -2813,6 +2813,7 @@
 {#snippet battleSidePanel(label: string, side: BattleSide | undefined, attackers: boolean, completedRounds: number)}
   {@const sideArmies = battleSideArmies(side)}
   {@const yourSide = side?.userIds.some((id) => id.value === $userId)}
+  {@const formationCount = (side?.armyIds.length ?? 0) + (side?.militiaCityId ? 1 : 0)}
   {@const deployed = troopStackTotal(side?.startingTroops ?? []) + Number(side?.startingMilitiaCount ?? 0n)}
   {@const remaining = troopStackTotal(side?.survivingTroops ?? []) + Number(side?.militiaCount ?? 0n)}
   {@const totalLosses = battleMilitaryLosses(side?.cumulativeLosses)}
@@ -2821,8 +2822,8 @@
       <div>
         <div class="text-[10px] font-bold uppercase tracking-[0.12em] {attackers ? 'text-red-200' : 'text-blue-200'}">{label}</div>
         <div class="mt-0.5 text-[9px] text-[#87918b]">
-          {side?.armyIds.length ?? 0}
-          {(side?.armyIds.length ?? 0) === 1 ? 'formation' : 'formations'} · {side?.userIds.length ?? 0}
+          {formationCount}
+          {formationCount === 1 ? 'formation' : 'formations'} · {side?.userIds.length ?? 0}
           {(side?.userIds.length ?? 0) === 1 ? 'commander' : 'commanders'}
         </div>
       </div>
@@ -2855,14 +2856,30 @@
       {/if}
     </div>
 
-    {#if side?.militiaCityId}
-      <div class="border-b border-white/[0.08] bg-amber-200/[0.04] px-3 py-2 text-[10px]">
-        <span class="text-[#8e9891]">Settlement militia</span>
-        <strong class="float-right tabular-nums text-amber-100">{side.strengthVisible ? side.militiaCount.toLocaleString() : 'Unknown'}</strong>
-      </div>
-    {/if}
-
     <div class="space-y-1.5 p-2.5">
+      {#if side?.militiaCityId}
+        <div class="border border-amber-100/15 bg-amber-100/[0.04] px-2.5 py-2">
+          <div class="flex items-center justify-between gap-3">
+            <div class="flex min-w-0 items-center gap-2">
+              <span class="flex h-8 w-8 shrink-0 items-center justify-center border border-amber-100/20 bg-amber-100/[0.06] text-amber-100/80" aria-hidden="true">
+                <svg class="h-6 w-6" viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+                  <path d="M18 4 29 8v8c0 7-4.4 12.6-11 16-6.6-3.4-11-9-11-16V8l11-4Z" fill="currentColor" opacity=".12" />
+                  <path d="M18 4 29 8v8c0 7-4.4 12.6-11 16-6.6-3.4-11-9-11-16V8l11-4Z" stroke-width="1.8" />
+                  <path d="M12 19h12M18 10v18" stroke-width="1.8" />
+                </svg>
+              </span>
+              <div class="min-w-0">
+                <strong class="block truncate text-[11px] text-[#e8ece5]">Settlement militia</strong>
+                <span class="mt-0.5 block text-[8px] text-[#717d76]">Local defense formation</span>
+              </div>
+            </div>
+            <div class="shrink-0 text-right">
+              <strong class="block text-sm tabular-nums text-[#f2eee0]">{side.strengthVisible ? side.militiaCount.toLocaleString() : '?'}</strong>
+              <span class="text-[8px] uppercase tracking-wide text-[#68736d]">{side.strengthVisible ? 'units' : 'unknown size'}</span>
+            </div>
+          </div>
+        </div>
+      {/if}
       {#each side?.armyIds ?? [] as armyId}
         {@const army = sideArmies.find((candidate) => candidate.armyId?.value === armyId.value)}
         {#if army}
@@ -2893,9 +2910,10 @@
         {:else}
           <div class="border border-dashed border-white/[0.1] px-2.5 py-3 text-center text-[9px] text-[#69746e]">Formation details concealed</div>
         {/if}
-      {:else}
-        <div class="px-2.5 py-5 text-center text-[9px] text-[#69746e]">No field armies disclosed</div>
       {/each}
+      {#if formationCount === 0}
+        <div class="px-2.5 py-5 text-center text-[9px] text-[#69746e]">No field armies disclosed</div>
+      {/if}
     </div>
   </section>
 {/snippet}
