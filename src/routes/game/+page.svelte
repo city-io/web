@@ -40,7 +40,7 @@
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
   const DOUBLE_CLICK_MS = 350;
-  const BATTLE_TICK_MS = 5000;
+  const BATTLE_TICK_MS = 3000;
   // Set this above zero if movement orders should have a deliberate client-side submit delay.
   const MOVE_ORDER_SUBMIT_DELAY_MS = 0;
   type MovePreviewResult = 'loaded' | 'failed' | 'superseded';
