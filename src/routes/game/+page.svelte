@@ -14,7 +14,7 @@
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import type { ArmyOrder } from '$lib/gen/cityio/entity/v1/army_order_pb';
-  import type { BattleSide } from '$lib/gen/cityio/entity/v1/battle_pb';
+  import type { Battle, BattleSide } from '$lib/gen/cityio/entity/v1/battle_pb';
   import {
     BattleReportEngagement,
     BattleReportOutcome,
@@ -40,6 +40,7 @@
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
   const DOUBLE_CLICK_MS = 350;
+  const BATTLE_TICK_MS = 5000;
   // Set this above zero if movement orders should have a deliberate client-side submit delay.
   const MOVE_ORDER_SUBMIT_DELAY_MS = 0;
   type MovePreviewResult = 'loaded' | 'failed' | 'superseded';
@@ -81,6 +82,9 @@
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
   let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let trainingGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number }>();
+  let battleGfx = new Map<string, { marker: Container; leftSword: Graphics; rightSword: Graphics; impact: Graphics; pulse: Graphics; baseY: number }>();
+  let siegeGfx = new Map<string, { marker: Container; pulse: Graphics }>();
+  let occupationGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let selGfx: Graphics | null = null;
 
   // ── UI state ────────────────────────────────────────────
@@ -93,6 +97,7 @@
   let showBuild = false;
   let showCityManagement = false;
   let showBattlePanel = false;
+  let selectedBattleId: string | null = null;
   let cityManagementView: 'city' | 'building' = 'city';
   let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
   let recruitCount = 1;
@@ -323,6 +328,33 @@
       const army = $armies.find((candidate) => candidate.armyId?.value === armyId.value);
       return army ? [army] : [];
     });
+  const battleAt = (x: number, y: number): Battle | undefined => $battles.find((battle) => battle.tileId?.x === x && battle.tileId?.y === y);
+  const siegeBattleForCity = (cityId?: string): Battle | undefined => (cityId ? $battles.find((battle) => battle.defenders?.militiaCityId?.value === cityId) : undefined);
+  const occupationOrderForCity = (cityId?: string): ArmyOrder | undefined =>
+    cityId ? $armyOrders.find((order) => order.objective.case === 'conquerSettlement' && order.objective.value.cityId?.value === cityId && !!order.objective.value.captureStartedAt) : undefined;
+
+  const openBattle = (battle: Battle) => {
+    const battleId = battle.battleId?.value;
+    if (!battleId) return;
+    const armyIds = [...(battle.attackers?.armyIds ?? []), ...(battle.defenders?.armyIds ?? [])].map((id) => id.value);
+    const armiesInBattle = armyIds.flatMap((id) => {
+      const army = $armies.find((candidate) => candidate.armyId?.value === id);
+      return army ? [army] : [];
+    });
+    const army = armiesInBattle.find((candidate) => candidate.owner?.value === $userId) ?? armiesInBattle[0];
+    if (army) {
+      focusArmy(army, false);
+    } else if (battle.tileId) {
+      const { x, y } = battle.tileId;
+      cancelMoveMode();
+      trackedArmyId = null;
+      selectedArmyId = null;
+      sel = { x, y, ...tileData.get(tileKey(x, y)) };
+      drawSel(x, y);
+    }
+    selectedBattleId = battleId;
+    showBattlePanel = true;
+  };
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
   $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
@@ -433,7 +465,8 @@
     }
   };
   $: selectedOrder = orderForArmy(selectedArmy);
-  $: selectedBattle = selectedArmy?.battleId?.value ? $battles.find((battle) => battle.battleId?.value === selectedArmy?.battleId?.value) : undefined;
+  $: activeBattleId = selectedBattleId ?? selectedArmy?.battleId?.value;
+  $: selectedBattle = activeBattleId ? $battles.find((battle) => battle.battleId?.value === activeBattleId) : undefined;
   $: if (!selectedBattle) showBattlePanel = false;
   $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => (a.armyId?.value ?? '').localeCompare(b.armyId?.value ?? ''));
   $: ownedArmyTroops = ownedArmies.reduce((total, army) => total + armySize(army), 0);
@@ -802,6 +835,9 @@
     constructionGfx.clear();
     starvingGfx.clear();
     trainingGfx.clear();
+    battleGfx.clear();
+    siegeGfx.clear();
+    occupationGfx.clear();
     if (selGfx) {
       selGfx.destroy();
       selGfx = null;
@@ -1230,6 +1266,7 @@
     const id = army.armyId?.value;
     if (!id || !army.coords) return;
     cancelMoveMode();
+    selectedBattleId = null;
     selectedArmyId = id;
     trackedArmyId = id;
     const x = army.coords.x;
@@ -1473,6 +1510,52 @@
         gfx.fill({ color: 0x7fc4b5, alpha: 1 });
       }
 
+      // One engagement marker per battle. The swords repeatedly close toward
+      // their impact point; reduced-motion users get the same static symbol.
+      const clashWave = easeMotion ? 0.5 + 0.5 * Math.sin(t * 4.4) : 1;
+      const impactWave = Math.pow(clashWave, 8);
+      for (const [, entry] of battleGfx) {
+        entry.marker.y = entry.baseY + (easeMotion ? Math.sin(t * 2.2) * 1.5 : 0);
+        entry.leftSword.rotation = -0.86 + clashWave * 0.18;
+        entry.rightSword.rotation = 0.86 - clashWave * 0.18;
+        entry.leftSword.x = -5 + clashWave * 2;
+        entry.rightSword.x = 5 - clashWave * 2;
+        entry.impact.alpha = 0.15 + impactWave * 0.85;
+        entry.impact.scale.set(0.75 + impactWave * 0.35);
+        entry.pulse.alpha = 0.55 + clashWave * 0.4;
+        entry.pulse.scale.set(0.96 + clashWave * 0.08);
+      }
+
+      const siegePulse = easeMotion ? 0.5 + 0.5 * Math.sin(t * 3.6) : 0.75;
+      for (const [, entry] of siegeGfx) {
+        entry.pulse.alpha = 0.5 + siegePulse * 0.5;
+        entry.pulse.scale.set(0.98 + siegePulse * 0.07);
+      }
+
+      // Occupation is intentionally amber rather than combat red. It marks
+      // the whole disputed territory and gives the center a stronger pulse.
+      const occupationPulse = easeMotion ? 0.5 + 0.5 * Math.sin(t * 3) : 0.7;
+      for (const [, entry] of occupationGfx) {
+        const { gfx, segs, isCenter } = entry;
+        gfx.clear();
+        for (const segment of segs) {
+          gfx.moveTo(segment[0], segment[1]);
+          gfx.lineTo(segment[2], segment[3]);
+        }
+        if (segs.length) gfx.stroke({ color: 0xfbbf24, width: 2 + occupationPulse * 2, alpha: 0.45 + occupationPulse * 0.45 });
+        if (isCenter) {
+          gfx.poly(DIAMOND_VERTS);
+          gfx.fill({ color: 0xf59e0b, alpha: 0.06 + occupationPulse * 0.1 });
+          gfx.ellipse(0, -8, 25 + occupationPulse * 3, 13 + occupationPulse * 2);
+          gfx.stroke({ color: 0xfbbf24, width: 2.2, alpha: 0.65 + occupationPulse * 0.3 });
+          gfx.moveTo(-2, -22);
+          gfx.lineTo(-2, -39);
+          gfx.stroke({ color: 0xfef3c7, width: 1.8, alpha: 0.9 });
+          gfx.poly([-1, -38, 12, -34, -1, -29]);
+          gfx.fill({ color: 0xfbbf24, alpha: 0.75 + occupationPulse * 0.25 });
+        }
+      }
+
       // Starvation — pulsing red territory border + caution icon on the center
       const sPulse = 0.5 + 0.5 * Math.sin(t * 4);
       for (const [, entry] of starvingGfx) {
@@ -1654,6 +1737,121 @@
     trainingGfx.set(key, { gfx: progress, startMs: timestampMs(active.startedAt), endMs: timestampMs(active.completesAt) });
   };
 
+  const drawMapSword = (gfx: Graphics) => {
+    gfx.poly([0, -16, 3, -11, 2, 5, -2, 5, -3, -11]);
+    gfx.fill({ color: 0xf4e7c1, alpha: 1 });
+    gfx.poly([0, -16, 3, -11, 2, 5, -2, 5, -3, -11]);
+    gfx.stroke({ color: 0x512326, width: 1, alpha: 1 });
+    gfx.moveTo(-6, 5);
+    gfx.lineTo(6, 5);
+    gfx.stroke({ color: 0xf87171, width: 2.5, alpha: 1 });
+    gfx.rect(-1.5, 6, 3, 7);
+    gfx.fill({ color: 0xb88b4a, alpha: 1 });
+  };
+
+  const addBattleMarker = (battle: Battle, tile: Container, key: string, onSiegeCenter: boolean) => {
+    const siege = !!battle.defenders?.militiaCityId;
+    const marker = new Container();
+    const baseY = onSiegeCenter ? -82 : -53;
+    marker.position.set(0, baseY);
+    marker.zIndex = 4e6;
+    marker.eventMode = 'static';
+    marker.cursor = "url('/cursors/action.svg') 3 2, none";
+    marker.hitArea = new Rectangle(-28, -27, 56, 54);
+    marker.on('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.stopPropagation();
+      openBattle(battle);
+    });
+
+    const pulse = new Graphics();
+    pulse.circle(0, -3, 22);
+    pulse.fill({ color: 0xef4444, alpha: 0.12 });
+    pulse.circle(0, -3, 22);
+    pulse.stroke({ color: 0xf87171, width: 2, alpha: 0.72 });
+
+    const plate = new Graphics();
+    plate.rect(-24, -23, 48, 39);
+    plate.fill({ color: 0x241315, alpha: 0.97 });
+    plate.rect(-24, -23, 48, 39);
+    plate.stroke({ color: siege ? 0xf59e0b : 0xf87171, width: 1.5, alpha: 1 });
+
+    const leftSword = new Graphics();
+    const rightSword = new Graphics();
+    drawMapSword(leftSword);
+    drawMapSword(rightSword);
+    leftSword.position.set(-3, -5);
+    rightSword.position.set(3, -5);
+    leftSword.rotation = -0.72;
+    rightSword.rotation = 0.72;
+
+    const impact = new Graphics();
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      impact.moveTo(Math.cos(angle) * 3, -5 + Math.sin(angle) * 3);
+      impact.lineTo(Math.cos(angle) * 8, -5 + Math.sin(angle) * 8);
+    }
+    impact.stroke({ color: 0xfef3c7, width: 1.4, alpha: 1 });
+
+    const label = new Text({
+      text: siege ? 'SIEGE' : 'BATTLE',
+      roundPixels: true,
+      resolution: 4,
+      style: {
+        fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
+        fontSize: 7,
+        fontWeight: 'bold',
+        letterSpacing: 1,
+        fill: siege ? '#fde68a' : '#fecaca'
+      }
+    });
+    label.anchor.set(0.5);
+    label.position.set(0, 10);
+
+    marker.addChild(pulse, plate, leftSword, rightSword, impact, label);
+    tile.addChild(marker);
+    battleGfx.set(key, { marker, leftSword, rightSword, impact, pulse, baseY });
+  };
+
+  const addSiegeCenterMarker = (battle: Battle, tile: Container, key: string) => {
+    const marker = new Container();
+    marker.zIndex = 3.5e6;
+    marker.eventMode = 'static';
+    marker.cursor = "url('/cursors/action.svg') 3 2, none";
+    marker.hitArea = new Rectangle(-HW, -68, HW * 2, HH + 68);
+    marker.on('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.stopPropagation();
+      openBattle(battle);
+    });
+
+    const pulse = new Graphics();
+    pulse.poly(DIAMOND_VERTS);
+    pulse.fill({ color: 0xef4444, alpha: 0.1 });
+    pulse.poly(DIAMOND_VERTS);
+    pulse.stroke({ color: 0xef4444, width: 3, alpha: 0.85 });
+
+    const banner = new Container();
+    banner.position.set(0, -58);
+    const plate = new Graphics();
+    plate.rect(-31, -7, 62, 14);
+    plate.fill({ color: 0x2b1012, alpha: 0.97 });
+    plate.rect(-31, -7, 62, 14);
+    plate.stroke({ color: 0xf87171, width: 1, alpha: 1 });
+    const label = new Text({
+      text: 'UNDER SIEGE',
+      roundPixels: true,
+      resolution: 4,
+      style: { fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'], fontSize: 7, fontWeight: 'bold', letterSpacing: 0.7, fill: '#fecaca' }
+    });
+    label.anchor.set(0.5);
+    banner.addChild(plate, label);
+
+    marker.addChild(pulse, banner);
+    tile.addChild(marker);
+    siegeGfx.set(key, { marker, pulse });
+  };
+
   const renderTile = (col: number, row: number) => {
     if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return;
     const k = tileKey(col, row);
@@ -1748,6 +1946,21 @@
 
     if (visible && td?.building?.type === BuildingType.BARRACKS) addTrainingMarker(td.building, tc, k);
 
+    if (visible) {
+      const activeBattle = battleAt(col, row);
+      if (activeBattle) {
+        const onSiegeCenter =
+          !!activeBattle.defenders?.militiaCityId &&
+          activeBattle.defenders.militiaCityId.value === td?.city?.cityId?.value &&
+          (td?.building?.type === BuildingType.CITY_CENTER || td?.building?.type === BuildingType.TOWN_CENTER);
+        addBattleMarker(activeBattle, tc, k, onSiegeCenter);
+      }
+
+      const isSettlementCenter = td?.building?.type === BuildingType.CITY_CENTER || td?.building?.type === BuildingType.TOWN_CENTER;
+      const siegeBattle = isSettlementCenter ? siegeBattleForCity(td?.city?.cityId?.value) : undefined;
+      if (siegeBattle) addSiegeCenterMarker(siegeBattle, tc, k);
+    }
+
     // Construction-in-progress overlay
     if (visible && td?.building?.constructionStart && td?.building?.constructionEnd) {
       const startMs = Number(td.building.constructionStart.seconds) * 1000;
@@ -1811,6 +2024,26 @@
           starvingGfx.set(k, { gfx: sg, segs, isCenter });
         }
       }
+
+      const occupationOrder = occupationOrderForCity(td?.city?.cityId?.value);
+      if (occupationOrder && td?.city) {
+        const cityId = td.city.cityId;
+        const segs: number[][] = [];
+        for (let i = 0; i < 4; i++) {
+          const [dc, dr] = EDGE_TO_NEIGHBOR[i];
+          if (tileData.get(tileKey(col + dc, row + dr))?.city?.cityId?.value === cityId?.value) continue;
+          const vi = i * 2,
+            vn = ((i + 1) % 4) * 2;
+          segs.push([DIAMOND_VERTS[vi], DIAMOND_VERTS[vi + 1], DIAMOND_VERTS[vn], DIAMOND_VERTS[vn + 1]]);
+        }
+        const isCenter = td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER;
+        if (segs.length || isCenter) {
+          const og = new Graphics();
+          og.zIndex = 2.8e6;
+          tc.addChild(og);
+          occupationGfx.set(k, { gfx: og, segs, isCenter });
+        }
+      }
     }
   };
 
@@ -1865,6 +2098,7 @@
 
   const deselect = () => {
     cancelMoveMode();
+    selectedBattleId = null;
     trackedArmyId = null;
     selectedArmyId = null;
     showCityManagement = false;
@@ -3862,9 +4096,11 @@
     {/if}
   </div>
 
-  {#if showBattlePanel && selectedBattle && selectedArmy}
+  {#if showBattlePanel && selectedBattle}
     {@const battleStartedMs = timestampMs(selectedBattle.startedAt)}
     {@const nextBattleTickMs = timestampMs(selectedBattle.nextTickAt)}
+    {@const battleTickRemainingMs = nextBattleTickMs ? Math.max(0, Math.min(BATTLE_TICK_MS, nextBattleTickMs - now)) : 0}
+    {@const battleTickProgress = nextBattleTickMs ? Math.max(0, Math.min(100, (1 - battleTickRemainingMs / BATTLE_TICK_MS) * 100)) : 0}
     <div class="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3 sm:p-8" transition:fade={{ duration: 140 }}>
       <div class="battle-dialog" role="dialog" aria-modal="true" aria-label="Battle details">
         <header class="battle-dialog-header">
@@ -3877,7 +4113,7 @@
           <div class="min-w-0 flex-1">
             <div class="text-[9px] font-bold uppercase tracking-[0.16em] text-red-300">Active engagement</div>
             <h2 class="mt-0.5 truncate text-lg font-bold text-[#f0ead8]">
-              Battle at {selectedBattle.tileId?.x ?? selectedArmy.coords?.x ?? '—'}, {selectedBattle.tileId?.y ?? selectedArmy.coords?.y ?? '—'}
+              Battle at {selectedBattle.tileId?.x ?? selectedArmy?.coords?.x ?? '—'}, {selectedBattle.tileId?.y ?? selectedArmy?.coords?.y ?? '—'}
             </h2>
           </div>
           <button class="battle-dialog-close" aria-label="Close battle details" on:click={() => (showBattlePanel = false)}>×</button>
@@ -3893,9 +4129,23 @@
             <strong>{battleStartedMs ? fmtCountdown(now - battleStartedMs) : 'Unknown'}</strong>
           </div>
           <div>
-            <span>Next combat tick</span>
-            <strong class="text-amber-100">{nextBattleTickMs ? fmtCountdown(nextBattleTickMs - now) : 'Pending'}</strong>
+            <span>Next round</span>
+            <strong class="text-amber-100">{nextBattleTickMs ? `${Math.ceil(battleTickRemainingMs / 1000)}s` : 'Pending'}</strong>
           </div>
+        </div>
+
+        <div class="border-b border-[#514b3b] bg-black/[0.12] px-4 py-2.5">
+          <div class="mb-1.5 flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.11em] text-[#928c75]">
+            <span>Round progress</span><span class="tabular-nums text-amber-100">{nextBattleTickMs ? `${Math.ceil(battleTickRemainingMs / 1000)}s to next round` : 'Synchronizing'}</span>
+          </div>
+          {#key nextBattleTickMs}
+            <div class="h-1.5 overflow-hidden bg-white/[0.07]">
+              <div
+                class="battle-round-fill h-full bg-gradient-to-r from-red-500 to-amber-300"
+                style={`--battle-round-start: ${battleTickProgress}%; --battle-round-duration: ${battleTickRemainingMs}ms;`}
+              ></div>
+            </div>
+          {/key}
         </div>
 
         <div class="battle-dialog-body">
@@ -3908,8 +4158,8 @@
           <p>Strength reflects currently disclosed formations. Battle state refreshes on server combat ticks.</p>
           <div class="flex shrink-0 gap-2">
             <button class="game-action game-action-secondary" on:click={() => (showBattlePanel = false)}>Close</button>
-            {#if selectedArmy.owner?.value === $userId}
-              <button class="game-action game-action-danger" disabled={busy} on:click={() => haltArmy(selectedArmy)}>
+            {#if selectedArmy?.owner?.value === $userId}
+              <button class="game-action game-action-danger" disabled={busy} on:click={() => haltArmy(selectedArmy!)}>
                 {busy ? 'Ordering retreat…' : 'Retreat selected army'}
               </button>
             {/if}

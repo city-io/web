@@ -123,29 +123,6 @@ const drawArtillery = (art: Graphics, x: number, y: number, color: number) => {
   art.fill({ color, alpha: 1 });
 };
 
-const drawBattleBadge = (art: Graphics) => {
-  art.circle(27, 0, 10.5);
-  art.fill({ color: 0x2b1112, alpha: 0.96 });
-  art.circle(27, 0, 10.5);
-  art.stroke({ color: 0xf87171, width: 1.5, alpha: 1 });
-
-  art.moveTo(20, 7);
-  art.lineTo(23, 4);
-  art.moveTo(20, -7);
-  art.lineTo(23, -4);
-  art.stroke({ color: 0xd5b56b, width: 2, alpha: 1 });
-
-  art.poly([22, 4, 23, 5, 33, -5, 32, -6]);
-  art.fill({ color: 0xf87171, alpha: 1 });
-  art.poly([22, -4, 23, -5, 33, 5, 32, 6]);
-  art.fill({ color: 0xf87171, alpha: 1 });
-  art.moveTo(21, 1);
-  art.lineTo(26, 6);
-  art.moveTo(21, -1);
-  art.lineTo(26, -6);
-  art.stroke({ color: 0xf5d0a0, width: 1.5, alpha: 1 });
-};
-
 export function createArmyMarker(army: Army, userId?: string, selected = false): Container {
   const marker = new Container();
   marker.position.y = -13;
@@ -184,9 +161,7 @@ export function createArmyMarker(army: Army, userId?: string, selected = false):
       drawFootTroop(art, x, y, color, light, archer);
   }
 
-  if (army.battleId) {
-    drawBattleBadge(art);
-  } else if (army.orderId) {
+  if (!army.battleId && army.orderId) {
     art.poly([23, -3, 28, 1, 23, 5]);
     art.poly([28, -3, 33, 1, 28, 5]);
     art.stroke({ color: 0xeee7b5, width: 1.5, alpha: 0.95 });

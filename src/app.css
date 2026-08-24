@@ -343,6 +343,23 @@
     @apply text-[9px] leading-relaxed text-[#75817b];
   }
 
+  .battle-round-fill {
+    width: var(--battle-round-start);
+    animation: battle-round-progress var(--battle-round-duration) linear forwards;
+  }
+
+  @keyframes battle-round-progress {
+    to {
+      width: 100%;
+    }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    .battle-round-fill {
+      animation: none;
+    }
+  }
+
   .inspector-header {
     @apply border-b border-[#5b6e73] bg-[#34474b] px-3 py-2;
     box-shadow: inset 0 1px rgba(222, 240, 238, 0.12);
