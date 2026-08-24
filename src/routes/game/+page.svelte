@@ -477,6 +477,8 @@
 
   // One-shot amounts (build costs): plain "<n> <resource>".
   const fmtRes = (r: { resource: string; amount: bigint }): string => `${r.amount.toString()} ${r.resource}`;
+  const canAfford = (costs: { resource: string; amount: bigint }[]): boolean =>
+    costs.every((cost) => (cost.resource === 'gold' ? cost.amount <= $gold : cost.resource === 'food' ? cost.amount <= $food : false));
 
   // Ongoing production flows, normalized to per-hour: "<n> <resource>/hr".
   const fmtProd = (r: ResourceRate): string => `${fmtProdNum(r)} ${r.resource}/hr`;
@@ -921,10 +923,24 @@
     notice = '';
     try {
       for (const source of owned.slice(1)) {
-        await armyClient.mergeArmies({ targetArmyId: target.armyId, sourceArmyId: source.armyId });
+        const response = await armyClient.mergeArmies({ targetArmyId: target.armyId, sourceArmyId: source.armyId });
+        const deleted = new Set((response.deleted?.armyIds ?? []).map((id) => id.value));
+        const incomingArmies = response.entities?.armies ?? [];
+        armies.update((previous) => {
+          const byId = new Map(previous.filter((army) => !deleted.has(army.armyId?.value ?? '')).map((army) => [army.armyId?.value, army]));
+          for (const army of incomingArmies) byId.set(army.armyId?.value, army);
+          return [...byId.values()];
+        });
+        const incomingOrders = response.entities?.armyOrders ?? [];
+        armyOrders.update((previous) => {
+          const byId = new Map(previous.filter((order) => !deleted.has(order.armyId?.value ?? '')).map((order) => [order.armyOrderId?.value, order]));
+          for (const order of incomingOrders) byId.set(order.armyOrderId?.value, order);
+          return [...byId.values()];
+        });
       }
       trackedArmyId = target.armyId?.value ?? null;
       notice = `${owned.length} armies merged into one formation.`;
+      scheduleRender();
     } catch (e: unknown) {
       err = errorText(e, 'Army merge failed');
     } finally {
@@ -2108,6 +2124,7 @@
 {/snippet}
 
 {#snippet reportSideRecord(label: string, side: ReportSide | undefined, attacking: boolean)}
+  {@const strengthVisible = !!side?.strengthVisible}
   {@const starting = reportSideStart(side)}
   {@const surviving = reportSideSurvivors(side)}
   <section class="border border-white/[0.09] bg-black/[0.1]">
@@ -2120,18 +2137,31 @@
           · {side?.armies.length ?? 0} formations
         </span>
       </div>
-      <div class="text-right text-[9px] tabular-nums text-[#aeb7b0]"><strong class="block text-xs text-[#eee9d8]">{starting} → {surviving}</strong>{Math.max(0, starting - surviving)} lost</div>
+      {#if strengthVisible}
+        <div class="text-right text-[9px] tabular-nums text-[#aeb7b0]"><strong class="block text-xs text-[#eee9d8]">{starting} → {surviving}</strong>{Math.max(0, starting - surviving)} lost</div>
+      {:else}
+        <div class="text-right text-[9px] uppercase tracking-wide text-[#7d8983]"><strong class="block text-xs text-[#b5bdb6]">Unknown</strong>strength concealed</div>
+      {/if}
     </div>
     {#if side?.settlement}
       <div class="border-b border-white/[0.06] bg-amber-200/[0.035] px-2.5 py-1.5 text-[9px] text-[#8e9891]">
         <div class="flex items-center justify-between gap-2">
           <strong class="truncate text-amber-100">{side.settlement.name}</strong>
-          <span class="shrink-0 tabular-nums">Residents {Math.floor(side.settlement.startingPopulation).toLocaleString()} → {Math.floor(side.settlement.endingPopulation).toLocaleString()}</span>
+          <span class="shrink-0 tabular-nums">
+            {strengthVisible ? `Residents ${Math.floor(side.settlement.startingPopulation).toLocaleString()} → ${Math.floor(side.settlement.endingPopulation).toLocaleString()}` : 'Residents unknown'}
+          </span>
         </div>
         <div class="mt-0.5 flex items-center justify-between gap-2 text-[8px]">
           <span>Defended settlement {shortId(side.settlement.cityId?.value)}</span>
-          <span class="tabular-nums text-amber-100">Militia {side.startingMilitia.toString()} → {side.survivingMilitia.toString()}</span>
+          <span class="tabular-nums text-amber-100">
+            {strengthVisible ? `Militia ${side.startingMilitia.toString()} → ${side.survivingMilitia.toString()}` : 'Militia unknown'}
+          </span>
         </div>
+        {#if strengthVisible && side.settlement.civilianCasualties > 0n}
+          <div class="mt-1 border-t border-red-200/10 pt-1 text-[8px] tabular-nums text-red-200/80">
+            {side.settlement.civilianCasualties.toString()} civilian {side.settlement.civilianCasualties === 1n ? 'casualty' : 'casualties'}
+          </div>
+        {/if}
       </div>
     {/if}
     <div class="space-y-1.5 p-2">
@@ -2146,13 +2176,17 @@
               {army.destroyed ? 'Destroyed' : army.retreated ? 'Retreated' : 'Survived'}
             </span>
           </div>
-          <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 border-t border-white/[0.05] pt-1 text-[8px] tabular-nums text-[#8e9992]">
-            {#each army.startingTroops as stack}
-              {@const survivorCount = troopStackCount(army.survivingTroops, stack.type)}
-              <span>{troopName(stack.type, stack.count)} <strong class={survivorCount < (stack.count ?? 0) ? 'text-red-200' : 'text-[#c7cec7]'}>{stack.count ?? 0} → {survivorCount}</strong></span>
-            {/each}
-          </div>
-          <div class="mt-1 text-[8px] tabular-nums text-[#68736d]">{troopStackTotal(army.startingTroops)} deployed · {reportArmyLosses(army)} casualties</div>
+          {#if strengthVisible}
+            <div class="mt-1 flex flex-wrap gap-x-2 gap-y-0.5 border-t border-white/[0.05] pt-1 text-[8px] tabular-nums text-[#8e9992]">
+              {#each army.startingTroops as stack}
+                {@const survivorCount = troopStackCount(army.survivingTroops, stack.type)}
+                <span>{troopName(stack.type, stack.count)} <strong class={survivorCount < (stack.count ?? 0) ? 'text-red-200' : 'text-[#c7cec7]'}>{stack.count ?? 0} → {survivorCount}</strong></span>
+              {/each}
+            </div>
+            <div class="mt-1 text-[8px] tabular-nums text-[#68736d]">{troopStackTotal(army.startingTroops)} deployed · {reportArmyLosses(army)} casualties</div>
+          {:else}
+            <div class="mt-1 border-t border-white/[0.05] pt-1 text-[8px] text-[#68736d]">Composition was not recovered.</div>
+          {/if}
         </div>
       {:else}
         <div class="px-2 py-2 text-center text-[8px] text-[#68736d]">No field armies</div>
@@ -2399,10 +2433,10 @@
       </div>
     </div>
 
-    {#if side?.militiaCount}
+    {#if side?.militiaCityId}
       <div class="border-b border-white/[0.08] bg-amber-200/[0.04] px-3 py-2 text-[10px]">
         <span class="text-[#8e9891]">Settlement militia</span>
-        <strong class="float-right tabular-nums text-amber-100">{side.militiaCount.toLocaleString()}</strong>
+        <strong class="float-right tabular-nums text-amber-100">{side.strengthVisible ? side.militiaCount.toLocaleString() : 'Unknown'}</strong>
       </div>
     {/if}
 
@@ -2779,11 +2813,19 @@
                       <span class="text-[#69756e]">{reportDate(round.occurredAt)}</span>
                     </div>
                     <div class="mt-1 grid grid-cols-2 gap-3 text-[9px] tabular-nums">
-                      <span class="text-red-200/80">Attack power {Math.round(round.attackerPower).toLocaleString()} · {reportLossTotal(round.attackerLosses)} lost</span>
-                      <span class="text-right text-blue-200/80">Defense power {Math.round(round.defenderPower).toLocaleString()} · {reportLossTotal(round.defenderLosses)} lost</span>
+                      <span class="text-red-200/80">
+                        {report.attackers?.strengthVisible
+                          ? `Attack power ${Math.round(round.attackerPower).toLocaleString()} · ${reportLossTotal(round.attackerLosses)} military lost${round.attackerCivilianCasualties > 0n ? ` · ${round.attackerCivilianCasualties} civilians` : ''}`
+                          : 'Attacker strength concealed'}
+                      </span>
+                      <span class="text-right text-blue-200/80">
+                        {report.defenders?.strengthVisible
+                          ? `Defense power ${Math.round(round.defenderPower).toLocaleString()} · ${reportLossTotal(round.defenderLosses)} military lost${round.defenderCivilianCasualties > 0n ? ` · ${round.defenderCivilianCasualties} civilians` : ''}`
+                          : 'Defender strength concealed'}
+                      </span>
                     </div>
-                    {@render reportRoundLosses(round.attackerLosses)}
-                    {@render reportRoundLosses(round.defenderLosses)}
+                    {#if report.attackers?.strengthVisible}{@render reportRoundLosses(round.attackerLosses)}{/if}
+                    {#if report.defenders?.strengthVisible}{@render reportRoundLosses(round.defenderLosses)}{/if}
                   </div>
                 {:else}
                   <div class="px-3 py-4 text-center text-[9px] text-[#68736d]">Resolved before the first combat exchange.</div>
@@ -3077,8 +3119,10 @@
                 <div class="mt-2.5 flex items-center gap-3 border-t border-red-300/15 pt-2.5 text-[11px]">
                   <span class="font-semibold uppercase tracking-[0.12em] text-red-300">{selectedIntent === 'siege' ? 'Siege battle' : 'Battle in progress'}</span>
                   <span class="min-w-0 flex-1 truncate text-right text-[#aab2ac]">
-                    {selectedBattle.attackers?.armyIds.length ?? 0} attacking · {selectedBattle.defenders?.armyIds.length ?? 0} defending{selectedBattle.defenders?.militiaCount
-                      ? ` · ${selectedBattle.defenders.militiaCount} militia`
+                    {selectedBattle.attackers?.armyIds.length ?? 0} attacking · {selectedBattle.defenders?.armyIds.length ?? 0} defending{selectedBattle.defenders?.militiaCityId
+                      ? selectedBattle.defenders.strengthVisible
+                        ? ` · ${selectedBattle.defenders.militiaCount} militia`
+                        : ' · militia strength unknown'
                       : ''}
                   </span>
                   <button
@@ -3456,12 +3500,13 @@
             {@const availablePopulation = trainablePopulation(sel.city)}
             {@const batchCount = Number.isFinite(recruitCount) ? Math.floor(recruitCount) : 1}
             {@const trainingCost = batchCount * recruitStat.gold}
+            {@const canAffordTraining = BigInt(trainingCost) <= $gold}
             {@const trainingPopulation = batchCount * recruitStat.population}
             {@const populationAfterTraining = Math.max(0, availablePopulation - trainingPopulation)}
             {@const trainingBatchSeconds = batchCount * recruitStat.trainSeconds}
             {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && selectedTrainingOrders.length > 0}
-            {@const canTrain =
-              isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && BigInt(trainingCost) <= $gold && trainingPopulation <= availablePopulation}
+            {@const canAffordUpgrade = !!nextStats && canAfford(nextStats.cost)}
+            {@const canTrain = isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && canAffordTraining && trainingPopulation <= availablePopulation}
             <section class="inspector-section">
               <div class="flex items-center gap-2.5">
                 {@render structureGlyph(sel.building.type, sel.building.level)}
@@ -3513,8 +3558,9 @@
                   {/if}
                   <div class="inspector-row">
                     <span>Cost</span>
-                    <span class="text-amber-200">{nextStats.cost.map(fmtRes).join(', ')}</span>
+                    <span class={canAffordUpgrade ? 'text-amber-200' : 'text-red-300'}>{nextStats.cost.map(fmtRes).join(', ')}</span>
                   </div>
+                  {#if !canAffordUpgrade}<div class="mb-1 text-[9px] text-red-300/80">Not enough resources to upgrade.</div>{/if}
                   <div class="inspector-row">
                     <span>Build time</span>
                     <span>{fmtTime(nextStats.constructionTime)}</span>
@@ -3550,8 +3596,7 @@
                 <div class="mt-3 flex gap-2 border-t border-[#465a5f] pt-3">
                   <button
                     class="game-action game-action-primary flex-1"
-                    disabled={busy || !nextStats || upgrading || barracksTrainingInProgress}
-                    title={barracksTrainingInProgress ? 'Finish the training queue before upgrading' : undefined}
+                    disabled={busy || !nextStats || !canAffordUpgrade || upgrading || barracksTrainingInProgress}
                     on:click={() => sel?.building && doAction(() => buildingClient.upgradeBuilding({ buildingId: sel!.building!.buildingId }), 'Upgrade failed')}
                   >
                     <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M10 17V4M5 9l5-5 5 5M4 17h12" /></svg>
@@ -3648,7 +3693,7 @@
                   <div class="mt-2 border-t border-[#465a5f] pt-1.5">
                     <div class="inspector-row">
                       <span>Gold cost</span>
-                      <span class={BigInt(trainingCost) <= $gold ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
+                      <span class={canAffordTraining ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
                     </div>
                     <div class="inspector-row">
                       <span>Residents recruited</span>

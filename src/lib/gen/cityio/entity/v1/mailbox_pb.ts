@@ -2,28 +2,32 @@
 // @generated from file cityio/entity/v1/mailbox.proto (package cityio.entity.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { TroopStack } from "./army_pb";
-import { file_cityio_entity_v1_army } from "./army_pb";
-import type { CityType } from "./common_pb";
-import { file_cityio_entity_v1_common } from "./common_pb";
-import type { ArmyId, BattleId, CityId, MailboxMessageId, TileId, UserId } from "./ids_pb";
-import { file_cityio_entity_v1_ids } from "./ids_pb";
-import type { Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2';
+import { enumDesc, fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2';
+import type { TroopStack } from './army_pb';
+import { file_cityio_entity_v1_army } from './army_pb';
+import type { CityType } from './common_pb';
+import { file_cityio_entity_v1_common } from './common_pb';
+import type { ArmyId, BattleId, CityId, MailboxMessageId, TileId, UserId } from './ids_pb';
+import { file_cityio_entity_v1_ids } from './ids_pb';
+import type { Timestamp } from '@bufbuild/protobuf/wkt';
+import { file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt';
+import type { Message } from '@bufbuild/protobuf';
 
 /**
  * Describes the file cityio/entity/v1/mailbox.proto.
  */
-export const file_cityio_entity_v1_mailbox: GenFile = /*@__PURE__*/
-  fileDesc("Ch5jaXR5aW8vZW50aXR5L3YxL21haWxib3gucHJvdG8SEGNpdHlpby5lbnRpdHkudjEi/gEKEEJhdHRsZVJlcG9ydEFybXkSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEioKCG93bmVyX2lkGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSNQoPc3RhcnRpbmdfdHJvb3BzGAMgAygLMhwuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFN0YWNrEjYKEHN1cnZpdmluZ190cm9vcHMYBCADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSEQoJcmV0cmVhdGVkGAUgASgIEhEKCWRlc3Ryb3llZBgGIAEoCCJUChVCYXR0bGVSZXBvcnRDb21tYW5kZXISKQoHdXNlcl9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEhAKCHVzZXJuYW1lGAIgASgJIvEBChZCYXR0bGVSZXBvcnRTZXR0bGVtZW50EikKB2NpdHlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZBIMCgRuYW1lGAIgASgJEigKBHR5cGUYAyABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEi8KCG93bmVyX2lkGAQgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIbChNzdGFydGluZ19wb3B1bGF0aW9uGAUgASgBEhkKEWVuZGluZ19wb3B1bGF0aW9uGAYgASgBQgsKCV9vd25lcl9pZCKCAwoQQmF0dGxlUmVwb3J0U2lkZRIqCgh1c2VyX2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEjIKBmFybWllcxgCIAMoCzIiLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0QXJteRI2Cg9taWxpdGlhX2NpdHlfaWQYAyABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZEgAiAEBEhgKEHN0YXJ0aW5nX21pbGl0aWEYBCABKAMSGQoRc3Vydml2aW5nX21pbGl0aWEYBSABKAMSOwoKY29tbWFuZGVycxgGIAMoCzInLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0Q29tbWFuZGVyEkEKCnNldHRsZW1lbnQYByABKAsyKC5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVJlcG9ydFNldHRsZW1lbnRIAYgBAUISChBfbWlsaXRpYV9jaXR5X2lkQg0KC19zZXR0bGVtZW50ItkBChBCYXR0bGVSZXBvcnRMb3NzEi4KB2FybXlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZEgAiAEBEjYKD21pbGl0aWFfY2l0eV9pZBgCIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkSAGIAQESLAoGdHJvb3BzGAMgAygLMhwuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFN0YWNrEg8KB21pbGl0aWEYBCABKANCCgoIX2FybXlfaWRCEgoQX21pbGl0aWFfY2l0eV9pZCL+AQoRQmF0dGxlUmVwb3J0Um91bmQSDgoGbnVtYmVyGAEgASgFEi8KC29jY3VycmVkX2F0GAIgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIWCg5hdHRhY2tlcl9wb3dlchgDIAEoARIWCg5kZWZlbmRlcl9wb3dlchgEIAEoARI7Cg9hdHRhY2tlcl9sb3NzZXMYBSADKAsyIi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVJlcG9ydExvc3MSOwoPZGVmZW5kZXJfbG9zc2VzGAYgAygLMiIuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRMb3NzIs8ECgxCYXR0bGVSZXBvcnQSLQoJYmF0dGxlX2lkGAEgASgLMhouY2l0eWlvLmVudGl0eS52MS5CYXR0bGVJZBIpCgd0aWxlX2lkGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5UaWxlSWQSMAoEcm9sZRgDIAEoDjIiLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0Um9sZRI2CgdvdXRjb21lGAQgASgOMiUuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRPdXRjb21lEjwKCmVuZ2FnZW1lbnQYBSABKA4yKC5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVJlcG9ydEVuZ2FnZW1lbnQSPAoKcmVzb2x1dGlvbhgGIAEoDjIoLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0UmVzb2x1dGlvbhI1CglhdHRhY2tlcnMYByABKAsyIi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVJlcG9ydFNpZGUSNQoJZGVmZW5kZXJzGAggASgLMiIuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRTaWRlEjMKBnJvdW5kcxgJIAMoCzIjLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0Um91bmQSLgoKc3RhcnRlZF9hdBgKIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASLAoIZW5kZWRfYXQYCyABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wIrICCg5NYWlsYm94TWVzc2FnZRI+ChJtYWlsYm94X21lc3NhZ2VfaWQYASABKAsyIi5jaXR5aW8uZW50aXR5LnYxLk1haWxib3hNZXNzYWdlSWQSLgoMcmVjaXBpZW50X2lkGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSLgoKY3JlYXRlZF9hdBgDIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMAoHcmVhZF9hdBgEIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAYgBARI3Cg1iYXR0bGVfcmVwb3J0GAogASgLMh4uY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRIAEIJCgdjb250ZW50QgoKCF9yZWFkX2F0KngKEEJhdHRsZVJlcG9ydFJvbGUSIgoeQkFUVExFX1JFUE9SVF9ST0xFX1VOU1BFQ0lGSUVEEAASHwobQkFUVExFX1JFUE9SVF9ST0xFX0FUVEFDS0VSEAESHwobQkFUVExFX1JFUE9SVF9ST0xFX0RFRkVOREVSEAIqoQEKE0JhdHRsZVJlcG9ydE91dGNvbWUSJQohQkFUVExFX1JFUE9SVF9PVVRDT01FX1VOU1BFQ0lGSUVEEAASIQodQkFUVExFX1JFUE9SVF9PVVRDT01FX1ZJQ1RPUlkQARIgChxCQVRUTEVfUkVQT1JUX09VVENPTUVfREVGRUFUEAISHgoaQkFUVExFX1JFUE9SVF9PVVRDT01FX0RSQVcQAyqcAQoWQmF0dGxlUmVwb3J0RW5nYWdlbWVudBIoCiRCQVRUTEVfUkVQT1JUX0VOR0FHRU1FTlRfVU5TUEVDSUZJRUQQABIpCiVCQVRUTEVfUkVQT1JUX0VOR0FHRU1FTlRfRklFTERfQkFUVExFEAESLQopQkFUVExFX1JFUE9SVF9FTkdBR0VNRU5UX1NFVFRMRU1FTlRfU0lFR0UQAirDAQoWQmF0dGxlUmVwb3J0UmVzb2x1dGlvbhIoCiRCQVRUTEVfUkVQT1JUX1JFU09MVVRJT05fVU5TUEVDSUZJRUQQABIoCiRCQVRUTEVfUkVQT1JUX1JFU09MVVRJT05fRUxJTUlOQVRJT04QARIkCiBCQVRUTEVfUkVQT1JUX1JFU09MVVRJT05fUkVUUkVBVBACEi8KK0JBVFRMRV9SRVBPUlRfUkVTT0xVVElPTl9NVVRVQUxfREVTVFJVQ1RJT04QA2IGcHJvdG8z", [file_cityio_entity_v1_army, file_cityio_entity_v1_common, file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
+export const file_cityio_entity_v1_mailbox: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    'Ch5jaXR5aW8vZW50aXR5L3YxL21haWxib3gucHJvdG8SEGNpdHlpby5lbnRpdHkudjEi/gEKEEJhdHRsZVJlcG9ydEFybXkSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEioKCG93bmVyX2lkGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSNQoPc3RhcnRpbmdfdHJvb3BzGAMgAygLMhwuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFN0YWNrEjYKEHN1cnZpdmluZ190cm9vcHMYBCADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSEQoJcmV0cmVhdGVkGAUgASgIEhEKCWRlc3Ryb3llZBgGIAEoCCJUChVCYXR0bGVSZXBvcnRDb21tYW5kZXISKQoHdXNlcl9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuVXNlcklkEhAKCHVzZXJuYW1lGAIgASgJIo4CChZCYXR0bGVSZXBvcnRTZXR0bGVtZW50EikKB2NpdHlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZBIMCgRuYW1lGAIgASgJEigKBHR5cGUYAyABKA4yGi5jaXR5aW8uZW50aXR5LnYxLkNpdHlUeXBlEi8KCG93bmVyX2lkGAQgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAIgBARIbChNzdGFydGluZ19wb3B1bGF0aW9uGAUgASgBEhkKEWVuZGluZ19wb3B1bGF0aW9uGAYgASgBEhsKE2NpdmlsaWFuX2Nhc3VhbHRpZXMYByABKANCCwoJX293bmVyX2lkIpwDChBCYXR0bGVSZXBvcnRTaWRlEioKCHVzZXJfaWRzGAEgAygLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSMgoGYXJtaWVzGAIgAygLMiIuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRBcm15EjYKD21pbGl0aWFfY2l0eV9pZBgDIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkSACIAQESGAoQc3RhcnRpbmdfbWlsaXRpYRgEIAEoAxIZChFzdXJ2aXZpbmdfbWlsaXRpYRgFIAEoAxI7Cgpjb21tYW5kZXJzGAYgAygLMicuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRDb21tYW5kZXISQQoKc2V0dGxlbWVudBgHIAEoCzIoLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0U2V0dGxlbWVudEgBiAEBEhgKEHN0cmVuZ3RoX3Zpc2libGUYCCABKAhCEgoQX21pbGl0aWFfY2l0eV9pZEINCgtfc2V0dGxlbWVudCLZAQoQQmF0dGxlUmVwb3J0TG9zcxIuCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWRIAIgBARI2Cg9taWxpdGlhX2NpdHlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZEgBiAEBEiwKBnRyb29wcxgDIAMoCzIcLmNpdHlpby5lbnRpdHkudjEuVHJvb3BTdGFjaxIPCgdtaWxpdGlhGAQgASgDQgoKCF9hcm15X2lkQhIKEF9taWxpdGlhX2NpdHlfaWQiygIKEUJhdHRsZVJlcG9ydFJvdW5kEg4KBm51bWJlchgBIAEoBRIvCgtvY2N1cnJlZF9hdBgCIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASFgoOYXR0YWNrZXJfcG93ZXIYAyABKAESFgoOZGVmZW5kZXJfcG93ZXIYBCABKAESOwoPYXR0YWNrZXJfbG9zc2VzGAUgAygLMiIuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRMb3NzEjsKD2RlZmVuZGVyX2xvc3NlcxgGIAMoCzIiLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0TG9zcxIkChxhdHRhY2tlcl9jaXZpbGlhbl9jYXN1YWx0aWVzGAcgASgDEiQKHGRlZmVuZGVyX2NpdmlsaWFuX2Nhc3VhbHRpZXMYCCABKAMizwQKDEJhdHRsZVJlcG9ydBItCgliYXR0bGVfaWQYASABKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUlkEikKB3RpbGVfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlRpbGVJZBIwCgRyb2xlGAMgASgOMiIuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRSb2xlEjYKB291dGNvbWUYBCABKA4yJS5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVJlcG9ydE91dGNvbWUSPAoKZW5nYWdlbWVudBgFIAEoDjIoLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0RW5nYWdlbWVudBI8CgpyZXNvbHV0aW9uGAYgASgOMiguY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRSZXNvbHV0aW9uEjUKCWF0dGFja2VycxgHIAEoCzIiLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlUmVwb3J0U2lkZRI1CglkZWZlbmRlcnMYCCABKAsyIi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVJlcG9ydFNpZGUSMwoGcm91bmRzGAkgAygLMiMuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVSZXBvcnRSb3VuZBIuCgpzdGFydGVkX2F0GAogASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIsCghlbmRlZF9hdBgLIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXAisgIKDk1haWxib3hNZXNzYWdlEj4KEm1haWxib3hfbWVzc2FnZV9pZBgBIAEoCzIiLmNpdHlpby5lbnRpdHkudjEuTWFpbGJveE1lc3NhZ2VJZBIuCgxyZWNpcGllbnRfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLlVzZXJJZBIuCgpjcmVhdGVkX2F0GAMgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgdyZWFkX2F0GAQgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBEjcKDWJhdHRsZV9yZXBvcnQYCiABKAsyHi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVJlcG9ydEgAQgkKB2NvbnRlbnRCCgoIX3JlYWRfYXQqeAoQQmF0dGxlUmVwb3J0Um9sZRIiCh5CQVRUTEVfUkVQT1JUX1JPTEVfVU5TUEVDSUZJRUQQABIfChtCQVRUTEVfUkVQT1JUX1JPTEVfQVRUQUNLRVIQARIfChtCQVRUTEVfUkVQT1JUX1JPTEVfREVGRU5ERVIQAiqhAQoTQmF0dGxlUmVwb3J0T3V0Y29tZRIlCiFCQVRUTEVfUkVQT1JUX09VVENPTUVfVU5TUEVDSUZJRUQQABIhCh1CQVRUTEVfUkVQT1JUX09VVENPTUVfVklDVE9SWRABEiAKHEJBVFRMRV9SRVBPUlRfT1VUQ09NRV9ERUZFQVQQAhIeChpCQVRUTEVfUkVQT1JUX09VVENPTUVfRFJBVxADKpwBChZCYXR0bGVSZXBvcnRFbmdhZ2VtZW50EigKJEJBVFRMRV9SRVBPUlRfRU5HQUdFTUVOVF9VTlNQRUNJRklFRBAAEikKJUJBVFRMRV9SRVBPUlRfRU5HQUdFTUVOVF9GSUVMRF9CQVRUTEUQARItCilCQVRUTEVfUkVQT1JUX0VOR0FHRU1FTlRfU0VUVExFTUVOVF9TSUVHRRACKsMBChZCYXR0bGVSZXBvcnRSZXNvbHV0aW9uEigKJEJBVFRMRV9SRVBPUlRfUkVTT0xVVElPTl9VTlNQRUNJRklFRBAAEigKJEJBVFRMRV9SRVBPUlRfUkVTT0xVVElPTl9FTElNSU5BVElPThABEiQKIEJBVFRMRV9SRVBPUlRfUkVTT0xVVElPTl9SRVRSRUFUEAISLworQkFUVExFX1JFUE9SVF9SRVNPTFVUSU9OX01VVFVBTF9ERVNUUlVDVElPThADYgZwcm90bzM',
+    [file_cityio_entity_v1_army, file_cityio_entity_v1_common, file_cityio_entity_v1_ids, file_google_protobuf_timestamp]
+  );
 
 /**
  * @generated from message cityio.entity.v1.BattleReportArmy
  */
-export type BattleReportArmy = Message<"cityio.entity.v1.BattleReportArmy"> & {
+export type BattleReportArmy = Message<'cityio.entity.v1.BattleReportArmy'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -59,13 +63,12 @@ export type BattleReportArmy = Message<"cityio.entity.v1.BattleReportArmy"> & {
  * Describes the message cityio.entity.v1.BattleReportArmy.
  * Use `create(BattleReportArmySchema)` to create a new message.
  */
-export const BattleReportArmySchema: GenMessage<BattleReportArmy> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_mailbox, 0);
+export const BattleReportArmySchema: GenMessage<BattleReportArmy> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_mailbox, 0);
 
 /**
  * @generated from message cityio.entity.v1.BattleReportCommander
  */
-export type BattleReportCommander = Message<"cityio.entity.v1.BattleReportCommander"> & {
+export type BattleReportCommander = Message<'cityio.entity.v1.BattleReportCommander'> & {
   /**
    * @generated from field: cityio.entity.v1.UserId user_id = 1;
    */
@@ -81,13 +84,12 @@ export type BattleReportCommander = Message<"cityio.entity.v1.BattleReportComman
  * Describes the message cityio.entity.v1.BattleReportCommander.
  * Use `create(BattleReportCommanderSchema)` to create a new message.
  */
-export const BattleReportCommanderSchema: GenMessage<BattleReportCommander> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_mailbox, 1);
+export const BattleReportCommanderSchema: GenMessage<BattleReportCommander> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_mailbox, 1);
 
 /**
  * @generated from message cityio.entity.v1.BattleReportSettlement
  */
-export type BattleReportSettlement = Message<"cityio.entity.v1.BattleReportSettlement"> & {
+export type BattleReportSettlement = Message<'cityio.entity.v1.BattleReportSettlement'> & {
   /**
    * @generated from field: cityio.entity.v1.CityId city_id = 1;
    */
@@ -117,19 +119,23 @@ export type BattleReportSettlement = Message<"cityio.entity.v1.BattleReportSettl
    * @generated from field: double ending_population = 6;
    */
   endingPopulation: number;
+
+  /**
+   * @generated from field: int64 civilian_casualties = 7;
+   */
+  civilianCasualties: bigint;
 };
 
 /**
  * Describes the message cityio.entity.v1.BattleReportSettlement.
  * Use `create(BattleReportSettlementSchema)` to create a new message.
  */
-export const BattleReportSettlementSchema: GenMessage<BattleReportSettlement> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_mailbox, 2);
+export const BattleReportSettlementSchema: GenMessage<BattleReportSettlement> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_mailbox, 2);
 
 /**
  * @generated from message cityio.entity.v1.BattleReportSide
  */
-export type BattleReportSide = Message<"cityio.entity.v1.BattleReportSide"> & {
+export type BattleReportSide = Message<'cityio.entity.v1.BattleReportSide'> & {
   /**
    * @generated from field: repeated cityio.entity.v1.UserId user_ids = 1;
    */
@@ -164,19 +170,26 @@ export type BattleReportSide = Message<"cityio.entity.v1.BattleReportSide"> & {
    * @generated from field: optional cityio.entity.v1.BattleReportSettlement settlement = 7;
    */
   settlement?: BattleReportSettlement | undefined;
+
+  /**
+   * Friendly strength is always exact. Opposing strength becomes exact only
+   * in a victory report.
+   *
+   * @generated from field: bool strength_visible = 8;
+   */
+  strengthVisible: boolean;
 };
 
 /**
  * Describes the message cityio.entity.v1.BattleReportSide.
  * Use `create(BattleReportSideSchema)` to create a new message.
  */
-export const BattleReportSideSchema: GenMessage<BattleReportSide> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_mailbox, 3);
+export const BattleReportSideSchema: GenMessage<BattleReportSide> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_mailbox, 3);
 
 /**
  * @generated from message cityio.entity.v1.BattleReportLoss
  */
-export type BattleReportLoss = Message<"cityio.entity.v1.BattleReportLoss"> & {
+export type BattleReportLoss = Message<'cityio.entity.v1.BattleReportLoss'> & {
   /**
    * @generated from field: optional cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -202,13 +215,12 @@ export type BattleReportLoss = Message<"cityio.entity.v1.BattleReportLoss"> & {
  * Describes the message cityio.entity.v1.BattleReportLoss.
  * Use `create(BattleReportLossSchema)` to create a new message.
  */
-export const BattleReportLossSchema: GenMessage<BattleReportLoss> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_mailbox, 4);
+export const BattleReportLossSchema: GenMessage<BattleReportLoss> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_mailbox, 4);
 
 /**
  * @generated from message cityio.entity.v1.BattleReportRound
  */
-export type BattleReportRound = Message<"cityio.entity.v1.BattleReportRound"> & {
+export type BattleReportRound = Message<'cityio.entity.v1.BattleReportRound'> & {
   /**
    * @generated from field: int32 number = 1;
    */
@@ -238,19 +250,28 @@ export type BattleReportRound = Message<"cityio.entity.v1.BattleReportRound"> & 
    * @generated from field: repeated cityio.entity.v1.BattleReportLoss defender_losses = 6;
    */
   defenderLosses: BattleReportLoss[];
+
+  /**
+   * @generated from field: int64 attacker_civilian_casualties = 7;
+   */
+  attackerCivilianCasualties: bigint;
+
+  /**
+   * @generated from field: int64 defender_civilian_casualties = 8;
+   */
+  defenderCivilianCasualties: bigint;
 };
 
 /**
  * Describes the message cityio.entity.v1.BattleReportRound.
  * Use `create(BattleReportRoundSchema)` to create a new message.
  */
-export const BattleReportRoundSchema: GenMessage<BattleReportRound> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_mailbox, 5);
+export const BattleReportRoundSchema: GenMessage<BattleReportRound> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_mailbox, 5);
 
 /**
  * @generated from message cityio.entity.v1.BattleReport
  */
-export type BattleReport = Message<"cityio.entity.v1.BattleReport"> & {
+export type BattleReport = Message<'cityio.entity.v1.BattleReport'> & {
   /**
    * @generated from field: cityio.entity.v1.BattleId battle_id = 1;
    */
@@ -311,8 +332,7 @@ export type BattleReport = Message<"cityio.entity.v1.BattleReport"> & {
  * Describes the message cityio.entity.v1.BattleReport.
  * Use `create(BattleReportSchema)` to create a new message.
  */
-export const BattleReportSchema: GenMessage<BattleReport> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_mailbox, 6);
+export const BattleReportSchema: GenMessage<BattleReport> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_mailbox, 6);
 
 /**
  * MailboxMessage is a durable, recipient-owned envelope. New notification
@@ -320,7 +340,7 @@ export const BattleReportSchema: GenMessage<BattleReport> = /*@__PURE__*/
  *
  * @generated from message cityio.entity.v1.MailboxMessage
  */
-export type MailboxMessage = Message<"cityio.entity.v1.MailboxMessage"> & {
+export type MailboxMessage = Message<'cityio.entity.v1.MailboxMessage'> & {
   /**
    * @generated from field: cityio.entity.v1.MailboxMessageId mailbox_message_id = 1;
    */
@@ -344,21 +364,22 @@ export type MailboxMessage = Message<"cityio.entity.v1.MailboxMessage"> & {
   /**
    * @generated from oneof cityio.entity.v1.MailboxMessage.content
    */
-  content: {
-    /**
-     * @generated from field: cityio.entity.v1.BattleReport battle_report = 10;
-     */
-    value: BattleReport;
-    case: "battleReport";
-  } | { case: undefined; value?: undefined };
+  content:
+    | {
+        /**
+         * @generated from field: cityio.entity.v1.BattleReport battle_report = 10;
+         */
+        value: BattleReport;
+        case: 'battleReport';
+      }
+    | { case: undefined; value?: undefined };
 };
 
 /**
  * Describes the message cityio.entity.v1.MailboxMessage.
  * Use `create(MailboxMessageSchema)` to create a new message.
  */
-export const MailboxMessageSchema: GenMessage<MailboxMessage> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_mailbox, 7);
+export const MailboxMessageSchema: GenMessage<MailboxMessage> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_mailbox, 7);
 
 /**
  * @generated from enum cityio.entity.v1.BattleReportRole
@@ -377,14 +398,13 @@ export enum BattleReportRole {
   /**
    * @generated from enum value: BATTLE_REPORT_ROLE_DEFENDER = 2;
    */
-  DEFENDER = 2,
+  DEFENDER = 2
 }
 
 /**
  * Describes the enum cityio.entity.v1.BattleReportRole.
  */
-export const BattleReportRoleSchema: GenEnum<BattleReportRole> = /*@__PURE__*/
-  enumDesc(file_cityio_entity_v1_mailbox, 0);
+export const BattleReportRoleSchema: GenEnum<BattleReportRole> = /*@__PURE__*/ enumDesc(file_cityio_entity_v1_mailbox, 0);
 
 /**
  * @generated from enum cityio.entity.v1.BattleReportOutcome
@@ -408,14 +428,13 @@ export enum BattleReportOutcome {
   /**
    * @generated from enum value: BATTLE_REPORT_OUTCOME_DRAW = 3;
    */
-  DRAW = 3,
+  DRAW = 3
 }
 
 /**
  * Describes the enum cityio.entity.v1.BattleReportOutcome.
  */
-export const BattleReportOutcomeSchema: GenEnum<BattleReportOutcome> = /*@__PURE__*/
-  enumDesc(file_cityio_entity_v1_mailbox, 1);
+export const BattleReportOutcomeSchema: GenEnum<BattleReportOutcome> = /*@__PURE__*/ enumDesc(file_cityio_entity_v1_mailbox, 1);
 
 /**
  * @generated from enum cityio.entity.v1.BattleReportEngagement
@@ -434,14 +453,13 @@ export enum BattleReportEngagement {
   /**
    * @generated from enum value: BATTLE_REPORT_ENGAGEMENT_SETTLEMENT_SIEGE = 2;
    */
-  SETTLEMENT_SIEGE = 2,
+  SETTLEMENT_SIEGE = 2
 }
 
 /**
  * Describes the enum cityio.entity.v1.BattleReportEngagement.
  */
-export const BattleReportEngagementSchema: GenEnum<BattleReportEngagement> = /*@__PURE__*/
-  enumDesc(file_cityio_entity_v1_mailbox, 2);
+export const BattleReportEngagementSchema: GenEnum<BattleReportEngagement> = /*@__PURE__*/ enumDesc(file_cityio_entity_v1_mailbox, 2);
 
 /**
  * @generated from enum cityio.entity.v1.BattleReportResolution
@@ -465,11 +483,10 @@ export enum BattleReportResolution {
   /**
    * @generated from enum value: BATTLE_REPORT_RESOLUTION_MUTUAL_DESTRUCTION = 3;
    */
-  MUTUAL_DESTRUCTION = 3,
+  MUTUAL_DESTRUCTION = 3
 }
 
 /**
  * Describes the enum cityio.entity.v1.BattleReportResolution.
  */
-export const BattleReportResolutionSchema: GenEnum<BattleReportResolution> = /*@__PURE__*/
-  enumDesc(file_cityio_entity_v1_mailbox, 3);
+export const BattleReportResolutionSchema: GenEnum<BattleReportResolution> = /*@__PURE__*/ enumDesc(file_cityio_entity_v1_mailbox, 3);

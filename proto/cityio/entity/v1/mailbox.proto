@@ -54,6 +54,7 @@ message BattleReportSettlement {
   optional UserId owner_id = 4;
   double starting_population = 5;
   double ending_population = 6;
+  int64 civilian_casualties = 7;
 }
 
 message BattleReportSide {
@@ -64,6 +65,9 @@ message BattleReportSide {
   int64 surviving_militia = 5;
   repeated BattleReportCommander commanders = 6;
   optional BattleReportSettlement settlement = 7;
+  // Friendly strength is always exact. Opposing strength becomes exact only
+  // in a victory report.
+  bool strength_visible = 8;
 }
 
 message BattleReportLoss {
@@ -80,6 +84,8 @@ message BattleReportRound {
   double defender_power = 4;
   repeated BattleReportLoss attacker_losses = 5;
   repeated BattleReportLoss defender_losses = 6;
+  int64 attacker_civilian_casualties = 7;
+  int64 defender_civilian_casualties = 8;
 }
 
 message BattleReport {

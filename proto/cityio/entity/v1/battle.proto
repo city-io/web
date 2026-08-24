@@ -10,6 +10,8 @@ message BattleSide {
   repeated ArmyId army_ids = 2;
   optional CityId militia_city_id = 3;
   int64 militia_count = 4;
+  // Exact military strength is only disclosed to users on this side.
+  bool strength_visible = 5;
 }
 
 // Battle exists only while combat is active. Each side can contain armies

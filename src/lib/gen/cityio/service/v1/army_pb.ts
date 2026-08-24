@@ -2,32 +2,44 @@
 // @generated from file cityio/service/v1/army.proto (package cityio.service.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
-import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
-import type { ArmyRoute } from "../../entity/v1/army_order_pb";
-import { file_cityio_entity_v1_army_order } from "../../entity/v1/army_order_pb";
-import type { TroopStack } from "../../entity/v1/army_pb";
-import { file_cityio_entity_v1_army } from "../../entity/v1/army_pb";
-import type { EntityBag } from "../../entity/v1/bag_pb";
-import { file_cityio_entity_v1_bag } from "../../entity/v1/bag_pb";
-import type { Coordinates, TroopType } from "../../entity/v1/common_pb";
-import { file_cityio_entity_v1_common } from "../../entity/v1/common_pb";
-import type { ArmyId, BuildingId, CityId, TrainingOrderId } from "../../entity/v1/ids_pb";
-import { file_cityio_entity_v1_ids } from "../../entity/v1/ids_pb";
-import type { Duration, Timestamp } from "@bufbuild/protobuf/wkt";
-import { file_google_protobuf_duration, file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenFile, GenMessage, GenService } from '@bufbuild/protobuf/codegenv2';
+import { fileDesc, messageDesc, serviceDesc } from '@bufbuild/protobuf/codegenv2';
+import type { ArmyRoute } from '../../entity/v1/army_order_pb';
+import { file_cityio_entity_v1_army_order } from '../../entity/v1/army_order_pb';
+import type { TroopStack } from '../../entity/v1/army_pb';
+import { file_cityio_entity_v1_army } from '../../entity/v1/army_pb';
+import type { EntityBag } from '../../entity/v1/bag_pb';
+import { file_cityio_entity_v1_bag } from '../../entity/v1/bag_pb';
+import type { Coordinates, TroopType } from '../../entity/v1/common_pb';
+import { file_cityio_entity_v1_common } from '../../entity/v1/common_pb';
+import type { ArmyId, BuildingId, CityId, EntityIdBag, TrainingOrderId } from '../../entity/v1/ids_pb';
+import { file_cityio_entity_v1_ids } from '../../entity/v1/ids_pb';
+import type { Duration, Timestamp } from '@bufbuild/protobuf/wkt';
+import { file_google_protobuf_duration, file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt';
+import type { Message } from '@bufbuild/protobuf';
 
 /**
  * Describes the file cityio/service/v1/army.proto.
  */
-export const file_cityio_service_v1_army: GenFile = /*@__PURE__*/
-  fileDesc("ChxjaXR5aW8vc2VydmljZS92MS9hcm15LnByb3RvEhFjaXR5aW8uc2VydmljZS52MSLxAgoNVHJhaW5pbmdPcmRlchI8ChF0cmFpbmluZ19vcmRlcl9pZBgBIAEoCzIhLmNpdHlpby5lbnRpdHkudjEuVHJhaW5pbmdPcmRlcklkEikKB2FybXlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIxCgtiYXJyYWNrc19pZBgDIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdJZBIpCgR0eXBlGAQgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSDQoFY291bnQYBSABKAUSMwoKc3RhcnRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAIgBARI1Cgxjb21wbGV0ZXNfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSAGIAQFCDQoLX3N0YXJ0ZWRfYXRCDwoNX2NvbXBsZXRlc19hdCKBAQoSVHJhaW5Ucm9vcHNSZXF1ZXN0EjEKC2JhcnJhY2tzX2lkGAEgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEikKBHR5cGUYAiABKA4yGy5jaXR5aW8uZW50aXR5LnYxLlRyb29wVHlwZRINCgVjb3VudBgDIAEoBSJGChNUcmFpblRyb29wc1Jlc3BvbnNlEi8KBW9yZGVyGAEgASgLMiAuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5pbmdPcmRlciJOChlMaXN0VHJhaW5pbmdPcmRlcnNSZXF1ZXN0EjEKC2JhcnJhY2tzX2lkGAEgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkIk4KGkxpc3RUcmFpbmluZ09yZGVyc1Jlc3BvbnNlEjAKBm9yZGVycxgBIAMoCzIgLmNpdHlpby5zZXJ2aWNlLnYxLlRyYWluaW5nT3JkZXIiOwoOR2V0QXJteVJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkImsKD0dldEFybXlSZXNwb25zZRIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSLQoIZW50aXRpZXMYAiABKAsyGy5jaXR5aW8uZW50aXR5LnYxLkVudGl0eUJhZyJwCg9Nb3ZlQXJteVJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEjIKC2Rlc3RpbmF0aW9uGAIgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcyISChBNb3ZlQXJteVJlc3BvbnNlInAKEUF0dGFja0FybXlSZXF1ZXN0EikKB2FybXlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIwCg50YXJnZXRfYXJteV9pZBgCIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkIhQKEkF0dGFja0FybXlSZXNwb25zZSJwChhDb25xdWVyU2V0dGxlbWVudFJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEikKB2NpdHlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZCIbChlDb25xdWVyU2V0dGxlbWVudFJlc3BvbnNlIj8KElJldHJlYXRBcm15UmVxdWVzdBIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQiFQoTUmV0cmVhdEFybXlSZXNwb25zZSJ4ChdQcmV2aWV3QXJteVJvdXRlUmVxdWVzdBIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSMgoLZGVzdGluYXRpb24YAiABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzIn0KGFByZXZpZXdBcm15Um91dGVSZXNwb25zZRIqCgVyb3V0ZRgBIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuQXJteVJvdXRlEjUKEmVzdGltYXRlZF9kdXJhdGlvbhgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiJ4ChJNZXJnZUFybWllc1JlcXVlc3QSMAoOdGFyZ2V0X2FybXlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIwCg5zb3VyY2VfYXJteV9pZBgCIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkIhUKE01lcmdlQXJtaWVzUmVzcG9uc2UiawoQU3BsaXRBcm15UmVxdWVzdBIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSLAoGdHJvb3BzGAIgAygLMhwuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFN0YWNrIm0KEVNwbGl0QXJteVJlc3BvbnNlEikKB2FybXlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBItCghlbnRpdGllcxgCIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuRW50aXR5QmFnIhMKEUxpc3RBcm1pZXNSZXF1ZXN0Im8KEkxpc3RBcm1pZXNSZXNwb25zZRIqCghhcm15X2lkcxgBIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEi0KCGVudGl0aWVzGAIgASgLMhsuY2l0eWlvLmVudGl0eS52MS5FbnRpdHlCYWcyrAgKC0FybXlTZXJ2aWNlElwKC1RyYWluVHJvb3BzEiUuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5Ucm9vcHNSZXF1ZXN0GiYuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5Ucm9vcHNSZXNwb25zZRJxChJMaXN0VHJhaW5pbmdPcmRlcnMSLC5jaXR5aW8uc2VydmljZS52MS5MaXN0VHJhaW5pbmdPcmRlcnNSZXF1ZXN0Gi0uY2l0eWlvLnNlcnZpY2UudjEuTGlzdFRyYWluaW5nT3JkZXJzUmVzcG9uc2USUAoHR2V0QXJteRIhLmNpdHlpby5zZXJ2aWNlLnYxLkdldEFybXlSZXF1ZXN0GiIuY2l0eWlvLnNlcnZpY2UudjEuR2V0QXJteVJlc3BvbnNlEmsKEFByZXZpZXdBcm15Um91dGUSKi5jaXR5aW8uc2VydmljZS52MS5QcmV2aWV3QXJteVJvdXRlUmVxdWVzdBorLmNpdHlpby5zZXJ2aWNlLnYxLlByZXZpZXdBcm15Um91dGVSZXNwb25zZRJTCghNb3ZlQXJteRIiLmNpdHlpby5zZXJ2aWNlLnYxLk1vdmVBcm15UmVxdWVzdBojLmNpdHlpby5zZXJ2aWNlLnYxLk1vdmVBcm15UmVzcG9uc2USWQoKQXR0YWNrQXJteRIkLmNpdHlpby5zZXJ2aWNlLnYxLkF0dGFja0FybXlSZXF1ZXN0GiUuY2l0eWlvLnNlcnZpY2UudjEuQXR0YWNrQXJteVJlc3BvbnNlEm4KEUNvbnF1ZXJTZXR0bGVtZW50EisuY2l0eWlvLnNlcnZpY2UudjEuQ29ucXVlclNldHRsZW1lbnRSZXF1ZXN0GiwuY2l0eWlvLnNlcnZpY2UudjEuQ29ucXVlclNldHRsZW1lbnRSZXNwb25zZRJcCgtSZXRyZWF0QXJteRIlLmNpdHlpby5zZXJ2aWNlLnYxLlJldHJlYXRBcm15UmVxdWVzdBomLmNpdHlpby5zZXJ2aWNlLnYxLlJldHJlYXRBcm15UmVzcG9uc2USXAoLTWVyZ2VBcm1pZXMSJS5jaXR5aW8uc2VydmljZS52MS5NZXJnZUFybWllc1JlcXVlc3QaJi5jaXR5aW8uc2VydmljZS52MS5NZXJnZUFybWllc1Jlc3BvbnNlElYKCVNwbGl0QXJteRIjLmNpdHlpby5zZXJ2aWNlLnYxLlNwbGl0QXJteVJlcXVlc3QaJC5jaXR5aW8uc2VydmljZS52MS5TcGxpdEFybXlSZXNwb25zZRJZCgpMaXN0QXJtaWVzEiQuY2l0eWlvLnNlcnZpY2UudjEuTGlzdEFybWllc1JlcXVlc3QaJS5jaXR5aW8uc2VydmljZS52MS5MaXN0QXJtaWVzUmVzcG9uc2ViBnByb3RvMw", [file_cityio_entity_v1_army_order, file_cityio_entity_v1_army, file_cityio_entity_v1_bag, file_cityio_entity_v1_common, file_cityio_entity_v1_ids, file_google_protobuf_timestamp, file_google_protobuf_duration]);
+export const file_cityio_service_v1_army: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    'ChxjaXR5aW8vc2VydmljZS92MS9hcm15LnByb3RvEhFjaXR5aW8uc2VydmljZS52MSLxAgoNVHJhaW5pbmdPcmRlchI8ChF0cmFpbmluZ19vcmRlcl9pZBgBIAEoCzIhLmNpdHlpby5lbnRpdHkudjEuVHJhaW5pbmdPcmRlcklkEikKB2FybXlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIxCgtiYXJyYWNrc19pZBgDIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdJZBIpCgR0eXBlGAQgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSDQoFY291bnQYBSABKAUSMwoKc3RhcnRlZF9hdBgGIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAIgBARI1Cgxjb21wbGV0ZXNfYXQYByABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wSAGIAQFCDQoLX3N0YXJ0ZWRfYXRCDwoNX2NvbXBsZXRlc19hdCKBAQoSVHJhaW5Ucm9vcHNSZXF1ZXN0EjEKC2JhcnJhY2tzX2lkGAEgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkEikKBHR5cGUYAiABKA4yGy5jaXR5aW8uZW50aXR5LnYxLlRyb29wVHlwZRINCgVjb3VudBgDIAEoBSJGChNUcmFpblRyb29wc1Jlc3BvbnNlEi8KBW9yZGVyGAEgASgLMiAuY2l0eWlvLnNlcnZpY2UudjEuVHJhaW5pbmdPcmRlciJOChlMaXN0VHJhaW5pbmdPcmRlcnNSZXF1ZXN0EjEKC2JhcnJhY2tzX2lkGAEgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ0lkIk4KGkxpc3RUcmFpbmluZ09yZGVyc1Jlc3BvbnNlEjAKBm9yZGVycxgBIAMoCzIgLmNpdHlpby5zZXJ2aWNlLnYxLlRyYWluaW5nT3JkZXIiOwoOR2V0QXJteVJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkImsKD0dldEFybXlSZXNwb25zZRIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSLQoIZW50aXRpZXMYAiABKAsyGy5jaXR5aW8uZW50aXR5LnYxLkVudGl0eUJhZyJwCg9Nb3ZlQXJteVJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEjIKC2Rlc3RpbmF0aW9uGAIgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcyISChBNb3ZlQXJteVJlc3BvbnNlInAKEUF0dGFja0FybXlSZXF1ZXN0EikKB2FybXlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIwCg50YXJnZXRfYXJteV9pZBgCIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkIhQKEkF0dGFja0FybXlSZXNwb25zZSJwChhDb25xdWVyU2V0dGxlbWVudFJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEikKB2NpdHlfaWQYAiABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkNpdHlJZCIbChlDb25xdWVyU2V0dGxlbWVudFJlc3BvbnNlIj8KElJldHJlYXRBcm15UmVxdWVzdBIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQiFQoTUmV0cmVhdEFybXlSZXNwb25zZSJ4ChdQcmV2aWV3QXJteVJvdXRlUmVxdWVzdBIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSMgoLZGVzdGluYXRpb24YAiABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzIn0KGFByZXZpZXdBcm15Um91dGVSZXNwb25zZRIqCgVyb3V0ZRgBIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuQXJteVJvdXRlEjUKEmVzdGltYXRlZF9kdXJhdGlvbhgCIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbiJ4ChJNZXJnZUFybWllc1JlcXVlc3QSMAoOdGFyZ2V0X2FybXlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBIwCg5zb3VyY2VfYXJteV9pZBgCIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkIp8BChNNZXJnZUFybWllc1Jlc3BvbnNlEikKB2FybXlfaWQYASABKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBItCghlbnRpdGllcxgCIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuRW50aXR5QmFnEi4KB2RlbGV0ZWQYAyABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkVudGl0eUlkQmFnImsKEFNwbGl0QXJteVJlcXVlc3QSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEiwKBnRyb29wcxgCIAMoCzIcLmNpdHlpby5lbnRpdHkudjEuVHJvb3BTdGFjayJtChFTcGxpdEFybXlSZXNwb25zZRIpCgdhcm15X2lkGAEgASgLMhguY2l0eWlvLmVudGl0eS52MS5Bcm15SWQSLQoIZW50aXRpZXMYAiABKAsyGy5jaXR5aW8uZW50aXR5LnYxLkVudGl0eUJhZyITChFMaXN0QXJtaWVzUmVxdWVzdCJvChJMaXN0QXJtaWVzUmVzcG9uc2USKgoIYXJteV9pZHMYASADKAsyGC5jaXR5aW8uZW50aXR5LnYxLkFybXlJZBItCghlbnRpdGllcxgCIAEoCzIbLmNpdHlpby5lbnRpdHkudjEuRW50aXR5QmFnMqwICgtBcm15U2VydmljZRJcCgtUcmFpblRyb29wcxIlLmNpdHlpby5zZXJ2aWNlLnYxLlRyYWluVHJvb3BzUmVxdWVzdBomLmNpdHlpby5zZXJ2aWNlLnYxLlRyYWluVHJvb3BzUmVzcG9uc2UScQoSTGlzdFRyYWluaW5nT3JkZXJzEiwuY2l0eWlvLnNlcnZpY2UudjEuTGlzdFRyYWluaW5nT3JkZXJzUmVxdWVzdBotLmNpdHlpby5zZXJ2aWNlLnYxLkxpc3RUcmFpbmluZ09yZGVyc1Jlc3BvbnNlElAKB0dldEFybXkSIS5jaXR5aW8uc2VydmljZS52MS5HZXRBcm15UmVxdWVzdBoiLmNpdHlpby5zZXJ2aWNlLnYxLkdldEFybXlSZXNwb25zZRJrChBQcmV2aWV3QXJteVJvdXRlEiouY2l0eWlvLnNlcnZpY2UudjEuUHJldmlld0FybXlSb3V0ZVJlcXVlc3QaKy5jaXR5aW8uc2VydmljZS52MS5QcmV2aWV3QXJteVJvdXRlUmVzcG9uc2USUwoITW92ZUFybXkSIi5jaXR5aW8uc2VydmljZS52MS5Nb3ZlQXJteVJlcXVlc3QaIy5jaXR5aW8uc2VydmljZS52MS5Nb3ZlQXJteVJlc3BvbnNlElkKCkF0dGFja0FybXkSJC5jaXR5aW8uc2VydmljZS52MS5BdHRhY2tBcm15UmVxdWVzdBolLmNpdHlpby5zZXJ2aWNlLnYxLkF0dGFja0FybXlSZXNwb25zZRJuChFDb25xdWVyU2V0dGxlbWVudBIrLmNpdHlpby5zZXJ2aWNlLnYxLkNvbnF1ZXJTZXR0bGVtZW50UmVxdWVzdBosLmNpdHlpby5zZXJ2aWNlLnYxLkNvbnF1ZXJTZXR0bGVtZW50UmVzcG9uc2USXAoLUmV0cmVhdEFybXkSJS5jaXR5aW8uc2VydmljZS52MS5SZXRyZWF0QXJteVJlcXVlc3QaJi5jaXR5aW8uc2VydmljZS52MS5SZXRyZWF0QXJteVJlc3BvbnNlElwKC01lcmdlQXJtaWVzEiUuY2l0eWlvLnNlcnZpY2UudjEuTWVyZ2VBcm1pZXNSZXF1ZXN0GiYuY2l0eWlvLnNlcnZpY2UudjEuTWVyZ2VBcm1pZXNSZXNwb25zZRJWCglTcGxpdEFybXkSIy5jaXR5aW8uc2VydmljZS52MS5TcGxpdEFybXlSZXF1ZXN0GiQuY2l0eWlvLnNlcnZpY2UudjEuU3BsaXRBcm15UmVzcG9uc2USWQoKTGlzdEFybWllcxIkLmNpdHlpby5zZXJ2aWNlLnYxLkxpc3RBcm1pZXNSZXF1ZXN0GiUuY2l0eWlvLnNlcnZpY2UudjEuTGlzdEFybWllc1Jlc3BvbnNlYgZwcm90bzM',
+    [
+      file_cityio_entity_v1_army_order,
+      file_cityio_entity_v1_army,
+      file_cityio_entity_v1_bag,
+      file_cityio_entity_v1_common,
+      file_cityio_entity_v1_ids,
+      file_google_protobuf_timestamp,
+      file_google_protobuf_duration
+    ]
+  );
 
 /**
  * @generated from message cityio.service.v1.TrainingOrder
  */
-export type TrainingOrder = Message<"cityio.service.v1.TrainingOrder"> & {
+export type TrainingOrder = Message<'cityio.service.v1.TrainingOrder'> & {
   /**
    * @generated from field: cityio.entity.v1.TrainingOrderId training_order_id = 1;
    */
@@ -68,13 +80,12 @@ export type TrainingOrder = Message<"cityio.service.v1.TrainingOrder"> & {
  * Describes the message cityio.service.v1.TrainingOrder.
  * Use `create(TrainingOrderSchema)` to create a new message.
  */
-export const TrainingOrderSchema: GenMessage<TrainingOrder> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 0);
+export const TrainingOrderSchema: GenMessage<TrainingOrder> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 0);
 
 /**
  * @generated from message cityio.service.v1.TrainTroopsRequest
  */
-export type TrainTroopsRequest = Message<"cityio.service.v1.TrainTroopsRequest"> & {
+export type TrainTroopsRequest = Message<'cityio.service.v1.TrainTroopsRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.BuildingId barracks_id = 1;
    */
@@ -95,13 +106,12 @@ export type TrainTroopsRequest = Message<"cityio.service.v1.TrainTroopsRequest">
  * Describes the message cityio.service.v1.TrainTroopsRequest.
  * Use `create(TrainTroopsRequestSchema)` to create a new message.
  */
-export const TrainTroopsRequestSchema: GenMessage<TrainTroopsRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 1);
+export const TrainTroopsRequestSchema: GenMessage<TrainTroopsRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 1);
 
 /**
  * @generated from message cityio.service.v1.TrainTroopsResponse
  */
-export type TrainTroopsResponse = Message<"cityio.service.v1.TrainTroopsResponse"> & {
+export type TrainTroopsResponse = Message<'cityio.service.v1.TrainTroopsResponse'> & {
   /**
    * @generated from field: cityio.service.v1.TrainingOrder order = 1;
    */
@@ -112,13 +122,12 @@ export type TrainTroopsResponse = Message<"cityio.service.v1.TrainTroopsResponse
  * Describes the message cityio.service.v1.TrainTroopsResponse.
  * Use `create(TrainTroopsResponseSchema)` to create a new message.
  */
-export const TrainTroopsResponseSchema: GenMessage<TrainTroopsResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 2);
+export const TrainTroopsResponseSchema: GenMessage<TrainTroopsResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 2);
 
 /**
  * @generated from message cityio.service.v1.ListTrainingOrdersRequest
  */
-export type ListTrainingOrdersRequest = Message<"cityio.service.v1.ListTrainingOrdersRequest"> & {
+export type ListTrainingOrdersRequest = Message<'cityio.service.v1.ListTrainingOrdersRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.BuildingId barracks_id = 1;
    */
@@ -129,13 +138,12 @@ export type ListTrainingOrdersRequest = Message<"cityio.service.v1.ListTrainingO
  * Describes the message cityio.service.v1.ListTrainingOrdersRequest.
  * Use `create(ListTrainingOrdersRequestSchema)` to create a new message.
  */
-export const ListTrainingOrdersRequestSchema: GenMessage<ListTrainingOrdersRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 3);
+export const ListTrainingOrdersRequestSchema: GenMessage<ListTrainingOrdersRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 3);
 
 /**
  * @generated from message cityio.service.v1.ListTrainingOrdersResponse
  */
-export type ListTrainingOrdersResponse = Message<"cityio.service.v1.ListTrainingOrdersResponse"> & {
+export type ListTrainingOrdersResponse = Message<'cityio.service.v1.ListTrainingOrdersResponse'> & {
   /**
    * @generated from field: repeated cityio.service.v1.TrainingOrder orders = 1;
    */
@@ -146,13 +154,12 @@ export type ListTrainingOrdersResponse = Message<"cityio.service.v1.ListTraining
  * Describes the message cityio.service.v1.ListTrainingOrdersResponse.
  * Use `create(ListTrainingOrdersResponseSchema)` to create a new message.
  */
-export const ListTrainingOrdersResponseSchema: GenMessage<ListTrainingOrdersResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 4);
+export const ListTrainingOrdersResponseSchema: GenMessage<ListTrainingOrdersResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 4);
 
 /**
  * @generated from message cityio.service.v1.GetArmyRequest
  */
-export type GetArmyRequest = Message<"cityio.service.v1.GetArmyRequest"> & {
+export type GetArmyRequest = Message<'cityio.service.v1.GetArmyRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -163,13 +170,12 @@ export type GetArmyRequest = Message<"cityio.service.v1.GetArmyRequest"> & {
  * Describes the message cityio.service.v1.GetArmyRequest.
  * Use `create(GetArmyRequestSchema)` to create a new message.
  */
-export const GetArmyRequestSchema: GenMessage<GetArmyRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 5);
+export const GetArmyRequestSchema: GenMessage<GetArmyRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 5);
 
 /**
  * @generated from message cityio.service.v1.GetArmyResponse
  */
-export type GetArmyResponse = Message<"cityio.service.v1.GetArmyResponse"> & {
+export type GetArmyResponse = Message<'cityio.service.v1.GetArmyResponse'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -185,13 +191,12 @@ export type GetArmyResponse = Message<"cityio.service.v1.GetArmyResponse"> & {
  * Describes the message cityio.service.v1.GetArmyResponse.
  * Use `create(GetArmyResponseSchema)` to create a new message.
  */
-export const GetArmyResponseSchema: GenMessage<GetArmyResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 6);
+export const GetArmyResponseSchema: GenMessage<GetArmyResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 6);
 
 /**
  * @generated from message cityio.service.v1.MoveArmyRequest
  */
-export type MoveArmyRequest = Message<"cityio.service.v1.MoveArmyRequest"> & {
+export type MoveArmyRequest = Message<'cityio.service.v1.MoveArmyRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -207,26 +212,23 @@ export type MoveArmyRequest = Message<"cityio.service.v1.MoveArmyRequest"> & {
  * Describes the message cityio.service.v1.MoveArmyRequest.
  * Use `create(MoveArmyRequestSchema)` to create a new message.
  */
-export const MoveArmyRequestSchema: GenMessage<MoveArmyRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 7);
+export const MoveArmyRequestSchema: GenMessage<MoveArmyRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 7);
 
 /**
  * @generated from message cityio.service.v1.MoveArmyResponse
  */
-export type MoveArmyResponse = Message<"cityio.service.v1.MoveArmyResponse"> & {
-};
+export type MoveArmyResponse = Message<'cityio.service.v1.MoveArmyResponse'> & {};
 
 /**
  * Describes the message cityio.service.v1.MoveArmyResponse.
  * Use `create(MoveArmyResponseSchema)` to create a new message.
  */
-export const MoveArmyResponseSchema: GenMessage<MoveArmyResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 8);
+export const MoveArmyResponseSchema: GenMessage<MoveArmyResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 8);
 
 /**
  * @generated from message cityio.service.v1.AttackArmyRequest
  */
-export type AttackArmyRequest = Message<"cityio.service.v1.AttackArmyRequest"> & {
+export type AttackArmyRequest = Message<'cityio.service.v1.AttackArmyRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -242,26 +244,23 @@ export type AttackArmyRequest = Message<"cityio.service.v1.AttackArmyRequest"> &
  * Describes the message cityio.service.v1.AttackArmyRequest.
  * Use `create(AttackArmyRequestSchema)` to create a new message.
  */
-export const AttackArmyRequestSchema: GenMessage<AttackArmyRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 9);
+export const AttackArmyRequestSchema: GenMessage<AttackArmyRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 9);
 
 /**
  * @generated from message cityio.service.v1.AttackArmyResponse
  */
-export type AttackArmyResponse = Message<"cityio.service.v1.AttackArmyResponse"> & {
-};
+export type AttackArmyResponse = Message<'cityio.service.v1.AttackArmyResponse'> & {};
 
 /**
  * Describes the message cityio.service.v1.AttackArmyResponse.
  * Use `create(AttackArmyResponseSchema)` to create a new message.
  */
-export const AttackArmyResponseSchema: GenMessage<AttackArmyResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 10);
+export const AttackArmyResponseSchema: GenMessage<AttackArmyResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 10);
 
 /**
  * @generated from message cityio.service.v1.ConquerSettlementRequest
  */
-export type ConquerSettlementRequest = Message<"cityio.service.v1.ConquerSettlementRequest"> & {
+export type ConquerSettlementRequest = Message<'cityio.service.v1.ConquerSettlementRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -277,26 +276,23 @@ export type ConquerSettlementRequest = Message<"cityio.service.v1.ConquerSettlem
  * Describes the message cityio.service.v1.ConquerSettlementRequest.
  * Use `create(ConquerSettlementRequestSchema)` to create a new message.
  */
-export const ConquerSettlementRequestSchema: GenMessage<ConquerSettlementRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 11);
+export const ConquerSettlementRequestSchema: GenMessage<ConquerSettlementRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 11);
 
 /**
  * @generated from message cityio.service.v1.ConquerSettlementResponse
  */
-export type ConquerSettlementResponse = Message<"cityio.service.v1.ConquerSettlementResponse"> & {
-};
+export type ConquerSettlementResponse = Message<'cityio.service.v1.ConquerSettlementResponse'> & {};
 
 /**
  * Describes the message cityio.service.v1.ConquerSettlementResponse.
  * Use `create(ConquerSettlementResponseSchema)` to create a new message.
  */
-export const ConquerSettlementResponseSchema: GenMessage<ConquerSettlementResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 12);
+export const ConquerSettlementResponseSchema: GenMessage<ConquerSettlementResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 12);
 
 /**
  * @generated from message cityio.service.v1.RetreatArmyRequest
  */
-export type RetreatArmyRequest = Message<"cityio.service.v1.RetreatArmyRequest"> & {
+export type RetreatArmyRequest = Message<'cityio.service.v1.RetreatArmyRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -307,26 +303,23 @@ export type RetreatArmyRequest = Message<"cityio.service.v1.RetreatArmyRequest">
  * Describes the message cityio.service.v1.RetreatArmyRequest.
  * Use `create(RetreatArmyRequestSchema)` to create a new message.
  */
-export const RetreatArmyRequestSchema: GenMessage<RetreatArmyRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 13);
+export const RetreatArmyRequestSchema: GenMessage<RetreatArmyRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 13);
 
 /**
  * @generated from message cityio.service.v1.RetreatArmyResponse
  */
-export type RetreatArmyResponse = Message<"cityio.service.v1.RetreatArmyResponse"> & {
-};
+export type RetreatArmyResponse = Message<'cityio.service.v1.RetreatArmyResponse'> & {};
 
 /**
  * Describes the message cityio.service.v1.RetreatArmyResponse.
  * Use `create(RetreatArmyResponseSchema)` to create a new message.
  */
-export const RetreatArmyResponseSchema: GenMessage<RetreatArmyResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 14);
+export const RetreatArmyResponseSchema: GenMessage<RetreatArmyResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 14);
 
 /**
  * @generated from message cityio.service.v1.PreviewArmyRouteRequest
  */
-export type PreviewArmyRouteRequest = Message<"cityio.service.v1.PreviewArmyRouteRequest"> & {
+export type PreviewArmyRouteRequest = Message<'cityio.service.v1.PreviewArmyRouteRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -342,13 +335,12 @@ export type PreviewArmyRouteRequest = Message<"cityio.service.v1.PreviewArmyRout
  * Describes the message cityio.service.v1.PreviewArmyRouteRequest.
  * Use `create(PreviewArmyRouteRequestSchema)` to create a new message.
  */
-export const PreviewArmyRouteRequestSchema: GenMessage<PreviewArmyRouteRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 15);
+export const PreviewArmyRouteRequestSchema: GenMessage<PreviewArmyRouteRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 15);
 
 /**
  * @generated from message cityio.service.v1.PreviewArmyRouteResponse
  */
-export type PreviewArmyRouteResponse = Message<"cityio.service.v1.PreviewArmyRouteResponse"> & {
+export type PreviewArmyRouteResponse = Message<'cityio.service.v1.PreviewArmyRouteResponse'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyRoute route = 1;
    */
@@ -364,13 +356,12 @@ export type PreviewArmyRouteResponse = Message<"cityio.service.v1.PreviewArmyRou
  * Describes the message cityio.service.v1.PreviewArmyRouteResponse.
  * Use `create(PreviewArmyRouteResponseSchema)` to create a new message.
  */
-export const PreviewArmyRouteResponseSchema: GenMessage<PreviewArmyRouteResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 16);
+export const PreviewArmyRouteResponseSchema: GenMessage<PreviewArmyRouteResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 16);
 
 /**
  * @generated from message cityio.service.v1.MergeArmiesRequest
  */
-export type MergeArmiesRequest = Message<"cityio.service.v1.MergeArmiesRequest"> & {
+export type MergeArmiesRequest = Message<'cityio.service.v1.MergeArmiesRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId target_army_id = 1;
    */
@@ -386,26 +377,38 @@ export type MergeArmiesRequest = Message<"cityio.service.v1.MergeArmiesRequest">
  * Describes the message cityio.service.v1.MergeArmiesRequest.
  * Use `create(MergeArmiesRequestSchema)` to create a new message.
  */
-export const MergeArmiesRequestSchema: GenMessage<MergeArmiesRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 17);
+export const MergeArmiesRequestSchema: GenMessage<MergeArmiesRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 17);
 
 /**
  * @generated from message cityio.service.v1.MergeArmiesResponse
  */
-export type MergeArmiesResponse = Message<"cityio.service.v1.MergeArmiesResponse"> & {
+export type MergeArmiesResponse = Message<'cityio.service.v1.MergeArmiesResponse'> & {
+  /**
+   * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
+   */
+  armyId?: ArmyId | undefined;
+
+  /**
+   * @generated from field: cityio.entity.v1.EntityBag entities = 2;
+   */
+  entities?: EntityBag | undefined;
+
+  /**
+   * @generated from field: cityio.entity.v1.EntityIdBag deleted = 3;
+   */
+  deleted?: EntityIdBag | undefined;
 };
 
 /**
  * Describes the message cityio.service.v1.MergeArmiesResponse.
  * Use `create(MergeArmiesResponseSchema)` to create a new message.
  */
-export const MergeArmiesResponseSchema: GenMessage<MergeArmiesResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 18);
+export const MergeArmiesResponseSchema: GenMessage<MergeArmiesResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 18);
 
 /**
  * @generated from message cityio.service.v1.SplitArmyRequest
  */
-export type SplitArmyRequest = Message<"cityio.service.v1.SplitArmyRequest"> & {
+export type SplitArmyRequest = Message<'cityio.service.v1.SplitArmyRequest'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -421,13 +424,12 @@ export type SplitArmyRequest = Message<"cityio.service.v1.SplitArmyRequest"> & {
  * Describes the message cityio.service.v1.SplitArmyRequest.
  * Use `create(SplitArmyRequestSchema)` to create a new message.
  */
-export const SplitArmyRequestSchema: GenMessage<SplitArmyRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 19);
+export const SplitArmyRequestSchema: GenMessage<SplitArmyRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 19);
 
 /**
  * @generated from message cityio.service.v1.SplitArmyResponse
  */
-export type SplitArmyResponse = Message<"cityio.service.v1.SplitArmyResponse"> & {
+export type SplitArmyResponse = Message<'cityio.service.v1.SplitArmyResponse'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -443,26 +445,23 @@ export type SplitArmyResponse = Message<"cityio.service.v1.SplitArmyResponse"> &
  * Describes the message cityio.service.v1.SplitArmyResponse.
  * Use `create(SplitArmyResponseSchema)` to create a new message.
  */
-export const SplitArmyResponseSchema: GenMessage<SplitArmyResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 20);
+export const SplitArmyResponseSchema: GenMessage<SplitArmyResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 20);
 
 /**
  * @generated from message cityio.service.v1.ListArmiesRequest
  */
-export type ListArmiesRequest = Message<"cityio.service.v1.ListArmiesRequest"> & {
-};
+export type ListArmiesRequest = Message<'cityio.service.v1.ListArmiesRequest'> & {};
 
 /**
  * Describes the message cityio.service.v1.ListArmiesRequest.
  * Use `create(ListArmiesRequestSchema)` to create a new message.
  */
-export const ListArmiesRequestSchema: GenMessage<ListArmiesRequest> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 21);
+export const ListArmiesRequestSchema: GenMessage<ListArmiesRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 21);
 
 /**
  * @generated from message cityio.service.v1.ListArmiesResponse
  */
-export type ListArmiesResponse = Message<"cityio.service.v1.ListArmiesResponse"> & {
+export type ListArmiesResponse = Message<'cityio.service.v1.ListArmiesResponse'> & {
   /**
    * @generated from field: repeated cityio.entity.v1.ArmyId army_ids = 1;
    */
@@ -478,8 +477,7 @@ export type ListArmiesResponse = Message<"cityio.service.v1.ListArmiesResponse">
  * Describes the message cityio.service.v1.ListArmiesResponse.
  * Use `create(ListArmiesResponseSchema)` to create a new message.
  */
-export const ListArmiesResponseSchema: GenMessage<ListArmiesResponse> = /*@__PURE__*/
-  messageDesc(file_cityio_service_v1_army, 22);
+export const ListArmiesResponseSchema: GenMessage<ListArmiesResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_army, 22);
 
 /**
  * ArmyService trains, commands, fights, retreats, splits, and merges armies.
@@ -491,90 +489,88 @@ export const ArmyService: GenService<{
    * @generated from rpc cityio.service.v1.ArmyService.TrainTroops
    */
   trainTroops: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof TrainTroopsRequestSchema;
     output: typeof TrainTroopsResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.ListTrainingOrders
    */
   listTrainingOrders: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof ListTrainingOrdersRequestSchema;
     output: typeof ListTrainingOrdersResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.GetArmy
    */
   getArmy: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof GetArmyRequestSchema;
     output: typeof GetArmyResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.PreviewArmyRoute
    */
   previewArmyRoute: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof PreviewArmyRouteRequestSchema;
     output: typeof PreviewArmyRouteResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.MoveArmy
    */
   moveArmy: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof MoveArmyRequestSchema;
     output: typeof MoveArmyResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.AttackArmy
    */
   attackArmy: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof AttackArmyRequestSchema;
     output: typeof AttackArmyResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.ConquerSettlement
    */
   conquerSettlement: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof ConquerSettlementRequestSchema;
     output: typeof ConquerSettlementResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.RetreatArmy
    */
   retreatArmy: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof RetreatArmyRequestSchema;
     output: typeof RetreatArmyResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.MergeArmies
    */
   mergeArmies: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof MergeArmiesRequestSchema;
     output: typeof MergeArmiesResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.SplitArmy
    */
   splitArmy: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof SplitArmyRequestSchema;
     output: typeof SplitArmyResponseSchema;
-  },
+  };
   /**
    * @generated from rpc cityio.service.v1.ArmyService.ListArmies
    */
   listArmies: {
-    methodKind: "unary";
+    methodKind: 'unary';
     input: typeof ListArmiesRequestSchema;
     output: typeof ListArmiesResponseSchema;
-  },
-}> = /*@__PURE__*/
-  serviceDesc(file_cityio_service_v1_army, 0);
-
+  };
+}> = /*@__PURE__*/ serviceDesc(file_cityio_service_v1_army, 0);
