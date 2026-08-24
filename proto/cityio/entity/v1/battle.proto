@@ -2,8 +2,15 @@ syntax = "proto3";
 
 package cityio.entity.v1;
 
+import "cityio/entity/v1/army.proto";
 import "cityio/entity/v1/ids.proto";
 import "google/protobuf/timestamp.proto";
+
+message BattleLossSummary {
+  repeated TroopStack troops = 1;
+  int64 militia = 2;
+  int64 civilians = 3;
+}
 
 message BattleSide {
   repeated UserId user_ids = 1;
@@ -12,6 +19,11 @@ message BattleSide {
   int64 militia_count = 4;
   // Exact military strength is only disclosed to users on this side.
   bool strength_visible = 5;
+  repeated TroopStack starting_troops = 6;
+  repeated TroopStack surviving_troops = 7;
+  int64 starting_militia_count = 8;
+  BattleLossSummary cumulative_losses = 9;
+  BattleLossSummary last_round_losses = 10;
 }
 
 // Battle exists only while combat is active. Each side can contain armies
@@ -24,4 +36,5 @@ message Battle {
   BattleSide defenders = 4;
   google.protobuf.Timestamp started_at = 5;
   google.protobuf.Timestamp next_tick_at = 6;
+  int32 completed_rounds = 7;
 }

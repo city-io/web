@@ -7,14 +7,14 @@
   import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
   import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
-  import { TROOP_STATS, TROOP_TYPES, armySize, armyTitle, createArmyMarker, troopName, type ArmyPathStep } from '$lib/game/troops';
+  import { TROOP_STATS, TROOP_TYPES, armyDisplayName, armySize, armyTitle, createArmyMarker, troopName, type ArmyPathStep } from '$lib/game/troops';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import type { ArmyOrder } from '$lib/gen/cityio/entity/v1/army_order_pb';
-  import type { BattleSide } from '$lib/gen/cityio/entity/v1/battle_pb';
+  import type { Battle, BattleLossSummary, BattleSide } from '$lib/gen/cityio/entity/v1/battle_pb';
   import {
     BattleReportEngagement,
     BattleReportOutcome,
@@ -40,6 +40,7 @@
   const MAX_ZOOM = 3;
   const CLICK_DIST = 5;
   const DOUBLE_CLICK_MS = 350;
+  const BATTLE_TICK_MS = 5000;
   // Set this above zero if movement orders should have a deliberate client-side submit delay.
   const MOVE_ORDER_SUBMIT_DELAY_MS = 0;
   type MovePreviewResult = 'loaded' | 'failed' | 'superseded';
@@ -81,6 +82,9 @@
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
   let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let trainingGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number }>();
+  let battleGfx = new Map<string, { marker: Container; leftSword: Graphics; rightSword: Graphics; impact: Graphics; pulse: Graphics; baseY: number }>();
+  let siegeGfx = new Map<string, { marker: Container; pulse: Graphics }>();
+  let occupationGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let selGfx: Graphics | null = null;
 
   // ── UI state ────────────────────────────────────────────
@@ -93,10 +97,15 @@
   let showBuild = false;
   let showCityManagement = false;
   let showBattlePanel = false;
+  let battleNow = Date.now();
+  let selectedBattleId: string | null = null;
   let cityManagementView: 'city' | 'building' = 'city';
   let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
   let recruitCount = 1;
   let selectedArmyId: string | null = null;
+  let armyNameFormId: string | null = null;
+  let armyNameDraft = '';
+  let renamingArmy = false;
   let splitArmyFormId: string | null = null;
   let showSplit = false;
   let splitCounts: Partial<Record<TroopType, number>> = {};
@@ -277,8 +286,12 @@
   const tick = setInterval(() => {
     now = Date.now();
   }, 1000);
+  const battleClock = setInterval(() => {
+    if (showBattlePanel) battleNow = Date.now();
+  }, 250);
   onDestroy(() => {
     clearInterval(tick);
+    clearInterval(battleClock);
     if (trainingNoticeTimer) clearTimeout(trainingNoticeTimer);
   });
 
@@ -293,7 +306,7 @@
   };
   const bName = (t: BuildingType) => BN[t] ?? 'Unknown';
   const cName = (t: CityType) => (t === CityType.CITY ? 'City' : t === CityType.TOWN ? 'Town' : 'Settlement');
-  const barracksCapacity = (building: Building) => Math.max(0, building.level * 5);
+  const barracksTrainingSpeed = (building: Building) => getLevelStats(BuildingType.BARRACKS, building.level)?.trainingSpeedMultiplier || 1;
   const residents = (city: City) => Math.max(0, Math.floor(city.population));
   const housingCapacity = (city: City) => Math.max(0, Math.floor(city.populationCap));
   const taxpayerPopulation = (city: City) => Math.min(residents(city), Math.max(0, Math.floor(city.taxablePopulation)));
@@ -301,17 +314,30 @@
   const demographicsKnown = (city?: City) => !!city?.demographicsVisible;
   const trainablePopulation = (city?: City) => (city ? Math.max(0, Math.floor(city.recruitablePopulation)) : 0);
   const troopPopulationCost = (type: TroopType, count: number) => (TROOP_STATS[type as keyof typeof TROOP_STATS]?.population ?? 0) * count;
-  const queuePopulationCost = (orders: TrainingOrder[]) => orders.reduce((total, order) => total + troopPopulationCost(order.type, order.count), 0);
   const armyPersonnel = (army: Army) => army.troops.reduce((total, stack) => total + troopPopulationCost(stack.type, stack.count ?? 0), 0);
   const armyFoodUpkeep = (army: Army) => army.troops.reduce((total, stack) => total + (TROOP_STATS[stack.type as keyof typeof TROOP_STATS]?.foodPerHour ?? 0) * (stack.count ?? 0), 0);
   const troopStackTotal = (stacks: { count?: number }[]) => stacks.reduce((total, stack) => total + (stack.count ?? 0), 0);
   const troopStackCount = (stacks: { type: TroopType; count?: number }[], type: TroopType) => stacks.find((stack) => stack.type === type)?.count ?? 0;
+  const battleMilitaryLosses = (losses?: BattleLossSummary) => troopStackTotal(losses?.troops ?? []) + Number(losses?.militia ?? 0n);
+  const battleLossParts = (losses?: BattleLossSummary) => [
+    ...(losses?.troops ?? []).filter((stack) => (stack.count ?? 0) > 0).map((stack) => `${stack.count} ${troopName(stack.type, stack.count)}`),
+    ...(losses?.militia && losses.militia > 0n ? [`${losses.militia.toString()} militia`] : []),
+    ...(losses?.civilians && losses.civilians > 0n ? [`${losses.civilians.toString()} civilians`] : [])
+  ];
   const reportArmyLosses = (army: BattleReportArmy) => troopStackTotal(army.startingTroops) - troopStackTotal(army.survivingTroops);
   const reportSideStart = (side?: ReportSide) => (side?.armies ?? []).reduce((total, army) => total + troopStackTotal(army.startingTroops), Number(side?.startingMilitia ?? 0n));
   const reportSideSurvivors = (side?: ReportSide) => (side?.armies ?? []).reduce((total, army) => total + troopStackTotal(army.survivingTroops), Number(side?.survivingMilitia ?? 0n));
   const reportLossTotal = (losses: BattleReportLoss[]) => losses.reduce((total, loss) => total + troopStackTotal(loss.troops) + Number(loss.militia), 0);
   const reportLossDescription = (loss: BattleReportLoss) =>
     [...loss.troops.map((stack) => `${stack.count ?? 0} ${troopName(stack.type, stack.count)}`), ...(loss.militia > 0n ? [`${loss.militia.toString()} militia`] : [])].join(' · ');
+  const reportLossSource = (report: BattleReport, loss: BattleReportLoss) => {
+    if (loss.militiaCityId) {
+      const settlement = [report.attackers?.settlement, report.defenders?.settlement].find((candidate) => candidate?.cityId?.value === loss.militiaCityId?.value);
+      return settlement ? `${settlement.name} militia` : `Militia ${shortId(loss.militiaCityId.value)}`;
+    }
+    const army = [...(report.attackers?.armies ?? []), ...(report.defenders?.armies ?? [])].find((candidate) => candidate.armyId?.value === loss.armyId?.value);
+    return army?.name || `Army ${shortId(loss.armyId?.value)}`;
+  };
   const reportOutcomeLabel = (outcome: BattleReportOutcome) => (outcome === BattleReportOutcome.VICTORY ? 'Victory' : outcome === BattleReportOutcome.DEFEAT ? 'Defeat' : 'Draw');
   const reportResolutionLabel = (resolution: BattleReportResolution) =>
     resolution === BattleReportResolution.RETREAT ? 'Retreat' : resolution === BattleReportResolution.MUTUAL_DESTRUCTION ? 'Mutual destruction' : 'Elimination';
@@ -324,9 +350,41 @@
       const army = $armies.find((candidate) => candidate.armyId?.value === armyId.value);
       return army ? [army] : [];
     });
+  const battleAt = (x: number, y: number): Battle | undefined => $battles.find((battle) => battle.tileId?.x === x && battle.tileId?.y === y);
+  const siegeBattleForCity = (cityId?: string): Battle | undefined => (cityId ? $battles.find((battle) => battle.defenders?.militiaCityId?.value === cityId) : undefined);
+  const occupationOrderForCity = (cityId?: string): ArmyOrder | undefined =>
+    cityId ? $armyOrders.find((order) => order.objective.case === 'conquerSettlement' && order.objective.value.cityId?.value === cityId && !!order.objective.value.captureStartedAt) : undefined;
+
+  const openBattle = (battle: Battle) => {
+    const battleId = battle.battleId?.value;
+    if (!battleId) return;
+    const armyIds = [...(battle.attackers?.armyIds ?? []), ...(battle.defenders?.armyIds ?? [])].map((id) => id.value);
+    const armiesInBattle = armyIds.flatMap((id) => {
+      const army = $armies.find((candidate) => candidate.armyId?.value === id);
+      return army ? [army] : [];
+    });
+    const army = armiesInBattle.find((candidate) => candidate.owner?.value === $userId) ?? armiesInBattle[0];
+    if (army) {
+      focusArmy(army, false);
+    } else if (battle.tileId) {
+      const { x, y } = battle.tileId;
+      cancelMoveMode();
+      trackedArmyId = null;
+      selectedArmyId = null;
+      sel = { x, y, ...tileData.get(tileKey(x, y)) };
+      drawSel(x, y);
+    }
+    selectedBattleId = battleId;
+    battleNow = Date.now();
+    showBattlePanel = true;
+  };
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
   $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
+  $: if (selectedArmyId !== armyNameFormId) {
+    armyNameFormId = selectedArmyId;
+    armyNameDraft = selectedArmy?.name ?? '';
+  }
   $: if (selectedArmyId !== splitArmyFormId) {
     splitArmyFormId = selectedArmyId;
     showSplit = false;
@@ -390,7 +448,7 @@
     switch (order.objective.case) {
       case 'attackArmy': {
         const target = armyForAttackOrder(order);
-        return inBattle ? `Attacking ${target ? armyTitle(target) : 'enemy army'}` : `Pursuing ${target ? armyTitle(target) : 'enemy army'}${coords}`;
+        return inBattle ? `Attacking ${target ? armyDisplayName(target) : 'enemy army'}` : `Pursuing ${target ? armyDisplayName(target) : 'enemy army'}${coords}`;
       }
       case 'conquerSettlement': {
         const settlement = cityForOrder(order);
@@ -423,7 +481,7 @@
     switch (intent) {
       case 'attack': {
         const target = destinationState?.armies?.find((army) => army.owner?.value && army.owner.value !== $userId);
-        return `Attack ${target ? armyTitle(target) : 'enemy army'} at ${destination.x}, ${destination.y}`;
+        return `Attack ${target ? armyDisplayName(target) : 'enemy army'} at ${destination.x}, ${destination.y}`;
       }
       case 'siege':
         return `Besiege ${destinationState?.city?.name ?? 'settlement'} at ${destination.x}, ${destination.y}`;
@@ -434,9 +492,10 @@
     }
   };
   $: selectedOrder = orderForArmy(selectedArmy);
-  $: selectedBattle = selectedArmy?.battleId?.value ? $battles.find((battle) => battle.battleId?.value === selectedArmy?.battleId?.value) : undefined;
+  $: activeBattleId = selectedBattleId ?? selectedArmy?.battleId?.value;
+  $: selectedBattle = activeBattleId ? $battles.find((battle) => battle.battleId?.value === activeBattleId) : undefined;
   $: if (!selectedBattle) showBattlePanel = false;
-  $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => (a.armyId?.value ?? '').localeCompare(b.armyId?.value ?? ''));
+  $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => armyDisplayName(a).localeCompare(armyDisplayName(b)));
   $: ownedArmyTroops = ownedArmies.reduce((total, army) => total + armySize(army), 0);
   $: ownedOrderCount = ownedArmies.filter((army) => orderForArmy(army)).length;
   $: ownedCityIds = new Set($cities.filter((city) => city.owner?.value === $userId).map((city) => city.cityId?.value));
@@ -446,7 +505,9 @@
   $: unreadMailboxCount = $mailboxMessages.filter((message) => !message.readAt).length;
   $: selectedMailboxMessage = selectedMailboxMessageId ? $mailboxMessages.find((message) => message.mailboxMessageId?.value === selectedMailboxMessageId) : undefined;
   $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
-  $: selectedTrainingOrders = selectedBarracksId ? currentTrainingQueue(trainingQueues.get(selectedBarracksId) ?? []) : [];
+  $: selectedTrainingOrders = selectedBarracksId
+    ? currentTrainingQueue(trainingQueues.get(sel?.building?.cityId?.value ?? '') ?? []).filter((order) => order.barracksId?.value === selectedBarracksId)
+    : [];
   $: selectedPolicyCityId = sel?.city?.owner?.value === $userId ? (sel?.city?.cityId?.value ?? null) : null;
   $: if (selectedPolicyCityId && selectedPolicyCityId !== policyDraftCityId) {
     policyDraftCityId = selectedPolicyCityId;
@@ -459,7 +520,7 @@
     militiaTargetDraft = sel?.city?.militiaTarget ?? militiaTargetDraft;
     taxDraft = sel?.city?.taxRatePercent ?? taxDraft;
   }
-  $: if (ownedBarracks.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
+  $: if (ownedCities.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
     loadTrainingOverview();
   }
 
@@ -535,7 +596,9 @@
 
   const timestampMs = (timestamp?: Timestamp): number => (timestamp ? Number(timestamp.seconds) * 1000 + timestamp.nanos / 1e6 : 0);
 
-  const currentTrainingQueue = (orders: TrainingOrder[]): TrainingOrder[] => orders.filter((order) => !order.completesAt || timestampMs(order.completesAt) > now);
+  // The server removes an order only after its army has spawned. Keep overdue
+  // active work visible at 0s while a completion retry is in flight.
+  const currentTrainingQueue = (orders: TrainingOrder[]): TrainingOrder[] => orders;
 
   // ── reactive store sync ─────────────────────────────────
   // buildLookup is cheap (rebuilds a Map) — run synchronously so tileData is always fresh.
@@ -676,6 +739,14 @@
     drawSel(col, row);
   };
 
+  const openSettlementPolicy = (city: City) => {
+    centerOnCity(city);
+    if (sel?.city?.cityId?.value !== city.cityId?.value) return;
+    cityManagementView = 'city';
+    showCityManagement = true;
+    managementOpen = false;
+  };
+
   const openMailboxMessage = async (message: MailboxMessage) => {
     const id = message.mailboxMessageId?.value;
     if (!id) return;
@@ -791,6 +862,9 @@
     constructionGfx.clear();
     starvingGfx.clear();
     trainingGfx.clear();
+    battleGfx.clear();
+    siegeGfx.clear();
+    occupationGfx.clear();
     if (selGfx) {
       selGfx.destroy();
       selGfx = null;
@@ -850,9 +924,9 @@
     lastTrainingOverviewPoll = Date.now();
     try {
       const entries = await Promise.all(
-        ownedBarracks.flatMap((barracks) => {
-          const id = barracks.buildingId?.value;
-          return id ? [armyClient.listTrainingOrders({ barracksId: { value: id } }).then((response) => [id, response.orders] as const)] : [];
+        ownedCities.flatMap((city) => {
+          const id = city.cityId?.value;
+          return id ? [armyClient.listTrainingOrders({ cityId: { value: id } }).then((response) => [id, response.orders] as const)] : [];
         })
       );
       const nextQueues = new Map(entries);
@@ -860,7 +934,7 @@
         [...queues]
           .map(
             ([id, orders]) =>
-              `${id}:${orders.map((order) => `${order.trainingOrderId?.value}:${order.type}:${order.count}:${timestampMs(order.startedAt)}:${timestampMs(order.completesAt)}`).join(',')}`
+              `${id}:${orders.map((order) => `${order.trainingOrderId?.value}:${order.barracksId?.value ?? 'queued'}:${order.type}:${order.count}:${timestampMs(order.startedAt)}:${timestampMs(order.completesAt)}`).join(',')}`
           )
           .sort()
           .join('|');
@@ -874,30 +948,24 @@
     }
   };
 
-  const queueTroops = async () => {
-    const barracks = sel?.building;
-    if (!barracks || barracks.type !== BuildingType.BARRACKS) return;
-    const capacity = barracksCapacity(barracks);
-    const count = Math.max(1, Math.min(capacity, Math.floor(recruitCount)));
-    const stat = TROOP_STATS[recruitType];
+  const queueTroops = async (city: City) => {
+    const cityId = city.cityId?.value;
+    if (!cityId) return;
+    const count = Math.max(1, Math.floor(recruitCount));
     recruitCount = count;
     busy = true;
     err = '';
     notice = '';
     try {
-      const response = await armyClient.trainTroops({ barracksId: barracks.buildingId, type: recruitType, count });
+      const response = await armyClient.trainTroops({ cityId: city.cityId, type: recruitType, count });
       if (response.order) {
         const orderId = response.order.trainingOrderId?.value;
-        const barracksId = barracks.buildingId?.value;
-        if (barracksId) {
-          const queue = currentTrainingQueue(trainingQueues.get(barracksId) ?? []);
-          trainingQueues = new Map(trainingQueues).set(barracksId, [...queue.filter((order) => order.trainingOrderId?.value !== orderId), response.order]);
-        }
+        const queue = currentTrainingQueue(trainingQueues.get(cityId) ?? []);
+        trainingQueues = new Map(trainingQueues).set(cityId, [...queue.filter((order) => order.trainingOrderId?.value !== orderId), response.order]);
       } else {
         lastTrainingOverviewPoll = 0;
       }
-      const populationCost = count * stat.population;
-      const trainingNotice = `${count} ${troopName(recruitType, count)} queued · ${populationCost} ${populationCost === 1 ? 'resident' : 'residents'} mobilized · ${fmtCountdown(count * stat.trainSeconds * 1000)}`;
+      const trainingNotice = `${count} ${troopName(recruitType, count)} added to ${city.name}'s pipeline · costs reserved`;
       notice = trainingNotice;
       if (trainingNoticeTimer) clearTimeout(trainingNoticeTimer);
       trainingNoticeTimer = setTimeout(() => {
@@ -909,6 +977,60 @@
       err = errorText(e, 'Training order failed');
     } finally {
       busy = false;
+    }
+  };
+
+  const cancelTrainingOrder = async (city: City, order: TrainingOrder) => {
+    const cityId = city.cityId?.value;
+    const orderId = order.trainingOrderId?.value;
+    if (!cityId || !orderId || order.startedAt) return;
+    busy = true;
+    err = '';
+    try {
+      await armyClient.cancelTrainingOrder({ cityId: city.cityId, trainingOrderId: order.trainingOrderId });
+      trainingQueues = new Map(trainingQueues).set(
+        cityId,
+        (trainingQueues.get(cityId) ?? []).filter((candidate) => candidate.trainingOrderId?.value !== orderId)
+      );
+      notice = `Queued ${troopName(order.type, order.count)} cancelled · gold and residents refunded`;
+    } catch (e: unknown) {
+      err = errorText(e, 'Training cancellation failed');
+    } finally {
+      busy = false;
+    }
+  };
+
+  const openBarracksTraining = (cityId?: string, barracksId?: string) => {
+    if (!cityId) return;
+    const cityBarracks = ownedBarracks.filter((building) => building.cityId?.value === cityId);
+    const barracks = cityBarracks.find((building) => building.buildingId?.value === barracksId) ?? cityBarracks.find((building) => building.level > 0) ?? cityBarracks[0];
+    if (!barracks) return;
+    focusBuilding(barracks);
+    cityManagementView = 'building';
+    showCityManagement = true;
+    managementOpen = false;
+  };
+
+  const renameSelectedArmy = async (army: Army) => {
+    const armyId = army.armyId?.value;
+    const name = armyNameDraft.trim();
+    if (!armyId || !name || name === army.name) return;
+    renamingArmy = true;
+    err = '';
+    notice = '';
+    try {
+      const response = await armyClient.renameArmy({ armyId: army.armyId, name });
+      const updated = response.entities?.armies[0];
+      if (updated) {
+        armies.update((previous) => previous.map((candidate) => (candidate.armyId?.value === armyId ? updated : candidate)));
+        armyNameDraft = updated.name;
+      }
+      notice = `Army renamed to ${updated?.name ?? name}.`;
+      scheduleRender();
+    } catch (e: unknown) {
+      err = errorText(e, 'Army rename failed');
+    } finally {
+      renamingArmy = false;
     }
   };
 
@@ -1194,6 +1316,7 @@
     const id = army.armyId?.value;
     if (!id || !army.coords) return;
     cancelMoveMode();
+    selectedBattleId = null;
     selectedArmyId = id;
     trackedArmyId = id;
     const x = army.coords.x;
@@ -1264,7 +1387,7 @@
         cancelMoveMode();
       } else {
         notice = hostile
-          ? `Attack order issued: pursue ${armyTitle(hostile)}.`
+          ? `Attack order issued: pursue ${armyDisplayName(hostile)}.`
           : settlement && settlementCenter
             ? `Siege order issued: advance on ${settlement.name}.`
             : moveRoute
@@ -1437,6 +1560,50 @@
         gfx.fill({ color: 0x7fc4b5, alpha: 1 });
       }
 
+      // One engagement marker per battle. The swords repeatedly close toward
+      // their impact point; reduced-motion users get the same static symbol.
+      const clashWave = easeMotion ? 0.5 + 0.5 * Math.sin(t * 4.4) : 1;
+      const impactWave = Math.pow(clashWave, 8);
+      for (const [, entry] of battleGfx) {
+        entry.marker.y = entry.baseY + (easeMotion ? Math.sin(t * 2.2) * 0.75 : 0);
+        entry.leftSword.rotation = 0.94 - clashWave * 0.16;
+        entry.rightSword.rotation = -0.94 + clashWave * 0.16;
+        entry.impact.alpha = 0.15 + impactWave * 0.85;
+        entry.impact.scale.set(0.8 + impactWave * 0.25);
+        entry.pulse.alpha = 0.55 + clashWave * 0.4;
+        entry.pulse.scale.set(0.98 + clashWave * 0.05);
+      }
+
+      const siegePulse = easeMotion ? 0.5 + 0.5 * Math.sin(t * 3.6) : 0.75;
+      for (const [, entry] of siegeGfx) {
+        entry.pulse.alpha = 0.5 + siegePulse * 0.5;
+        entry.pulse.scale.set(0.98 + siegePulse * 0.07);
+      }
+
+      // Occupation is intentionally amber rather than combat red. It marks
+      // the whole disputed territory and gives the center a stronger pulse.
+      const occupationPulse = easeMotion ? 0.5 + 0.5 * Math.sin(t * 3) : 0.7;
+      for (const [, entry] of occupationGfx) {
+        const { gfx, segs, isCenter } = entry;
+        gfx.clear();
+        for (const segment of segs) {
+          gfx.moveTo(segment[0], segment[1]);
+          gfx.lineTo(segment[2], segment[3]);
+        }
+        if (segs.length) gfx.stroke({ color: 0xfbbf24, width: 2 + occupationPulse * 2, alpha: 0.45 + occupationPulse * 0.45 });
+        if (isCenter) {
+          gfx.poly(DIAMOND_VERTS);
+          gfx.fill({ color: 0xf59e0b, alpha: 0.06 + occupationPulse * 0.1 });
+          gfx.ellipse(0, -8, 25 + occupationPulse * 3, 13 + occupationPulse * 2);
+          gfx.stroke({ color: 0xfbbf24, width: 2.2, alpha: 0.65 + occupationPulse * 0.3 });
+          gfx.moveTo(-2, -22);
+          gfx.lineTo(-2, -39);
+          gfx.stroke({ color: 0xfef3c7, width: 1.8, alpha: 0.9 });
+          gfx.poly([-1, -38, 12, -34, -1, -29]);
+          gfx.fill({ color: 0xfbbf24, alpha: 0.75 + occupationPulse * 0.25 });
+        }
+      }
+
       // Starvation — pulsing red territory border + caution icon on the center
       const sPulse = 0.5 + 0.5 * Math.sin(t * 4);
       for (const [, entry] of starvingGfx) {
@@ -1518,26 +1685,35 @@
 
   const addTrainingMarker = (building: Building, tile: Container, key: string) => {
     const id = building.buildingId?.value;
-    const queue = id ? currentTrainingQueue(trainingQueues.get(id) ?? []) : [];
-    const active = queue[0];
+    const cityQueue = currentTrainingQueue(trainingQueues.get(building.cityId?.value ?? '') ?? []);
+    const active = id ? cityQueue.find((order) => order.barracksId?.value === id && !!order.startedAt) : undefined;
     if (!active) return;
 
     const marker = new Container();
-    marker.position.set(20, -42);
+    marker.position.set(0, -46);
     marker.zIndex = 3e6;
     marker.eventMode = 'static';
-    marker.cursor = 'pointer';
+    marker.cursor = "url('/cursors/action.svg') 3 2, none";
+    marker.hitArea = new Rectangle(-19, -9, 38, 42);
     marker.on('pointerdown', (event) => {
       if (event.button !== 0) return;
       event.stopPropagation();
       focusBuilding(building);
     });
 
+    const accent = active.type === TroopType.ARCHER ? 0x86bd91 : active.type === TroopType.CAVALRY ? 0xd1a464 : active.type === TroopType.ARTILLERY ? 0xa995c7 : 0xc9d8d5;
+    const connector = new Graphics();
+    connector.moveTo(0, 10);
+    connector.lineTo(0, 30);
+    connector.stroke({ color: accent, width: 1.25, alpha: 0.85 });
+    connector.circle(0, 30, 2.2);
+    connector.fill({ color: accent, alpha: 0.95 });
+
     const plate = new Graphics();
-    plate.rect(-17, -7, 34, 14);
+    plate.poly([-17, -7, 17, -7, 17, 7, 4, 7, 0, 11, -4, 7, -17, 7]);
     plate.fill({ color: 0x1b292b, alpha: 0.98 });
-    plate.rect(-17, -7, 34, 14);
-    plate.stroke({ color: 0x6f8d8b, width: 1, alpha: 1 });
+    plate.poly([-17, -7, 17, -7, 17, 7, 4, 7, 0, 11, -4, 7, -17, 7]);
+    plate.stroke({ color: accent, width: 1, alpha: 1 });
 
     const glyph = new Graphics();
     if (active.type === TroopType.ARCHER) {
@@ -1595,7 +1771,7 @@
       glyph.moveTo(-12, 6);
       glyph.lineTo(-8, 6);
     }
-    glyph.stroke({ color: 0xb8cbc5, width: 1.35, alpha: 1 });
+    glyph.stroke({ color: accent, width: 1.35, alpha: 1 });
 
     const label = new Text({
       text: active.count.toLocaleString(),
@@ -1613,9 +1789,92 @@
     label.position.x = 4;
 
     const progress = new Graphics();
-    marker.addChild(plate, glyph, label, progress);
+    marker.addChild(connector, plate, glyph, label, progress);
     tile.addChild(marker);
     trainingGfx.set(key, { gfx: progress, startMs: timestampMs(active.startedAt), endMs: timestampMs(active.completesAt) });
+  };
+
+  const drawMapSword = (gfx: Graphics) => {
+    gfx.poly([0, -11, 2.2, -8, 1.5, 3.5, -1.5, 3.5, -2.2, -8]);
+    gfx.fill({ color: 0xef4444, alpha: 1 });
+    gfx.poly([0, -11, 2.2, -8, 1.5, 3.5, -1.5, 3.5, -2.2, -8]);
+    gfx.stroke({ color: 0x450a0a, width: 0.9, alpha: 1 });
+    gfx.moveTo(-4, 3.5);
+    gfx.lineTo(4, 3.5);
+    gfx.stroke({ color: 0xfca5a5, width: 1.8, alpha: 1 });
+    gfx.rect(-1.1, 4.5, 2.2, 5.5);
+    gfx.fill({ color: 0xb91c1c, alpha: 1 });
+  };
+
+  const addBattleMarker = (battle: Battle, tile: Container, key: string) => {
+    const marker = new Container();
+    const baseY = -38;
+    marker.position.set(0, baseY);
+    marker.zIndex = 4e6;
+    marker.eventMode = 'static';
+    marker.cursor = "url('/cursors/action.svg') 3 2, none";
+    marker.hitArea = new Rectangle(-18, -18, 36, 36);
+    marker.on('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.stopPropagation();
+      openBattle(battle);
+    });
+
+    const pulse = new Graphics();
+    pulse.circle(0, -2, 14);
+    pulse.fill({ color: 0xef4444, alpha: 0.1 });
+    pulse.circle(0, -2, 14);
+    pulse.stroke({ color: 0xef4444, width: 1.4, alpha: 0.7 });
+
+    const plate = new Graphics();
+    plate.circle(0, -2, 11.5);
+    plate.fill({ color: 0x240b0d, alpha: 0.9 });
+    plate.circle(0, -2, 11.5);
+    plate.stroke({ color: 0x991b1b, width: 1, alpha: 0.9 });
+
+    const leftSword = new Graphics();
+    const rightSword = new Graphics();
+    drawMapSword(leftSword);
+    drawMapSword(rightSword);
+    leftSword.position.set(0, -2);
+    rightSword.position.set(0, -2);
+    leftSword.rotation = 0.78;
+    rightSword.rotation = -0.78;
+
+    const impact = new Graphics();
+    for (let i = 0; i < 8; i++) {
+      const angle = (i / 8) * Math.PI * 2;
+      impact.moveTo(Math.cos(angle) * 1.5, -2 + Math.sin(angle) * 1.5);
+      impact.lineTo(Math.cos(angle) * 4.5, -2 + Math.sin(angle) * 4.5);
+    }
+    impact.stroke({ color: 0xfca5a5, width: 1, alpha: 1 });
+
+    marker.addChild(pulse, plate, leftSword, rightSword, impact);
+    tile.addChild(marker);
+    battleGfx.set(key, { marker, leftSword, rightSword, impact, pulse, baseY });
+  };
+
+  const addSiegeCenterMarker = (battle: Battle, tile: Container, key: string) => {
+    const marker = new Container();
+    marker.zIndex = 3.5e6;
+    marker.eventMode = 'static';
+    marker.cursor = "url('/cursors/action.svg') 3 2, none";
+    marker.hitArea = new Rectangle(-HW, -HH, HW * 2, HH * 2);
+    marker.on('pointerdown', (event) => {
+      if (event.button !== 0) return;
+      event.stopPropagation();
+      openBattle(battle);
+    });
+
+    const pulse = new Graphics();
+    pulse.poly(DIAMOND_VERTS);
+    pulse.fill({ color: 0xef4444, alpha: 0.1 });
+    pulse.poly(DIAMOND_VERTS);
+    pulse.stroke({ color: 0xef4444, width: 3, alpha: 0.85 });
+
+    marker.addChild(pulse);
+    tile.addChild(marker);
+    siegeGfx.set(key, { marker, pulse });
   };
 
   const renderTile = (col: number, row: number) => {
@@ -1712,6 +1971,17 @@
 
     if (visible && td?.building?.type === BuildingType.BARRACKS) addTrainingMarker(td.building, tc, k);
 
+    if (visible) {
+      const activeBattle = battleAt(col, row);
+      if (activeBattle) {
+        addBattleMarker(activeBattle, tc, k);
+      }
+
+      const isSettlementCenter = td?.building?.type === BuildingType.CITY_CENTER || td?.building?.type === BuildingType.TOWN_CENTER;
+      const siegeBattle = isSettlementCenter ? siegeBattleForCity(td?.city?.cityId?.value) : undefined;
+      if (siegeBattle) addSiegeCenterMarker(siegeBattle, tc, k);
+    }
+
     // Construction-in-progress overlay
     if (visible && td?.building?.constructionStart && td?.building?.constructionEnd) {
       const startMs = Number(td.building.constructionStart.seconds) * 1000;
@@ -1775,6 +2045,26 @@
           starvingGfx.set(k, { gfx: sg, segs, isCenter });
         }
       }
+
+      const occupationOrder = occupationOrderForCity(td?.city?.cityId?.value);
+      if (occupationOrder && td?.city) {
+        const cityId = td.city.cityId;
+        const segs: number[][] = [];
+        for (let i = 0; i < 4; i++) {
+          const [dc, dr] = EDGE_TO_NEIGHBOR[i];
+          if (tileData.get(tileKey(col + dc, row + dr))?.city?.cityId?.value === cityId?.value) continue;
+          const vi = i * 2,
+            vn = ((i + 1) % 4) * 2;
+          segs.push([DIAMOND_VERTS[vi], DIAMOND_VERTS[vi + 1], DIAMOND_VERTS[vn], DIAMOND_VERTS[vn + 1]]);
+        }
+        const isCenter = td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER;
+        if (segs.length || isCenter) {
+          const og = new Graphics();
+          og.zIndex = 2.8e6;
+          tc.addChild(og);
+          occupationGfx.set(k, { gfx: og, segs, isCenter });
+        }
+      }
     }
   };
 
@@ -1829,6 +2119,7 @@
 
   const deselect = () => {
     cancelMoveMode();
+    selectedBattleId = null;
     trackedArmyId = null;
     selectedArmyId = null;
     showCityManagement = false;
@@ -2123,7 +2414,7 @@
   </span>
 {/snippet}
 
-{#snippet reportSideRecord(label: string, side: ReportSide | undefined, attacking: boolean)}
+{#snippet reportSideRecord(label: string, side: ReportSide | undefined, attacking: boolean, disclosedLosses: number)}
   {@const strengthVisible = !!side?.strengthVisible}
   {@const starting = reportSideStart(side)}
   {@const surviving = reportSideSurvivors(side)}
@@ -2140,7 +2431,7 @@
       {#if strengthVisible}
         <div class="text-right text-[9px] tabular-nums text-[#aeb7b0]"><strong class="block text-xs text-[#eee9d8]">{starting} → {surviving}</strong>{Math.max(0, starting - surviving)} lost</div>
       {:else}
-        <div class="text-right text-[9px] uppercase tracking-wide text-[#7d8983]"><strong class="block text-xs text-[#b5bdb6]">Unknown</strong>strength concealed</div>
+        <div class="text-right text-[9px] uppercase tracking-wide text-[#7d8983]"><strong class="block text-xs tabular-nums text-red-200">{disclosedLosses} lost</strong>strength concealed</div>
       {/if}
     </div>
     {#if side?.settlement}
@@ -2157,7 +2448,7 @@
             {strengthVisible ? `Militia ${side.startingMilitia.toString()} → ${side.survivingMilitia.toString()}` : 'Militia unknown'}
           </span>
         </div>
-        {#if strengthVisible && side.settlement.civilianCasualties > 0n}
+        {#if side.settlement.civilianCasualties > 0n}
           <div class="mt-1 border-t border-red-200/10 pt-1 text-[8px] tabular-nums text-red-200/80">
             {side.settlement.civilianCasualties.toString()} civilian {side.settlement.civilianCasualties === 1n ? 'casualty' : 'casualties'}
           </div>
@@ -2169,7 +2460,7 @@
         <div class="border border-white/[0.07] bg-white/[0.025] px-2 py-1.5">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-              <strong class="block truncate text-[9px] text-[#dce3dc]">Army {shortId(army.armyId?.value)}</strong>
+              <strong class="block truncate text-[9px] text-[#dce3dc]">{army.name || `Army ${shortId(army.armyId?.value)}`}</strong>
               <span class="block truncate text-[8px] text-[#717d76]">Commander {army.ownerId?.value === $userId ? 'you' : shortId(army.ownerId?.value)}</span>
             </div>
             <span class="text-right text-[8px] font-bold uppercase tracking-wide {army.destroyed ? 'text-red-300' : army.retreated ? 'text-cyan-200' : 'text-emerald-200'}">
@@ -2185,7 +2476,7 @@
             </div>
             <div class="mt-1 text-[8px] tabular-nums text-[#68736d]">{troopStackTotal(army.startingTroops)} deployed · {reportArmyLosses(army)} casualties</div>
           {:else}
-            <div class="mt-1 border-t border-white/[0.05] pt-1 text-[8px] text-[#68736d]">Composition was not recovered.</div>
+            <div class="mt-1 border-t border-white/[0.05] pt-1 text-[8px] text-[#68736d]">Starting and surviving strength concealed; casualties remain listed by round.</div>
           {/if}
         </div>
       {:else}
@@ -2195,10 +2486,10 @@
   </section>
 {/snippet}
 
-{#snippet reportRoundLosses(losses: BattleReportLoss[])}
+{#snippet reportRoundLosses(losses: BattleReportLoss[], report: BattleReport)}
   {#each losses as loss}
     <div class="mt-0.5 flex items-start justify-between gap-2 text-[8px] text-[#77827b]">
-      <span>{loss.militiaCityId ? `Militia ${shortId(loss.militiaCityId.value)}` : `Army ${shortId(loss.armyId?.value)}`}</span>
+      <span>{reportLossSource(report, loss)}</span>
       <span class="text-right tabular-nums text-red-200/80">{reportLossDescription(loss)}</span>
     </div>
   {/each}
@@ -2309,6 +2600,58 @@
   </div>
 {/snippet}
 
+{#snippet recruitmentPool(city: City)}
+  {@const totalResidents = residents(city)}
+  {@const recruitableResidents = trainablePopulation(city)}
+  {@const militiaResidents = militiaPopulation(city)}
+  {@const coreResidents = Math.max(0, totalResidents - recruitableResidents - militiaResidents)}
+  <div class="border border-[#465a5f] bg-black/[0.08] px-3 py-2.5">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <div class="inspector-label">Recruitment pool</div>
+        <div class="mt-0.5 text-[9px] text-[#758486]">Available recruits and permanent local defense.</div>
+      </div>
+      <span class="text-[9px] tabular-nums text-[#78847e]">{totalResidents.toLocaleString()} residents</span>
+    </div>
+
+    <div class="mt-2 grid grid-cols-2 gap-2">
+      <div class="border border-emerald-200/20 bg-emerald-200/[0.05] px-3 py-2.5">
+        <div class="text-[8px] font-bold uppercase tracking-[0.1em] text-emerald-200/75">Recruitable</div>
+        <strong class="mt-0.5 block text-xl tabular-nums text-emerald-100">{recruitableResidents.toLocaleString()}</strong>
+        <div class="mt-0.5 text-[8px] text-[#7f9188]">Can be committed to training now</div>
+      </div>
+      <div class="border border-blue-200/20 bg-blue-200/[0.05] px-3 py-2.5">
+        <div class="text-[8px] font-bold uppercase tracking-[0.1em] text-blue-200/75">Militia</div>
+        <strong class="mt-0.5 block text-xl tabular-nums text-blue-100">{militiaResidents.toLocaleString()}</strong>
+        <div class="mt-0.5 text-[8px] text-[#7f8e91]">Remain as local settlement defense</div>
+      </div>
+    </div>
+
+    <div class="mt-2 flex h-2 bg-white/[0.06]">
+      {@render populationSegment('core civilians', coreResidents, 'Core civilians cannot currently be recruited.', '#59665a', totalResidents > 0 ? (coreResidents / totalResidents) * 100 : 0)}
+      {@render populationSegment(
+        'recruitable residents',
+        recruitableResidents,
+        'Residents available to transfer into troop training.',
+        '#77bfa6',
+        totalResidents > 0 ? (recruitableResidents / totalResidents) * 100 : 0
+      )}
+      {@render populationSegment(
+        'militia',
+        militiaResidents,
+        'Permanent local defenders who are not part of the training pool.',
+        '#78a9b5',
+        totalResidents > 0 ? (militiaResidents / totalResidents) * 100 : 0
+      )}
+    </div>
+    <div class="mt-1.5 flex items-center gap-3 text-[8px] tabular-nums text-[#74817a]">
+      <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#59665a]"></i>{coreResidents.toLocaleString()} core</span>
+      <span class="text-emerald-200/70"><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#77bfa6]"></i>{recruitableResidents.toLocaleString()} recruitable</span>
+      <span class="text-blue-200/70"><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#78a9b5]"></i>{militiaResidents.toLocaleString()} militia</span>
+    </div>
+  </div>
+{/snippet}
+
 {#snippet resourceGlyph(kind: 'gold' | 'food')}
   {#if kind === 'gold'}
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -2402,13 +2745,14 @@
   </span>
 {/snippet}
 
-{#snippet battleSidePanel(label: string, side: BattleSide | undefined, attackers: boolean)}
+{#snippet battleSidePanel(label: string, side: BattleSide | undefined, attackers: boolean, completedRounds: number)}
   {@const sideArmies = battleSideArmies(side)}
-  {@const exactArmies = sideArmies.filter((army) => army.compositionVisibility === ArmyCompositionVisibility.EXACT)}
-  {@const knownUnits = exactArmies.reduce((total, army) => total + armySize(army), 0)}
-  {@const knownPersonnel = exactArmies.reduce((total, army) => total + armyPersonnel(army), 0)}
-  {@const concealedStrength = (side?.armyIds.length ?? 0) - exactArmies.length}
   {@const yourSide = side?.userIds.some((id) => id.value === $userId)}
+  {@const deployed = troopStackTotal(side?.startingTroops ?? []) + Number(side?.startingMilitiaCount ?? 0n)}
+  {@const remaining = troopStackTotal(side?.survivingTroops ?? []) + Number(side?.militiaCount ?? 0n)}
+  {@const totalLosses = battleMilitaryLosses(side?.cumulativeLosses)}
+  {@const cumulativeParts = battleLossParts(side?.cumulativeLosses)}
+  {@const lastRoundParts = battleLossParts(side?.lastRoundLosses)}
   <section class="battle-side {attackers ? 'battle-side-attackers' : 'battle-side-defenders'}">
     <div class="flex items-start justify-between gap-3 border-b border-white/[0.08] px-3 py-2.5">
       <div>
@@ -2422,15 +2766,32 @@
       {#if yourSide}<span class="border border-amber-200/20 bg-amber-200/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-100">Your side</span>{/if}
     </div>
 
-    <div class="grid grid-cols-2 gap-px border-b border-white/[0.08] bg-white/[0.06]">
+    <div class="grid grid-cols-3 gap-px border-b border-white/[0.08] bg-white/[0.06]">
       <div class="bg-[#1d292b] px-3 py-2">
-        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">{concealedStrength ? 'Known units' : 'Units'}</div>
-        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{exactArmies.length ? knownUnits.toLocaleString() : 'Unknown'}</strong>
+        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">Deployed</div>
+        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{side?.strengthVisible ? deployed.toLocaleString() : '?'}</strong>
       </div>
       <div class="bg-[#1d292b] px-3 py-2">
-        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">{concealedStrength ? 'Known personnel' : 'Personnel'}</div>
-        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{exactArmies.length ? knownPersonnel.toLocaleString() : 'Unknown'}</strong>
+        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">Remaining</div>
+        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{side?.strengthVisible ? remaining.toLocaleString() : '?'}</strong>
       </div>
+      <div class="bg-[#1d292b] px-3 py-2">
+        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">Military lost</div>
+        <strong class="mt-0.5 block text-lg tabular-nums text-red-200">{totalLosses.toLocaleString()}</strong>
+      </div>
+    </div>
+
+    <div class="border-b border-white/[0.08] bg-red-300/[0.035] px-3 py-2">
+      <div class="flex items-center justify-between gap-3 text-[8px] font-bold uppercase tracking-[0.09em]">
+        <span class="text-[#8b9690]">Casualty detail</span>
+        <span class="text-red-200/80">{cumulativeParts.length ? cumulativeParts.join(' · ') : 'None'}</span>
+      </div>
+      {#if completedRounds > 0}
+        <div class="mt-1.5 flex items-center justify-between gap-3 border-t border-red-200/10 pt-1.5 text-[9px]">
+          <span class="text-[#7f8a84]">Round {completedRounds}</span>
+          <span class="text-right tabular-nums text-red-100">{lastRoundParts.length ? lastRoundParts.join(' · ') : 'No casualties'}</span>
+        </div>
+      {/if}
     </div>
 
     {#if side?.militiaCityId}
@@ -2447,7 +2808,8 @@
           <div class="border border-white/[0.08] bg-black/[0.1] px-2.5 py-2">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <strong class="block truncate text-[11px] text-[#e8ece5]">{armyTitle(army)}</strong>
+                <strong class="block truncate text-[11px] text-[#e8ece5]">{armyDisplayName(army)}</strong>
+                <span class="mt-0.5 block text-[8px] text-[#717d76]">{armyTitle(army)}</span>
                 <span class="mt-0.5 block text-[8px] uppercase tracking-[0.08em] {army.owner?.value === $userId ? 'text-blue-200' : 'text-[#79857f]'}">
                   {army.owner?.value === $userId ? 'Your army' : 'Foreign army'}
                 </span>
@@ -2574,9 +2936,7 @@
                 : managementTab === 'cities'
                   ? `${ownedCities.length} settlements under your rule`
                   : managementTab === 'training'
-                    ? queuedTrainingCount
-                      ? `${queuedTrainingCount} ${queuedTrainingCount === 1 ? 'batch' : 'batches'} in training`
-                      : 'Barracks ready'
+                    ? `${ownedCities.length} city ${ownedCities.length === 1 ? 'pipeline' : 'pipelines'} · ${queuedTrainingCount} ${queuedTrainingCount === 1 ? 'batch' : 'batches'}`
                     : unreadMailboxCount
                       ? `${unreadMailboxCount} unread ${unreadMailboxCount === 1 ? 'message' : 'messages'}`
                       : `${sortedMailboxMessages.length} archived ${sortedMailboxMessages.length === 1 ? 'message' : 'messages'}`}
@@ -2607,7 +2967,7 @@
               on:click={() => focusArmy(army)}
             >
               <div class="flex items-center justify-between gap-3">
-                <span class="truncate text-xs font-semibold text-[#dce1dc]">{armyTitle(army)}</span>
+                <span class="truncate text-xs font-semibold text-[#dce1dc]">{armyDisplayName(army)}</span>
                 <span class="text-xs font-semibold tabular-nums text-blue-200">{armySize(army).toLocaleString()}</span>
               </div>
               <div class="mt-1 flex items-center justify-between gap-3 text-[10px] text-[#79827b]">
@@ -2651,55 +3011,65 @@
             </button>
           {/each}
         {:else if managementTab === 'training'}
-          <div class="flex items-center justify-between px-1 pb-2 text-[10px] text-[#778078]">
-            <span>{ownedBarracks.length} {ownedBarracks.length === 1 ? 'barracks' : 'barracks'}</span>
-            {#if trainingOverviewLoading}<span>Refreshing…</span>{/if}
+          <div class="flex items-center justify-between px-1 pb-2 text-[9px] text-[#778078]">
+            <span>City queues and barracks throughput</span>
+            {#if trainingOverviewLoading}<span>Syncing…</span>{/if}
           </div>
-          {#each ownedBarracks as barracks}
-            {@const queue = currentTrainingQueue(trainingQueues.get(barracks.buildingId?.value ?? '') ?? [])}
-            {@const committedPopulation = queuePopulationCost(queue)}
-            {@const active = queue[0]}
-            {@const startsAt = timestampMs(active?.startedAt)}
-            {@const completesAt = timestampMs(active?.completesAt)}
-            {@const activeProgress = active && startsAt > 0 && completesAt > startsAt ? Math.max(0, Math.min(100, ((now - startsAt) / (completesAt - startsAt)) * 100)) : 0}
-            <button
-              class="mb-1.5 w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
-              on:click={() => focusBuilding(barracks)}
-            >
-              <div class="flex items-center justify-between gap-3">
-                <span class="text-xs font-semibold text-[#dce1dc]">Barracks · level {barracks.level}</span>
-                <span class="text-[10px] text-[#879089]">{queue.length ? `${queue.length} ${queue.length === 1 ? 'batch' : 'batches'}` : 'Ready'}</span>
+          {#each ownedCities as city}
+            {@const cityId = city.cityId?.value ?? ''}
+            {@const cityBarracks = ownedBarracks.filter((building) => building.cityId?.value === cityId)}
+            {@const cityOrders = currentTrainingQueue(trainingQueues.get(cityId) ?? [])}
+            {@const pendingOrders = cityOrders.filter((order) => !order.startedAt)}
+            <section class="mb-2 border border-white/[0.07] bg-black/[0.08]">
+              <div class="flex items-center justify-between gap-3 px-3 py-2.5">
+                <span class="min-w-0">
+                  <strong class="block truncate text-xs text-[#e1e7e2]">{city.name}</strong>
+                  <span class="mt-0.5 block text-[9px] tabular-nums text-[#79857d]">{trainablePopulation(city).toLocaleString()} recruitable</span>
+                </span>
+                <span class="text-[9px] tabular-nums text-[#879089]">{pendingOrders.length} upcoming</span>
               </div>
-              <div class="mt-1 text-[10px] text-[#7b847d]">Tile {barracks.coords?.x ?? '—'}, {barracks.coords?.y ?? '—'}</div>
-              {#if active}
-                <div class="mt-2 border-t border-white/[0.06] pt-2">
-                  <div class="flex items-center justify-between gap-3 text-[10px]">
-                    <span class="flex items-center gap-2 text-blue-200/80">
-                      <span class="training-order-icon">{@render troopGlyph(active.type)}</span>
-                      Training {active.count}
-                      {troopName(active.type, active.count)}
+
+              <div class="border-t border-white/[0.06] px-2 pb-2 pt-1.5">
+                <div class="mb-1 px-1 text-[8px] font-bold uppercase tracking-[0.1em] text-[#78837b]">Barracks lanes</div>
+                {#each cityBarracks as barracks, laneIndex}
+                  {@const active = cityOrders.find((order) => order.startedAt && order.barracksId?.value === barracks.buildingId?.value)}
+                  {@const constructing = barracks.level < 1 || !!barracks.constructionEnd}
+                  <div class="mb-1 flex items-center justify-between gap-2 border border-white/[0.07] bg-black/[0.12] px-2.5 py-2 text-[9px] last:mb-0">
+                    <span class="font-semibold text-[#bbc8c3]">Lane {laneIndex + 1} · Lv {barracks.level}</span>
+                    <span class="min-w-0 flex-1 truncate text-right {active ? 'text-blue-100/75' : constructing ? 'text-amber-200/65' : 'text-emerald-200/60'}">
+                      {active ? `${active.count} ${troopName(active.type, active.count)}` : constructing ? 'Constructing' : 'Idle'}
                     </span>
-                    <span class="tabular-nums text-[#9ba49d]">{completesAt ? fmtCountdown(completesAt - now) : 'Waiting'}</span>
+                    <span class="tabular-nums text-blue-200/70">{barracksTrainingSpeed(barracks).toFixed(2)}×</span>
                   </div>
-                  {#if completesAt > startsAt}
-                    <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.07]">
-                      <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div>
-                    </div>
-                  {/if}
-                  {#if queue.length > 1}
-                    <div class="mt-1.5 text-[9px] tabular-nums text-[#707971]">+{queue.length - 1} {queue.length === 2 ? 'batch' : 'batches'} waiting</div>
-                  {/if}
-                  <div class="mt-1 text-[9px] tabular-nums text-blue-200/60">
-                    {committedPopulation.toLocaleString()}
-                    {committedPopulation === 1 ? 'resident' : 'residents'} already mobilized
-                  </div>
+                {:else}
+                  <div class="border border-dashed border-white/[0.08] px-3 py-3 text-center text-[9px] text-[#6f7972]">Build a barracks to process this city pipeline.</div>
+                {/each}
+              </div>
+
+              <div class="border-t border-white/[0.06] px-2 pb-2 pt-1.5">
+                <div class="mb-1 flex items-center justify-between px-1 text-[8px] font-bold uppercase tracking-[0.1em] text-[#78837b]">
+                  <span>Upcoming queue</span><span>{pendingOrders.length} waiting</span>
                 </div>
-              {:else}
-                <div class="mt-2 border-t border-white/[0.06] pt-2 text-[10px] text-[#68716a]">Ready · select to train troops</div>
-              {/if}
-            </button>
+                {#each pendingOrders as order, queueIndex}
+                  <div class="flex items-center gap-2 border-t border-white/[0.05] px-1 py-1.5 first:border-t-0">
+                    <span class="training-order-icon">{@render troopGlyph(order.type)}</span>
+                    <span class="min-w-0 flex-1 truncate text-[10px] text-[#b6c0b9]">{order.count} {troopName(order.type, order.count)}</span>
+                    <span class="shrink-0 text-[8px] tabular-nums text-amber-200/70">Waiting {queueIndex + 1}</span>
+                  </div>
+                {:else}
+                  <div class="px-2 py-2 text-[9px] text-[#68736d]">No upcoming batches</div>
+                {/each}
+              </div>
+
+              <div class="border-t border-white/[0.06] p-2">
+                <button class="game-action game-action-primary w-full" disabled={!cityBarracks.length} on:click={() => openBarracksTraining(cityId)}>
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h9M5 3v4M10 8v4M15 13v4" /></svg>
+                  Go to training
+                </button>
+              </div>
+            </section>
           {:else}
-            <div class="px-3 py-8 text-center text-[11px] leading-relaxed text-[#737c75]">Build a barracks in one of your cities to train troops.</div>
+            <div class="px-3 py-8 text-center text-[11px] leading-relaxed text-[#737c75]">Claim a city and build barracks to create a training pipeline.</div>
           {/each}
         {:else}
           <div class="flex items-center justify-between px-1 pb-2 text-[10px] text-[#778078]">
@@ -2800,8 +3170,18 @@
               </div>
             </div>
             <div class="grid gap-3 p-3 md:grid-cols-2">
-              {@render reportSideRecord('Attackers', report.attackers, true)}
-              {@render reportSideRecord('Defenders', report.defenders, false)}
+              {@render reportSideRecord(
+                'Attackers',
+                report.attackers,
+                true,
+                report.rounds.reduce((total, round) => total + reportLossTotal(round.attackerLosses), 0)
+              )}
+              {@render reportSideRecord(
+                'Defenders',
+                report.defenders,
+                false,
+                report.rounds.reduce((total, round) => total + reportLossTotal(round.defenderLosses), 0)
+              )}
             </div>
             <section class="mx-3 mb-3 border border-white/[0.09] bg-black/[0.1]">
               <div class="border-b border-white/[0.07] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-[#aab5ad]">Round log</div>
@@ -2814,18 +3194,20 @@
                     </div>
                     <div class="mt-1 grid grid-cols-2 gap-3 text-[9px] tabular-nums">
                       <span class="text-red-200/80">
-                        {report.attackers?.strengthVisible
-                          ? `Attack power ${Math.round(round.attackerPower).toLocaleString()} · ${reportLossTotal(round.attackerLosses)} military lost${round.attackerCivilianCasualties > 0n ? ` · ${round.attackerCivilianCasualties} civilians` : ''}`
-                          : 'Attacker strength concealed'}
+                        {report.attackers?.strengthVisible ? `Attack power ${Math.round(round.attackerPower).toLocaleString()} · ` : ''}{reportLossTotal(round.attackerLosses)} military lost{round.attackerCivilianCasualties >
+                        0n
+                          ? ` · ${round.attackerCivilianCasualties} civilians`
+                          : ''}
                       </span>
                       <span class="text-right text-blue-200/80">
-                        {report.defenders?.strengthVisible
-                          ? `Defense power ${Math.round(round.defenderPower).toLocaleString()} · ${reportLossTotal(round.defenderLosses)} military lost${round.defenderCivilianCasualties > 0n ? ` · ${round.defenderCivilianCasualties} civilians` : ''}`
-                          : 'Defender strength concealed'}
+                        {report.defenders?.strengthVisible ? `Defense power ${Math.round(round.defenderPower).toLocaleString()} · ` : ''}{reportLossTotal(round.defenderLosses)} military lost{round.defenderCivilianCasualties >
+                        0n
+                          ? ` · ${round.defenderCivilianCasualties} civilians`
+                          : ''}
                       </span>
                     </div>
-                    {#if report.attackers?.strengthVisible}{@render reportRoundLosses(round.attackerLosses)}{/if}
-                    {#if report.defenders?.strengthVisible}{@render reportRoundLosses(round.defenderLosses)}{/if}
+                    {@render reportRoundLosses(round.attackerLosses, report)}
+                    {@render reportRoundLosses(round.defenderLosses, report)}
                   </div>
                 {:else}
                   <div class="px-3 py-4 text-center text-[9px] text-[#68736d]">Resolved before the first combat exchange.</div>
@@ -2870,7 +3252,9 @@
         aria-modal={showCityManagement && sel.city && !selectedArmy ? 'true' : undefined}
         aria-label={showCityManagement && sel.city && !selectedArmy
           ? cityManagementView === 'building' && sel.building
-            ? `${bName(sel.building.type)} management`
+            ? sel.city.owner?.value === $userId
+              ? `${bName(sel.building.type)} management`
+              : `${bName(sel.building.type)} details`
             : sel.city.owner?.value === $userId
               ? `${sel.city.name} management`
               : `${sel.city.name} details`
@@ -2895,7 +3279,7 @@
             <div class="min-w-0">
               <h2 class="truncate text-[14px] font-bold text-[#eef4f2]">
                 {#if selectedArmy}
-                  {armyTitle(selectedArmy)}
+                  {armyDisplayName(selectedArmy)}
                 {:else if sel.building}
                   {bName(sel.building.type)}
                 {:else if sel.armies?.length}
@@ -2917,7 +3301,9 @@
                 <div class="mt-0.5 flex min-w-0 items-center gap-x-1 truncate text-[10px] text-[#aaa997]">
                   {#if sel.city}{showCityManagement
                       ? cityManagementView === 'building'
-                        ? 'Building Management'
+                        ? sel.city.owner?.value === $userId
+                          ? 'Building Management'
+                          : 'Building Details'
                         : sel.city.owner?.value === $userId
                           ? `${cName(sel.city.type)} Management`
                           : `${cName(sel.city.type)} Details`
@@ -3050,7 +3436,7 @@
                     <path d="M3 5h14M3 10h14M3 15h14" />
                     <circle cx="7" cy="5" r="1.7" fill="currentColor" /><circle cx="13" cy="10" r="1.7" fill="currentColor" /><circle cx="8" cy="15" r="1.7" fill="currentColor" />
                   </svg>
-                  Manage {bName(sel.building.type)}
+                  {sel.city?.owner?.value === $userId ? `Manage ${bName(sel.building.type)}` : 'View details'}
                 {/if}
               </button>
             </div>
@@ -3063,6 +3449,23 @@
             {@const selectedStack = sel.armies?.filter((army) => army.owner?.value === $userId) ?? []}
             {@const selectedTroops = selectedArmy.troops.filter((stack) => (stack.count ?? 1) > 0)}
             <section class="inspector-section">
+              {#if selectedArmyOwned}
+                <form class="mb-3 flex items-end gap-2 border-b border-[#465a5f] pb-3" on:submit|preventDefault={() => renameSelectedArmy(selectedArmy)}>
+                  <label class="min-w-0 flex-1">
+                    <span class="inspector-stat-label">Army name</span>
+                    <input
+                      class="mt-1 h-8 w-full border border-[#53686c] bg-[#172326] px-2.5 text-[11px] font-semibold text-[#edf2ef] outline-none transition-colors focus:border-blue-300/60"
+                      bind:value={armyNameDraft}
+                      maxlength="32"
+                      autocomplete="off"
+                      aria-label="Army name"
+                    />
+                  </label>
+                  <button class="game-action game-action-secondary !h-8 !w-auto px-3" type="submit" disabled={renamingArmy || !armyNameDraft.trim() || armyNameDraft.trim() === selectedArmy.name}>
+                    {renamingArmy ? 'Saving…' : 'Rename'}
+                  </button>
+                </form>
+              {/if}
               <div class="grid grid-cols-[auto_repeat(4,minmax(0,1fr))] items-center gap-3">
                 {#if selectedArmy.compositionVisibility !== ArmyCompositionVisibility.HIDDEN && selectedTroops[0]}
                   {@render troopGlyph(selectedTroops[0].type)}
@@ -3127,7 +3530,10 @@
                   </span>
                   <button
                     class="border border-red-300/25 bg-red-300/[0.08] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-red-100 hover:bg-red-300/[0.14]"
-                    on:click={() => (showBattlePanel = true)}
+                    on:click={() => {
+                      battleNow = Date.now();
+                      showBattlePanel = true;
+                    }}
                   >
                     Open battle
                   </button>
@@ -3458,7 +3864,7 @@
                     <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-1.5">
                         <span class="h-1.5 w-1.5 shrink-0 {owned ? 'bg-blue-400' : 'bg-red-400'}"></span>
-                        <span class="truncate text-[11px] font-bold {owned ? 'text-blue-200' : 'text-red-200'}">{armyTitle(army)}</span>
+                        <span class="truncate text-[11px] font-bold {owned ? 'text-blue-200' : 'text-red-200'}">{armyDisplayName(army)}</span>
                       </div>
                       {#if order}
                         <div class="mt-1 flex min-w-0 items-center gap-1.5">
@@ -3495,18 +3901,8 @@
             {@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
             {@const upgrading = !!(sel.building.constructionStart && sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
             {@const isBarracks = sel.building.type === BuildingType.BARRACKS}
-            {@const recruitStat = TROOP_STATS[recruitType]}
-            {@const trainingCapacity = isBarracks ? barracksCapacity(sel.building) : 0}
-            {@const availablePopulation = trainablePopulation(sel.city)}
-            {@const batchCount = Number.isFinite(recruitCount) ? Math.floor(recruitCount) : 1}
-            {@const trainingCost = batchCount * recruitStat.gold}
-            {@const canAffordTraining = BigInt(trainingCost) <= $gold}
-            {@const trainingPopulation = batchCount * recruitStat.population}
-            {@const populationAfterTraining = Math.max(0, availablePopulation - trainingPopulation)}
-            {@const trainingBatchSeconds = batchCount * recruitStat.trainSeconds}
             {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && selectedTrainingOrders.length > 0}
             {@const canAffordUpgrade = !!nextStats && canAfford(nextStats.cost)}
-            {@const canTrain = isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && canAffordTraining && trainingPopulation <= availablePopulation}
             <section class="inspector-section">
               <div class="flex items-center gap-2.5">
                 {@render structureGlyph(sel.building.type, sel.building.level)}
@@ -3548,13 +3944,16 @@
                       <span class="text-blue-300">+{stats.population}</span>
                     </div>
                   {/if}
+                  {#if isBarracks}
+                    <div class="inspector-row"><span>Training lane</span><span class="text-blue-200">{stats.trainingSpeedMultiplier.toFixed(2)}× speed</span></div>
+                  {/if}
                 </div>
               {/if}
               {#if nextStats && sel.city?.owner?.value === $userId}
                 <div class="mt-3 border-t border-white/[0.07] pt-3">
                   <div class="inspector-label mb-1">Next level</div>
                   {#if barracksTrainingInProgress}
-                    <div class="mb-2 text-[10px] text-amber-200/80">Finish the training queue before upgrading this barracks.</div>
+                    <div class="mb-2 text-[10px] text-amber-200/80">Finish this barracks' active batch before upgrading it.</div>
                   {/if}
                   <div class="inspector-row">
                     <span>Cost</span>
@@ -3590,6 +3989,16 @@
                       </span>
                     </div>
                   {/if}
+                  {#if isBarracks}
+                    <div class="inspector-row">
+                      <span>Training speed</span>
+                      <span
+                        ><span class="text-[#646e66]">{stats?.trainingSpeedMultiplier.toFixed(2)}×</span><span class="mx-1 text-[#555e57]">→</span><span class="text-blue-200"
+                          >{nextStats.trainingSpeedMultiplier.toFixed(2)}×</span
+                        ></span
+                      >
+                    </div>
+                  {/if}
                 </div>
               {/if}
               {#if sel.city?.owner?.value === $userId}
@@ -3618,116 +4027,129 @@
               {/if}
             </section>
             {#if isBarracks && sel.city?.owner?.value === $userId && !isBuilding}
+              {@const trainingCity = sel.city!}
+              {@const trainingCityId = trainingCity.cityId?.value ?? ''}
+              {@const cityBarracks = ownedBarracks.filter((building) => building.cityId?.value === trainingCityId)}
+              {@const cityOrders = currentTrainingQueue(trainingQueues.get(trainingCityId) ?? [])}
+              {@const pendingOrders = cityOrders.filter((order) => !order.startedAt)}
+              {@const recruitStat = TROOP_STATS[recruitType]}
+              {@const availablePopulation = trainablePopulation(trainingCity)}
+              {@const maxBatchCount = Math.max(1, Math.floor(availablePopulation / Math.max(1, recruitStat.population)))}
+              {@const batchCount = Number.isFinite(recruitCount) ? Math.max(1, Math.floor(recruitCount)) : 1}
+              {@const trainingPopulation = batchCount * recruitStat.population}
+              {@const trainingGold = batchCount * recruitStat.gold}
+              {@const canAffordTraining = BigInt(trainingGold) <= $gold}
+              {@const canQueueTraining = batchCount <= maxBatchCount && trainingPopulation <= availablePopulation && canAffordTraining}
               <section class="inspector-section barracks-training-section">
-                <div class="barracks-training-scroll">
-                  {#if trainingOrdersAvailable && selectedTrainingOrders.length > 0}
-                    {@const activeOrder = selectedTrainingOrders[0]}
-                    {@const queuedPopulation = queuePopulationCost(selectedTrainingOrders)}
-                    {@const activeStartsAt = timestampMs(activeOrder.startedAt)}
-                    {@const activeCompletesAt = timestampMs(activeOrder.completesAt)}
-                    {@const activeProgress =
-                      activeStartsAt > 0 && activeCompletesAt > activeStartsAt ? Math.max(0, Math.min(100, ((now - activeStartsAt) / (activeCompletesAt - activeStartsAt)) * 100)) : 0}
-                    <div class="mb-2 border border-blue-200/15 bg-blue-200/[0.05] px-2.5 py-2">
-                      <div class="flex items-center justify-between gap-3 text-[10px]">
-                        <span class="flex items-center gap-2 font-semibold text-blue-100">
-                          <span class="training-order-icon">{@render troopGlyph(activeOrder.type)}</span>
-                          Training {activeOrder.count}
-                          {troopName(activeOrder.type, activeOrder.count)}
-                        </span>
-                        <span class="tabular-nums text-blue-200/80">{activeCompletesAt ? fmtCountdown(activeCompletesAt - now) : 'Waiting'}</span>
-                      </div>
-                      {#if activeStartsAt > 0 && activeCompletesAt > activeStartsAt}
-                        <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.08]">
-                          <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div>
-                        </div>
-                      {/if}
-                      {#if selectedTrainingOrders.length > 1}
-                        <div class="mt-1.5 text-[9px] tabular-nums text-[#7f9292]">
-                          +{selectedTrainingOrders.length - 1}
-                          {selectedTrainingOrders.length === 2 ? 'batch' : 'batches'} waiting
-                        </div>
-                      {/if}
-                      <div class="mt-1 text-[9px] tabular-nums text-blue-200/70">
-                        {queuedPopulation.toLocaleString()}
-                        {queuedPopulation === 1 ? 'resident' : 'residents'} transferred into this queue
-                      </div>
-                    </div>
-                  {/if}
-                  <div class="mb-2 flex items-center justify-between gap-3">
-                    <span class="inspector-label">Train troops</span>
-                    <span class="text-[10px] tabular-nums text-[#818a83]">Batch limit {trainingCapacity}</span>
+                <div class="flex items-start justify-between gap-3">
+                  <div>
+                    <div class="inspector-label">City training</div>
+                    <div class="mt-0.5 text-[9px] text-[#77847d]">Shared by every barracks in {trainingCity.name}</div>
                   </div>
-                  <div class="mb-3">{@render populationUse(sel.city!)}</div>
+                  <span class="text-right text-[9px] tabular-nums text-blue-100">{availablePopulation.toLocaleString()} recruitable</span>
+                </div>
+
+                <div class="mt-2 border border-blue-200/15 bg-blue-200/[0.035] p-2.5">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-[9px] font-bold uppercase tracking-[0.1em] text-blue-100/80">Add batch</span>
+                    <span class="text-[8px] tabular-nums text-[#77847d]">Costs reserve immediately</span>
+                  </div>
                   <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
                     {#each TROOP_TYPES as type}
                       {@const option = TROOP_STATS[type]}
                       <button
-                        class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 text-center transition-colors {recruitType === type
+                        class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 {recruitType === type
                           ? 'bg-[#48666d]/65 text-white'
-                          : 'text-[#9d9c8d] hover:bg-white/[0.04] hover:text-white'}"
+                          : 'text-[#929c94] hover:bg-white/[0.04]'}"
                         on:click={() => (recruitType = type)}
                       >
-                        {@render troopGlyph(type)}
-                        <span class="mt-1 block w-full truncate text-[9px] font-bold">{option.name}</span>
-                        <span class="mt-0.5 block text-[8px] tabular-nums text-[#859799]">
-                          {option.gold}g · {option.population}
-                          {option.population === 1 ? 'recruit' : 'recruits'}
-                        </span>
+                        {@render troopGlyph(type)}<span class="mt-1 truncate text-[8px] font-bold">{option.name}</span>
                       </button>
                     {/each}
                   </div>
-                  <label class="mt-3 block border border-white/[0.08] bg-black/10 px-3 py-2.5">
-                    <span class="flex items-center justify-between gap-3 text-[10px]">
-                      <span class="font-semibold text-[#bdc8c7]">Number to train</span>
-                      <span class="flex items-center gap-1 text-sm tabular-nums text-blue-200">
-                        <input class="numeric-entry numeric-entry-count" aria-label="Number of troops to train" type="number" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
-                        <span>/ {trainingCapacity}</span>
-                      </span>
+                  <label class="mt-2 block border border-white/[0.08] bg-black/10 px-2.5 py-2">
+                    <span class="flex items-center justify-between text-[9px]">
+                      <span>Batch size</span>
+                      <input class="numeric-entry numeric-entry-count" aria-label="Number of troops to train" type="number" min="1" max={maxBatchCount} step="1" bind:value={recruitCount} />
                     </span>
-                    <input class="mt-2 block w-full accent-[#78a9b5]" type="range" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
-                    <span class="mt-1 flex justify-between text-[8px] tabular-nums text-[#687679]"><span>1</span><span>Batch capacity {trainingCapacity}</span></span>
+                    <input class="mt-2 block w-full accent-[#78a9b5]" type="range" min="1" max={maxBatchCount} step="1" bind:value={recruitCount} />
                   </label>
-                  <div class="mt-2 border border-blue-200/10 bg-blue-200/[0.035] px-2 py-1.5 text-[9px] leading-relaxed text-[#849698]">
-                    Recruits leave the city population as soon as the order is queued. Population growth can replenish the available pool.
+                  <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[9px] tabular-nums">
+                    <span class="text-[#7d8881]">Reserved now</span>
+                    <span class="text-right {canAffordTraining ? 'text-amber-100' : 'text-red-300'}">{trainingGold.toLocaleString()} gold · {trainingPopulation.toLocaleString()} residents</span>
+                    <span class="text-[#7d8881]">Base lane time</span><span class="text-right text-blue-100">{fmtCountdown(batchCount * recruitStat.trainSeconds * 1000)}</span>
                   </div>
-                  <div class="mt-2 border-t border-[#465a5f] pt-1.5">
-                    <div class="inspector-row">
-                      <span>Gold cost</span>
-                      <span class={canAffordTraining ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span>Residents recruited</span>
-                      <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}>{trainingPopulation.toLocaleString()}</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span>Recruitable after</span>
-                      {#if trainingPopulation <= availablePopulation}
-                        <span class="text-emerald-200">
-                          <span class="text-[#78817a]">{availablePopulation.toLocaleString()} →</span>
-                          {populationAfterTraining.toLocaleString()}
-                        </span>
-                      {:else}
-                        <span class="text-red-300">{availablePopulation.toLocaleString()} available · {(trainingPopulation - availablePopulation).toLocaleString()} short</span>
-                      {/if}
-                    </div>
-                    <div class="inspector-row">
-                      <span>Ready in</span>
-                      <span>{recruitStat.trainSeconds}s each · {fmtCountdown(trainingBatchSeconds * 1000)} batch</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span>Army upkeep</span>
-                      <span class="text-red-300/80">-{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
-                    </div>
+                  <button class="game-action game-action-primary mt-2 w-full" disabled={busy || !canQueueTraining} on:click={() => queueTroops(trainingCity)}>
+                    {busy ? 'Working…' : 'Queue batch'}
+                  </button>
+                </div>
+
+                <div class="mt-2">{@render recruitmentPool(trainingCity)}</div>
+                <button class="game-action game-action-secondary mt-2 w-full" on:click={() => openSettlementPolicy(trainingCity)}>
+                  {@render managementGlyph('cities')}
+                  Manage {cName(trainingCity.type)} policy
+                </button>
+
+                <div class="mt-2 border border-white/[0.08] bg-black/[0.08]">
+                  <div class="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-2">
+                    <span class="text-[8px] font-bold uppercase tracking-[0.1em] text-[#78837b]">Barracks lanes</span>
+                    <span class="text-[8px] tabular-nums text-[#77847d]">{cityBarracks.length} total</span>
+                  </div>
+                  <div class="grid grid-cols-1 gap-1 p-2 sm:grid-cols-2">
+                    {#each cityBarracks as barracks, laneIndex}
+                      {@const laneOrder = cityOrders.find((order) => order.startedAt && order.barracksId?.value === barracks.buildingId?.value)}
+                      {@const startsAt = timestampMs(laneOrder?.startedAt)}
+                      {@const completesAt = timestampMs(laneOrder?.completesAt)}
+                      {@const progress = laneOrder && completesAt > startsAt ? Math.max(0, Math.min(100, ((now - startsAt) / (completesAt - startsAt)) * 100)) : 0}
+                      {@const selectedLane = barracks.buildingId?.value === sel.building.buildingId?.value}
+                      {@const constructing = barracks.level < 1 || !!barracks.constructionEnd}
+                      <button
+                        class="border px-2.5 py-2 text-left {selectedLane ? 'border-blue-200/25 bg-blue-200/[0.06]' : 'border-white/[0.07] bg-black/[0.1] hover:border-white/[0.15]'}"
+                        on:click={() => openBarracksTraining(trainingCityId, barracks.buildingId?.value)}
+                      >
+                        <div class="flex items-center justify-between gap-2 text-[9px]">
+                          <span class="font-semibold text-[#bbc8c3]">Lane {laneIndex + 1} · Lv {barracks.level}</span>
+                          <span class="tabular-nums text-blue-200/70">{barracksTrainingSpeed(barracks).toFixed(2)}×</span>
+                        </div>
+                        {#if laneOrder}
+                          <div class="mt-1.5 flex items-center justify-between gap-2 text-[9px]">
+                            <span class="min-w-0 truncate text-blue-100">{laneOrder.count} {troopName(laneOrder.type, laneOrder.count)}</span>
+                            <span class="shrink-0 tabular-nums text-[#a4ada7]">{fmtCountdown(completesAt - now)}</span>
+                          </div>
+                          <div class="mt-1.5 h-0.5 overflow-hidden bg-white/[0.07]"><div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${progress}%`}></div></div>
+                        {:else}
+                          <div class="mt-1.5 text-[9px] {constructing ? 'text-amber-200/70' : 'text-emerald-200/65'}">{constructing ? 'Unavailable during construction' : 'Idle and ready'}</div>
+                        {/if}
+                      </button>
+                    {/each}
                   </div>
                 </div>
-                <div class="barracks-training-action">
-                  <button class="game-action game-action-primary w-full" disabled={busy || !canTrain} on:click={queueTroops}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter">
-                      <circle cx="9" cy="7" r="3" />
-                      <path d="M3.5 19v-1.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5V19M18 8v6M15 11h6" />
-                    </svg>
-                    {busy ? 'Working…' : 'Train'}
-                  </button>
+
+                <div class="mt-2 border border-white/[0.08] bg-black/[0.08]">
+                  <div class="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-2">
+                    <span class="text-[8px] font-bold uppercase tracking-[0.1em] text-[#78837b]">Upcoming city queue</span>
+                    <span class="text-[8px] tabular-nums text-[#77847d]">{pendingOrders.length} waiting</span>
+                  </div>
+                  <div class="px-2">
+                    {#each pendingOrders as order, queueIndex}
+                      <div class="flex items-center gap-2 border-t border-white/[0.05] px-1 py-2 first:border-t-0">
+                        <span class="training-order-icon">{@render troopGlyph(order.type)}</span>
+                        <span class="min-w-0 flex-1">
+                          <span class="block truncate text-[10px] text-[#b6c0b9]">{order.count} {troopName(order.type, order.count)}</span>
+                          <span class="block truncate text-[8px] tabular-nums text-[#707b74]">
+                            Waiting {queueIndex + 1} · refund {order.goldCost.toLocaleString()}g + {order.populationCost.toLocaleString()} residents
+                          </span>
+                        </span>
+                        <button
+                          class="border border-red-300/20 px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-red-200/80 hover:bg-red-300/10 disabled:opacity-30"
+                          disabled={busy}
+                          on:click={() => cancelTrainingOrder(trainingCity, order)}>Cancel</button
+                        >
+                      </div>
+                    {:else}
+                      <div class="px-2 py-3 text-center text-[9px] text-[#68736d]">No upcoming training batches.</div>
+                    {/each}
+                  </div>
                 </div>
               </section>
             {/if}
@@ -3802,9 +4224,11 @@
     {/if}
   </div>
 
-  {#if showBattlePanel && selectedBattle && selectedArmy}
+  {#if showBattlePanel && selectedBattle}
     {@const battleStartedMs = timestampMs(selectedBattle.startedAt)}
     {@const nextBattleTickMs = timestampMs(selectedBattle.nextTickAt)}
+    {@const battleTickRemainingMs = nextBattleTickMs ? Math.max(0, Math.min(BATTLE_TICK_MS, nextBattleTickMs - battleNow)) : 0}
+    {@const battleTickProgress = nextBattleTickMs ? Math.max(0, Math.min(100, (1 - battleTickRemainingMs / BATTLE_TICK_MS) * 100)) : 0}
     <div class="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3 sm:p-8" transition:fade={{ duration: 140 }}>
       <div class="battle-dialog" role="dialog" aria-modal="true" aria-label="Battle details">
         <header class="battle-dialog-header">
@@ -3817,7 +4241,7 @@
           <div class="min-w-0 flex-1">
             <div class="text-[9px] font-bold uppercase tracking-[0.16em] text-red-300">Active engagement</div>
             <h2 class="mt-0.5 truncate text-lg font-bold text-[#f0ead8]">
-              Battle at {selectedBattle.tileId?.x ?? selectedArmy.coords?.x ?? '—'}, {selectedBattle.tileId?.y ?? selectedArmy.coords?.y ?? '—'}
+              Battle at {selectedBattle.tileId?.x ?? selectedArmy?.coords?.x ?? '—'}, {selectedBattle.tileId?.y ?? selectedArmy?.coords?.y ?? '—'}
             </h2>
           </div>
           <button class="battle-dialog-close" aria-label="Close battle details" on:click={() => (showBattlePanel = false)}>×</button>
@@ -3825,31 +4249,40 @@
 
         <div class="battle-dialog-timing">
           <div>
-            <span>Status</span>
-            <strong class="text-red-200">In progress</strong>
+            <span>Rounds fought</span>
+            <strong class="text-red-200">{selectedBattle.completedRounds}</strong>
           </div>
           <div>
             <span>Engaged</span>
             <strong>{battleStartedMs ? fmtCountdown(now - battleStartedMs) : 'Unknown'}</strong>
           </div>
           <div>
-            <span>Next combat tick</span>
-            <strong class="text-amber-100">{nextBattleTickMs ? fmtCountdown(nextBattleTickMs - now) : 'Pending'}</strong>
+            <span>Next round</span>
+            <strong class="text-amber-100">{nextBattleTickMs ? `${Math.ceil(battleTickRemainingMs / 1000)}s` : 'Pending'}</strong>
+          </div>
+        </div>
+
+        <div class="border-b border-[#514b3b] bg-black/[0.12] px-4 py-2.5">
+          <div class="mb-1.5 flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.11em] text-[#928c75]">
+            <span>Round progress</span><span class="tabular-nums text-amber-100">{nextBattleTickMs ? `${Math.ceil(battleTickRemainingMs / 1000)}s to next round` : 'Synchronizing'}</span>
+          </div>
+          <div class="h-1.5 overflow-hidden bg-white/[0.07]">
+            <div class="h-full bg-gradient-to-r from-red-500 to-amber-300" style={`width: ${battleTickProgress}%`}></div>
           </div>
         </div>
 
         <div class="battle-dialog-body">
-          {@render battleSidePanel('Attackers', selectedBattle.attackers, true)}
+          {@render battleSidePanel('Attackers', selectedBattle.attackers, true, selectedBattle.completedRounds)}
           <div class="battle-versus" aria-hidden="true">VS</div>
-          {@render battleSidePanel('Defenders', selectedBattle.defenders, false)}
+          {@render battleSidePanel('Defenders', selectedBattle.defenders, false, selectedBattle.completedRounds)}
         </div>
 
         <footer class="battle-dialog-footer">
-          <p>Strength reflects currently disclosed formations. Battle state refreshes on server combat ticks.</p>
+          <p>Casualties are public for both sides. Starting and surviving strength remains visible only to that side. State refreshes on server combat ticks.</p>
           <div class="flex shrink-0 gap-2">
             <button class="game-action game-action-secondary" on:click={() => (showBattlePanel = false)}>Close</button>
-            {#if selectedArmy.owner?.value === $userId}
-              <button class="game-action game-action-danger" disabled={busy} on:click={() => haltArmy(selectedArmy)}>
+            {#if selectedArmy?.owner?.value === $userId}
+              <button class="game-action game-action-danger" disabled={busy} on:click={() => haltArmy(selectedArmy!)}>
                 {busy ? 'Ordering retreat…' : 'Retreat selected army'}
               </button>
             {/if}

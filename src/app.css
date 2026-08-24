@@ -365,24 +365,9 @@
 
   .barracks-training-section {
     display: flex;
+    flex: 1.6 1 0;
     flex-direction: column;
-    overflow: hidden;
-  }
-
-  .barracks-training-scroll {
-    min-height: 0;
-    flex: 1 1 auto;
     overflow-y: auto;
-    padding-right: 0.25rem;
-    scrollbar-color: #5e7378 #1c292c;
-    scrollbar-width: thin;
-  }
-
-  .barracks-training-action {
-    flex: 0 0 auto;
-    margin-top: 0.75rem;
-    border-top: 1px solid #465a5f;
-    padding-top: 0.75rem;
   }
 
   .inspector-label {
@@ -603,19 +588,6 @@
 
     .barracks-training-section {
       display: block;
-    }
-
-    .barracks-training-scroll {
-      overflow: visible;
-      padding-right: 0;
-    }
-
-    .barracks-training-action {
-      position: sticky;
-      bottom: 0;
-      z-index: 1;
-      background: #1b292b;
-      padding-bottom: 0.625rem;
     }
 
     .inspector-actions {

@@ -13,15 +13,18 @@ import "google/protobuf/duration.proto";
 message TrainingOrder {
   cityio.entity.v1.TrainingOrderId training_order_id = 1;
   cityio.entity.v1.ArmyId army_id = 2;
-  cityio.entity.v1.BuildingId barracks_id = 3;
-  cityio.entity.v1.TroopType type = 4;
-  int32 count = 5;
-  optional google.protobuf.Timestamp started_at = 6;
-  optional google.protobuf.Timestamp completes_at = 7;
+  cityio.entity.v1.CityId city_id = 3;
+  optional cityio.entity.v1.BuildingId barracks_id = 4;
+  cityio.entity.v1.TroopType type = 5;
+  int32 count = 6;
+  optional google.protobuf.Timestamp started_at = 7;
+  optional google.protobuf.Timestamp completes_at = 8;
+  int64 population_cost = 9;
+  int64 gold_cost = 10;
 }
 
 message TrainTroopsRequest {
-  cityio.entity.v1.BuildingId barracks_id = 1;
+  cityio.entity.v1.CityId city_id = 1;
   cityio.entity.v1.TroopType type = 2;
   int32 count = 3;
 }
@@ -30,16 +33,31 @@ message TrainTroopsResponse {
 }
 
 message ListTrainingOrdersRequest {
-  cityio.entity.v1.BuildingId barracks_id = 1;
+  cityio.entity.v1.CityId city_id = 1;
 }
 message ListTrainingOrdersResponse {
   repeated TrainingOrder orders = 1;
 }
 
+message CancelTrainingOrderRequest {
+  cityio.entity.v1.CityId city_id = 1;
+  cityio.entity.v1.TrainingOrderId training_order_id = 2;
+}
+message CancelTrainingOrderResponse {}
+
 message GetArmyRequest {
   cityio.entity.v1.ArmyId army_id = 1;
 }
 message GetArmyResponse {
+  cityio.entity.v1.ArmyId army_id = 1;
+  cityio.entity.v1.EntityBag entities = 2;
+}
+
+message RenameArmyRequest {
+  cityio.entity.v1.ArmyId army_id = 1;
+  string name = 2;
+}
+message RenameArmyResponse {
   cityio.entity.v1.ArmyId army_id = 1;
   cityio.entity.v1.EntityBag entities = 2;
 }
@@ -105,7 +123,9 @@ message ListArmiesResponse {
 service ArmyService {
   rpc TrainTroops(TrainTroopsRequest) returns (TrainTroopsResponse);
   rpc ListTrainingOrders(ListTrainingOrdersRequest) returns (ListTrainingOrdersResponse);
+  rpc CancelTrainingOrder(CancelTrainingOrderRequest) returns (CancelTrainingOrderResponse);
   rpc GetArmy(GetArmyRequest) returns (GetArmyResponse);
+  rpc RenameArmy(RenameArmyRequest) returns (RenameArmyResponse);
   rpc PreviewArmyRoute(PreviewArmyRouteRequest) returns (PreviewArmyRouteResponse);
   rpc MoveArmy(MoveArmyRequest) returns (MoveArmyResponse);
   rpc AttackArmy(AttackArmyRequest) returns (AttackArmyResponse);
