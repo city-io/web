@@ -48,6 +48,12 @@ export function armyTitle(army: Army): string {
   }
 }
 
+export function armyDisplayName(army: Army): string {
+  const name = army.name.trim();
+  if (name) return name;
+  return `Army ${(army.armyId?.value ?? 'unknown').slice(0, 8)}`;
+}
+
 export type ArmyPathStep = { x: number; y: number };
 
 const drawFootTroop = (art: Graphics, x: number, y: number, color: number, light: number, archer: boolean) => {

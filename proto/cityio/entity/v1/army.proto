@@ -28,4 +28,5 @@ message Army {
   ArmyCompositionVisibility composition_visibility = 5;
   optional ArmyOrderId order_id = 6;
   optional BattleId battle_id = 7;
+  string name = 8;
 }

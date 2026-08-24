@@ -53,6 +53,15 @@ message GetArmyResponse {
   cityio.entity.v1.EntityBag entities = 2;
 }
 
+message RenameArmyRequest {
+  cityio.entity.v1.ArmyId army_id = 1;
+  string name = 2;
+}
+message RenameArmyResponse {
+  cityio.entity.v1.ArmyId army_id = 1;
+  cityio.entity.v1.EntityBag entities = 2;
+}
+
 message MoveArmyRequest {
   cityio.entity.v1.ArmyId army_id = 1;
   cityio.entity.v1.Coordinates destination = 2;
@@ -116,6 +125,7 @@ service ArmyService {
   rpc ListTrainingOrders(ListTrainingOrdersRequest) returns (ListTrainingOrdersResponse);
   rpc CancelTrainingOrder(CancelTrainingOrderRequest) returns (CancelTrainingOrderResponse);
   rpc GetArmy(GetArmyRequest) returns (GetArmyResponse);
+  rpc RenameArmy(RenameArmyRequest) returns (RenameArmyResponse);
   rpc PreviewArmyRoute(PreviewArmyRouteRequest) returns (PreviewArmyRouteResponse);
   rpc MoveArmy(MoveArmyRequest) returns (MoveArmyResponse);
   rpc AttackArmy(AttackArmyRequest) returns (AttackArmyResponse);

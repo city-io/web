@@ -40,6 +40,7 @@ message BattleReportArmy {
   repeated TroopStack surviving_troops = 4;
   bool retreated = 5;
   bool destroyed = 6;
+  string name = 7;
 }
 
 message BattleReportCommander {
@@ -65,8 +66,9 @@ message BattleReportSide {
   int64 surviving_militia = 5;
   repeated BattleReportCommander commanders = 6;
   optional BattleReportSettlement settlement = 7;
-  // Friendly strength is always exact. Opposing strength becomes exact only
-  // in a victory report.
+  // Friendly strength is always exact. Opposing starting and surviving
+  // strength becomes exact only in a victory report; casualties are visible
+  // regardless of outcome.
   bool strength_visible = 8;
 }
 

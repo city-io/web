@@ -2,26 +2,30 @@
 // @generated from file cityio/entity/v1/army.proto (package cityio.entity.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenEnum, GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
-import { enumDesc, fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
-import type { Coordinates, TroopType } from "./common_pb";
-import { file_cityio_entity_v1_common } from "./common_pb";
-import type { ArmyId, ArmyOrderId, BattleId, UserId } from "./ids_pb";
-import { file_cityio_entity_v1_ids } from "./ids_pb";
-import type { Message } from "@bufbuild/protobuf";
+import type { GenEnum, GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2';
+import { enumDesc, fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2';
+import type { Coordinates, TroopType } from './common_pb';
+import { file_cityio_entity_v1_common } from './common_pb';
+import type { ArmyId, ArmyOrderId, BattleId, UserId } from './ids_pb';
+import { file_cityio_entity_v1_ids } from './ids_pb';
+import type { Message } from '@bufbuild/protobuf';
 
 /**
  * Describes the file cityio/entity/v1/army.proto.
  */
-export const file_cityio_entity_v1_army: GenFile = /*@__PURE__*/
-  fileDesc("ChtjaXR5aW8vZW50aXR5L3YxL2FybXkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiVQoKVHJvb3BTdGFjaxIpCgR0eXBlGAEgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSEgoFY291bnQYAiABKAVIAIgBAUIICgZfY291bnQiiQMKBEFybXkSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEicKBW93bmVyGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSLQoGY29vcmRzGAMgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcxIsCgZ0cm9vcHMYBCADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSSwoWY29tcG9zaXRpb25fdmlzaWJpbGl0eRgFIAEoDjIrLmNpdHlpby5lbnRpdHkudjEuQXJteUNvbXBvc2l0aW9uVmlzaWJpbGl0eRI0CghvcmRlcl9pZBgGIAEoCzIdLmNpdHlpby5lbnRpdHkudjEuQXJteU9yZGVySWRIAIgBARIyCgliYXR0bGVfaWQYByABKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUlkSAGIAQFCCwoJX29yZGVyX2lkQgwKCl9iYXR0bGVfaWQqwwEKGUFybXlDb21wb3NpdGlvblZpc2liaWxpdHkSKwonQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX1VOU1BFQ0lGSUVEEAASJgoiQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX0hJRERFThABEioKJkFSTVlfQ09NUE9TSVRJT05fVklTSUJJTElUWV9UWVBFU19PTkxZEAISJQohQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX0VYQUNUEANiBnByb3RvMw", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]);
+export const file_cityio_entity_v1_army: GenFile =
+  /*@__PURE__*/
+  fileDesc(
+    'ChtjaXR5aW8vZW50aXR5L3YxL2FybXkucHJvdG8SEGNpdHlpby5lbnRpdHkudjEiVQoKVHJvb3BTdGFjaxIpCgR0eXBlGAEgASgOMhsuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFR5cGUSEgoFY291bnQYAiABKAVIAIgBAUIICgZfY291bnQilwMKBEFybXkSKQoHYXJteV9pZBgBIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEicKBW93bmVyGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWQSLQoGY29vcmRzGAMgASgLMh0uY2l0eWlvLmVudGl0eS52MS5Db29yZGluYXRlcxIsCgZ0cm9vcHMYBCADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSSwoWY29tcG9zaXRpb25fdmlzaWJpbGl0eRgFIAEoDjIrLmNpdHlpby5lbnRpdHkudjEuQXJteUNvbXBvc2l0aW9uVmlzaWJpbGl0eRI0CghvcmRlcl9pZBgGIAEoCzIdLmNpdHlpby5lbnRpdHkudjEuQXJteU9yZGVySWRIAIgBARIyCgliYXR0bGVfaWQYByABKAsyGi5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUlkSAGIAQESDAoEbmFtZRgIIAEoCUILCglfb3JkZXJfaWRCDAoKX2JhdHRsZV9pZCrDAQoZQXJteUNvbXBvc2l0aW9uVmlzaWJpbGl0eRIrCidBUk1ZX0NPTVBPU0lUSU9OX1ZJU0lCSUxJVFlfVU5TUEVDSUZJRUQQABImCiJBUk1ZX0NPTVBPU0lUSU9OX1ZJU0lCSUxJVFlfSElEREVOEAESKgomQVJNWV9DT01QT1NJVElPTl9WSVNJQklMSVRZX1RZUEVTX09OTFkQAhIlCiFBUk1ZX0NPTVBPU0lUSU9OX1ZJU0lCSUxJVFlfRVhBQ1QQA2IGcHJvdG8z',
+    [file_cityio_entity_v1_common, file_cityio_entity_v1_ids]
+  );
 
 /**
  * TroopStack is a count of one troop type within an army.
  *
  * @generated from message cityio.entity.v1.TroopStack
  */
-export type TroopStack = Message<"cityio.entity.v1.TroopStack"> & {
+export type TroopStack = Message<'cityio.entity.v1.TroopStack'> & {
   /**
    * @generated from field: cityio.entity.v1.TroopType type = 1;
    */
@@ -37,8 +41,7 @@ export type TroopStack = Message<"cityio.entity.v1.TroopStack"> & {
  * Describes the message cityio.entity.v1.TroopStack.
  * Use `create(TroopStackSchema)` to create a new message.
  */
-export const TroopStackSchema: GenMessage<TroopStack> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_army, 0);
+export const TroopStackSchema: GenMessage<TroopStack> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_army, 0);
 
 /**
  * Army is the physical state of a mobile group of troops. Active orders and
@@ -46,7 +49,7 @@ export const TroopStackSchema: GenMessage<TroopStack> = /*@__PURE__*/
  *
  * @generated from message cityio.entity.v1.Army
  */
-export type Army = Message<"cityio.entity.v1.Army"> & {
+export type Army = Message<'cityio.entity.v1.Army'> & {
   /**
    * @generated from field: cityio.entity.v1.ArmyId army_id = 1;
    */
@@ -81,14 +84,18 @@ export type Army = Message<"cityio.entity.v1.Army"> & {
    * @generated from field: optional cityio.entity.v1.BattleId battle_id = 7;
    */
   battleId?: BattleId | undefined;
+
+  /**
+   * @generated from field: string name = 8;
+   */
+  name: string;
 };
 
 /**
  * Describes the message cityio.entity.v1.Army.
  * Use `create(ArmySchema)` to create a new message.
  */
-export const ArmySchema: GenMessage<Army> = /*@__PURE__*/
-  messageDesc(file_cityio_entity_v1_army, 1);
+export const ArmySchema: GenMessage<Army> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_army, 1);
 
 /**
  * @generated from enum cityio.entity.v1.ArmyCompositionVisibility
@@ -112,12 +119,10 @@ export enum ArmyCompositionVisibility {
   /**
    * @generated from enum value: ARMY_COMPOSITION_VISIBILITY_EXACT = 3;
    */
-  EXACT = 3,
+  EXACT = 3
 }
 
 /**
  * Describes the enum cityio.entity.v1.ArmyCompositionVisibility.
  */
-export const ArmyCompositionVisibilitySchema: GenEnum<ArmyCompositionVisibility> = /*@__PURE__*/
-  enumDesc(file_cityio_entity_v1_army, 0);
-
+export const ArmyCompositionVisibilitySchema: GenEnum<ArmyCompositionVisibility> = /*@__PURE__*/ enumDesc(file_cityio_entity_v1_army, 0);

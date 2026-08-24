@@ -7,14 +7,14 @@
   import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
   import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
-  import { TROOP_STATS, TROOP_TYPES, armySize, armyTitle, createArmyMarker, troopName, type ArmyPathStep } from '$lib/game/troops';
+  import { TROOP_STATS, TROOP_TYPES, armyDisplayName, armySize, armyTitle, createArmyMarker, troopName, type ArmyPathStep } from '$lib/game/troops';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
   import type { ArmyOrder } from '$lib/gen/cityio/entity/v1/army_order_pb';
-  import type { Battle, BattleSide } from '$lib/gen/cityio/entity/v1/battle_pb';
+  import type { Battle, BattleLossSummary, BattleSide } from '$lib/gen/cityio/entity/v1/battle_pb';
   import {
     BattleReportEngagement,
     BattleReportOutcome,
@@ -103,6 +103,9 @@
   let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
   let recruitCount = 1;
   let selectedArmyId: string | null = null;
+  let armyNameFormId: string | null = null;
+  let armyNameDraft = '';
+  let renamingArmy = false;
   let splitArmyFormId: string | null = null;
   let showSplit = false;
   let splitCounts: Partial<Record<TroopType, number>> = {};
@@ -315,12 +318,26 @@
   const armyFoodUpkeep = (army: Army) => army.troops.reduce((total, stack) => total + (TROOP_STATS[stack.type as keyof typeof TROOP_STATS]?.foodPerHour ?? 0) * (stack.count ?? 0), 0);
   const troopStackTotal = (stacks: { count?: number }[]) => stacks.reduce((total, stack) => total + (stack.count ?? 0), 0);
   const troopStackCount = (stacks: { type: TroopType; count?: number }[], type: TroopType) => stacks.find((stack) => stack.type === type)?.count ?? 0;
+  const battleMilitaryLosses = (losses?: BattleLossSummary) => troopStackTotal(losses?.troops ?? []) + Number(losses?.militia ?? 0n);
+  const battleLossParts = (losses?: BattleLossSummary) => [
+    ...(losses?.troops ?? []).filter((stack) => (stack.count ?? 0) > 0).map((stack) => `${stack.count} ${troopName(stack.type, stack.count)}`),
+    ...(losses?.militia && losses.militia > 0n ? [`${losses.militia.toString()} militia`] : []),
+    ...(losses?.civilians && losses.civilians > 0n ? [`${losses.civilians.toString()} civilians`] : [])
+  ];
   const reportArmyLosses = (army: BattleReportArmy) => troopStackTotal(army.startingTroops) - troopStackTotal(army.survivingTroops);
   const reportSideStart = (side?: ReportSide) => (side?.armies ?? []).reduce((total, army) => total + troopStackTotal(army.startingTroops), Number(side?.startingMilitia ?? 0n));
   const reportSideSurvivors = (side?: ReportSide) => (side?.armies ?? []).reduce((total, army) => total + troopStackTotal(army.survivingTroops), Number(side?.survivingMilitia ?? 0n));
   const reportLossTotal = (losses: BattleReportLoss[]) => losses.reduce((total, loss) => total + troopStackTotal(loss.troops) + Number(loss.militia), 0);
   const reportLossDescription = (loss: BattleReportLoss) =>
     [...loss.troops.map((stack) => `${stack.count ?? 0} ${troopName(stack.type, stack.count)}`), ...(loss.militia > 0n ? [`${loss.militia.toString()} militia`] : [])].join(' · ');
+  const reportLossSource = (report: BattleReport, loss: BattleReportLoss) => {
+    if (loss.militiaCityId) {
+      const settlement = [report.attackers?.settlement, report.defenders?.settlement].find((candidate) => candidate?.cityId?.value === loss.militiaCityId?.value);
+      return settlement ? `${settlement.name} militia` : `Militia ${shortId(loss.militiaCityId.value)}`;
+    }
+    const army = [...(report.attackers?.armies ?? []), ...(report.defenders?.armies ?? [])].find((candidate) => candidate.armyId?.value === loss.armyId?.value);
+    return army?.name || `Army ${shortId(loss.armyId?.value)}`;
+  };
   const reportOutcomeLabel = (outcome: BattleReportOutcome) => (outcome === BattleReportOutcome.VICTORY ? 'Victory' : outcome === BattleReportOutcome.DEFEAT ? 'Defeat' : 'Draw');
   const reportResolutionLabel = (resolution: BattleReportResolution) =>
     resolution === BattleReportResolution.RETREAT ? 'Retreat' : resolution === BattleReportResolution.MUTUAL_DESTRUCTION ? 'Mutual destruction' : 'Elimination';
@@ -364,6 +381,10 @@
 
   $: movingArmy = moveArmyId ? $armies.find((army) => army.armyId?.value === moveArmyId) : undefined;
   $: selectedArmy = selectedArmyId ? $armies.find((army) => army.armyId?.value === selectedArmyId) : undefined;
+  $: if (selectedArmyId !== armyNameFormId) {
+    armyNameFormId = selectedArmyId;
+    armyNameDraft = selectedArmy?.name ?? '';
+  }
   $: if (selectedArmyId !== splitArmyFormId) {
     splitArmyFormId = selectedArmyId;
     showSplit = false;
@@ -427,7 +448,7 @@
     switch (order.objective.case) {
       case 'attackArmy': {
         const target = armyForAttackOrder(order);
-        return inBattle ? `Attacking ${target ? armyTitle(target) : 'enemy army'}` : `Pursuing ${target ? armyTitle(target) : 'enemy army'}${coords}`;
+        return inBattle ? `Attacking ${target ? armyDisplayName(target) : 'enemy army'}` : `Pursuing ${target ? armyDisplayName(target) : 'enemy army'}${coords}`;
       }
       case 'conquerSettlement': {
         const settlement = cityForOrder(order);
@@ -460,7 +481,7 @@
     switch (intent) {
       case 'attack': {
         const target = destinationState?.armies?.find((army) => army.owner?.value && army.owner.value !== $userId);
-        return `Attack ${target ? armyTitle(target) : 'enemy army'} at ${destination.x}, ${destination.y}`;
+        return `Attack ${target ? armyDisplayName(target) : 'enemy army'} at ${destination.x}, ${destination.y}`;
       }
       case 'siege':
         return `Besiege ${destinationState?.city?.name ?? 'settlement'} at ${destination.x}, ${destination.y}`;
@@ -474,7 +495,7 @@
   $: activeBattleId = selectedBattleId ?? selectedArmy?.battleId?.value;
   $: selectedBattle = activeBattleId ? $battles.find((battle) => battle.battleId?.value === activeBattleId) : undefined;
   $: if (!selectedBattle) showBattlePanel = false;
-  $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => (a.armyId?.value ?? '').localeCompare(b.armyId?.value ?? ''));
+  $: ownedArmies = $armies.filter((army) => army.owner?.value === $userId).sort((a, b) => armyDisplayName(a).localeCompare(armyDisplayName(b)));
   $: ownedArmyTroops = ownedArmies.reduce((total, army) => total + armySize(army), 0);
   $: ownedOrderCount = ownedArmies.filter((army) => orderForArmy(army)).length;
   $: ownedCityIds = new Set($cities.filter((city) => city.owner?.value === $userId).map((city) => city.cityId?.value));
@@ -990,6 +1011,29 @@
     managementOpen = false;
   };
 
+  const renameSelectedArmy = async (army: Army) => {
+    const armyId = army.armyId?.value;
+    const name = armyNameDraft.trim();
+    if (!armyId || !name || name === army.name) return;
+    renamingArmy = true;
+    err = '';
+    notice = '';
+    try {
+      const response = await armyClient.renameArmy({ armyId: army.armyId, name });
+      const updated = response.entities?.armies[0];
+      if (updated) {
+        armies.update((previous) => previous.map((candidate) => (candidate.armyId?.value === armyId ? updated : candidate)));
+        armyNameDraft = updated.name;
+      }
+      notice = `Army renamed to ${updated?.name ?? name}.`;
+      scheduleRender();
+    } catch (e: unknown) {
+      err = errorText(e, 'Army rename failed');
+    } finally {
+      renamingArmy = false;
+    }
+  };
+
   const mergeOwnedArmies = async (stack: Army[], targetId?: string) => {
     const owned = stack
       .filter((army) => army.owner?.value === $userId && army.armyId?.value)
@@ -1343,7 +1387,7 @@
         cancelMoveMode();
       } else {
         notice = hostile
-          ? `Attack order issued: pursue ${armyTitle(hostile)}.`
+          ? `Attack order issued: pursue ${armyDisplayName(hostile)}.`
           : settlement && settlementCenter
             ? `Siege order issued: advance on ${settlement.name}.`
             : moveRoute
@@ -2370,7 +2414,7 @@
   </span>
 {/snippet}
 
-{#snippet reportSideRecord(label: string, side: ReportSide | undefined, attacking: boolean)}
+{#snippet reportSideRecord(label: string, side: ReportSide | undefined, attacking: boolean, disclosedLosses: number)}
   {@const strengthVisible = !!side?.strengthVisible}
   {@const starting = reportSideStart(side)}
   {@const surviving = reportSideSurvivors(side)}
@@ -2387,7 +2431,7 @@
       {#if strengthVisible}
         <div class="text-right text-[9px] tabular-nums text-[#aeb7b0]"><strong class="block text-xs text-[#eee9d8]">{starting} → {surviving}</strong>{Math.max(0, starting - surviving)} lost</div>
       {:else}
-        <div class="text-right text-[9px] uppercase tracking-wide text-[#7d8983]"><strong class="block text-xs text-[#b5bdb6]">Unknown</strong>strength concealed</div>
+        <div class="text-right text-[9px] uppercase tracking-wide text-[#7d8983]"><strong class="block text-xs tabular-nums text-red-200">{disclosedLosses} lost</strong>strength concealed</div>
       {/if}
     </div>
     {#if side?.settlement}
@@ -2404,7 +2448,7 @@
             {strengthVisible ? `Militia ${side.startingMilitia.toString()} → ${side.survivingMilitia.toString()}` : 'Militia unknown'}
           </span>
         </div>
-        {#if strengthVisible && side.settlement.civilianCasualties > 0n}
+        {#if side.settlement.civilianCasualties > 0n}
           <div class="mt-1 border-t border-red-200/10 pt-1 text-[8px] tabular-nums text-red-200/80">
             {side.settlement.civilianCasualties.toString()} civilian {side.settlement.civilianCasualties === 1n ? 'casualty' : 'casualties'}
           </div>
@@ -2416,7 +2460,7 @@
         <div class="border border-white/[0.07] bg-white/[0.025] px-2 py-1.5">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
-              <strong class="block truncate text-[9px] text-[#dce3dc]">Army {shortId(army.armyId?.value)}</strong>
+              <strong class="block truncate text-[9px] text-[#dce3dc]">{army.name || `Army ${shortId(army.armyId?.value)}`}</strong>
               <span class="block truncate text-[8px] text-[#717d76]">Commander {army.ownerId?.value === $userId ? 'you' : shortId(army.ownerId?.value)}</span>
             </div>
             <span class="text-right text-[8px] font-bold uppercase tracking-wide {army.destroyed ? 'text-red-300' : army.retreated ? 'text-cyan-200' : 'text-emerald-200'}">
@@ -2432,7 +2476,7 @@
             </div>
             <div class="mt-1 text-[8px] tabular-nums text-[#68736d]">{troopStackTotal(army.startingTroops)} deployed · {reportArmyLosses(army)} casualties</div>
           {:else}
-            <div class="mt-1 border-t border-white/[0.05] pt-1 text-[8px] text-[#68736d]">Composition was not recovered.</div>
+            <div class="mt-1 border-t border-white/[0.05] pt-1 text-[8px] text-[#68736d]">Starting and surviving strength concealed; casualties remain listed by round.</div>
           {/if}
         </div>
       {:else}
@@ -2442,10 +2486,10 @@
   </section>
 {/snippet}
 
-{#snippet reportRoundLosses(losses: BattleReportLoss[])}
+{#snippet reportRoundLosses(losses: BattleReportLoss[], report: BattleReport)}
   {#each losses as loss}
     <div class="mt-0.5 flex items-start justify-between gap-2 text-[8px] text-[#77827b]">
-      <span>{loss.militiaCityId ? `Militia ${shortId(loss.militiaCityId.value)}` : `Army ${shortId(loss.armyId?.value)}`}</span>
+      <span>{reportLossSource(report, loss)}</span>
       <span class="text-right tabular-nums text-red-200/80">{reportLossDescription(loss)}</span>
     </div>
   {/each}
@@ -2701,13 +2745,14 @@
   </span>
 {/snippet}
 
-{#snippet battleSidePanel(label: string, side: BattleSide | undefined, attackers: boolean)}
+{#snippet battleSidePanel(label: string, side: BattleSide | undefined, attackers: boolean, completedRounds: number)}
   {@const sideArmies = battleSideArmies(side)}
-  {@const exactArmies = sideArmies.filter((army) => army.compositionVisibility === ArmyCompositionVisibility.EXACT)}
-  {@const knownUnits = exactArmies.reduce((total, army) => total + armySize(army), 0)}
-  {@const knownPersonnel = exactArmies.reduce((total, army) => total + armyPersonnel(army), 0)}
-  {@const concealedStrength = (side?.armyIds.length ?? 0) - exactArmies.length}
   {@const yourSide = side?.userIds.some((id) => id.value === $userId)}
+  {@const deployed = troopStackTotal(side?.startingTroops ?? []) + Number(side?.startingMilitiaCount ?? 0n)}
+  {@const remaining = troopStackTotal(side?.survivingTroops ?? []) + Number(side?.militiaCount ?? 0n)}
+  {@const totalLosses = battleMilitaryLosses(side?.cumulativeLosses)}
+  {@const cumulativeParts = battleLossParts(side?.cumulativeLosses)}
+  {@const lastRoundParts = battleLossParts(side?.lastRoundLosses)}
   <section class="battle-side {attackers ? 'battle-side-attackers' : 'battle-side-defenders'}">
     <div class="flex items-start justify-between gap-3 border-b border-white/[0.08] px-3 py-2.5">
       <div>
@@ -2721,15 +2766,32 @@
       {#if yourSide}<span class="border border-amber-200/20 bg-amber-200/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-100">Your side</span>{/if}
     </div>
 
-    <div class="grid grid-cols-2 gap-px border-b border-white/[0.08] bg-white/[0.06]">
+    <div class="grid grid-cols-3 gap-px border-b border-white/[0.08] bg-white/[0.06]">
       <div class="bg-[#1d292b] px-3 py-2">
-        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">{concealedStrength ? 'Known units' : 'Units'}</div>
-        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{exactArmies.length ? knownUnits.toLocaleString() : 'Unknown'}</strong>
+        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">Deployed</div>
+        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{side?.strengthVisible ? deployed.toLocaleString() : '?'}</strong>
       </div>
       <div class="bg-[#1d292b] px-3 py-2">
-        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">{concealedStrength ? 'Known personnel' : 'Personnel'}</div>
-        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{exactArmies.length ? knownPersonnel.toLocaleString() : 'Unknown'}</strong>
+        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">Remaining</div>
+        <strong class="mt-0.5 block text-lg tabular-nums text-[#edf0e6]">{side?.strengthVisible ? remaining.toLocaleString() : '?'}</strong>
       </div>
+      <div class="bg-[#1d292b] px-3 py-2">
+        <div class="text-[8px] uppercase tracking-[0.08em] text-[#75817b]">Military lost</div>
+        <strong class="mt-0.5 block text-lg tabular-nums text-red-200">{totalLosses.toLocaleString()}</strong>
+      </div>
+    </div>
+
+    <div class="border-b border-white/[0.08] bg-red-300/[0.035] px-3 py-2">
+      <div class="flex items-center justify-between gap-3 text-[8px] font-bold uppercase tracking-[0.09em]">
+        <span class="text-[#8b9690]">Casualty detail</span>
+        <span class="text-red-200/80">{cumulativeParts.length ? cumulativeParts.join(' · ') : 'None'}</span>
+      </div>
+      {#if completedRounds > 0}
+        <div class="mt-1.5 flex items-center justify-between gap-3 border-t border-red-200/10 pt-1.5 text-[9px]">
+          <span class="text-[#7f8a84]">Round {completedRounds}</span>
+          <span class="text-right tabular-nums text-red-100">{lastRoundParts.length ? lastRoundParts.join(' · ') : 'No casualties'}</span>
+        </div>
+      {/if}
     </div>
 
     {#if side?.militiaCityId}
@@ -2746,7 +2808,8 @@
           <div class="border border-white/[0.08] bg-black/[0.1] px-2.5 py-2">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
-                <strong class="block truncate text-[11px] text-[#e8ece5]">{armyTitle(army)}</strong>
+                <strong class="block truncate text-[11px] text-[#e8ece5]">{armyDisplayName(army)}</strong>
+                <span class="mt-0.5 block text-[8px] text-[#717d76]">{armyTitle(army)}</span>
                 <span class="mt-0.5 block text-[8px] uppercase tracking-[0.08em] {army.owner?.value === $userId ? 'text-blue-200' : 'text-[#79857f]'}">
                   {army.owner?.value === $userId ? 'Your army' : 'Foreign army'}
                 </span>
@@ -2904,7 +2967,7 @@
               on:click={() => focusArmy(army)}
             >
               <div class="flex items-center justify-between gap-3">
-                <span class="truncate text-xs font-semibold text-[#dce1dc]">{armyTitle(army)}</span>
+                <span class="truncate text-xs font-semibold text-[#dce1dc]">{armyDisplayName(army)}</span>
                 <span class="text-xs font-semibold tabular-nums text-blue-200">{armySize(army).toLocaleString()}</span>
               </div>
               <div class="mt-1 flex items-center justify-between gap-3 text-[10px] text-[#79827b]">
@@ -3107,8 +3170,18 @@
               </div>
             </div>
             <div class="grid gap-3 p-3 md:grid-cols-2">
-              {@render reportSideRecord('Attackers', report.attackers, true)}
-              {@render reportSideRecord('Defenders', report.defenders, false)}
+              {@render reportSideRecord(
+                'Attackers',
+                report.attackers,
+                true,
+                report.rounds.reduce((total, round) => total + reportLossTotal(round.attackerLosses), 0)
+              )}
+              {@render reportSideRecord(
+                'Defenders',
+                report.defenders,
+                false,
+                report.rounds.reduce((total, round) => total + reportLossTotal(round.defenderLosses), 0)
+              )}
             </div>
             <section class="mx-3 mb-3 border border-white/[0.09] bg-black/[0.1]">
               <div class="border-b border-white/[0.07] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-[#aab5ad]">Round log</div>
@@ -3121,18 +3194,20 @@
                     </div>
                     <div class="mt-1 grid grid-cols-2 gap-3 text-[9px] tabular-nums">
                       <span class="text-red-200/80">
-                        {report.attackers?.strengthVisible
-                          ? `Attack power ${Math.round(round.attackerPower).toLocaleString()} · ${reportLossTotal(round.attackerLosses)} military lost${round.attackerCivilianCasualties > 0n ? ` · ${round.attackerCivilianCasualties} civilians` : ''}`
-                          : 'Attacker strength concealed'}
+                        {report.attackers?.strengthVisible ? `Attack power ${Math.round(round.attackerPower).toLocaleString()} · ` : ''}{reportLossTotal(round.attackerLosses)} military lost{round.attackerCivilianCasualties >
+                        0n
+                          ? ` · ${round.attackerCivilianCasualties} civilians`
+                          : ''}
                       </span>
                       <span class="text-right text-blue-200/80">
-                        {report.defenders?.strengthVisible
-                          ? `Defense power ${Math.round(round.defenderPower).toLocaleString()} · ${reportLossTotal(round.defenderLosses)} military lost${round.defenderCivilianCasualties > 0n ? ` · ${round.defenderCivilianCasualties} civilians` : ''}`
-                          : 'Defender strength concealed'}
+                        {report.defenders?.strengthVisible ? `Defense power ${Math.round(round.defenderPower).toLocaleString()} · ` : ''}{reportLossTotal(round.defenderLosses)} military lost{round.defenderCivilianCasualties >
+                        0n
+                          ? ` · ${round.defenderCivilianCasualties} civilians`
+                          : ''}
                       </span>
                     </div>
-                    {#if report.attackers?.strengthVisible}{@render reportRoundLosses(round.attackerLosses)}{/if}
-                    {#if report.defenders?.strengthVisible}{@render reportRoundLosses(round.defenderLosses)}{/if}
+                    {@render reportRoundLosses(round.attackerLosses, report)}
+                    {@render reportRoundLosses(round.defenderLosses, report)}
                   </div>
                 {:else}
                   <div class="px-3 py-4 text-center text-[9px] text-[#68736d]">Resolved before the first combat exchange.</div>
@@ -3204,7 +3279,7 @@
             <div class="min-w-0">
               <h2 class="truncate text-[14px] font-bold text-[#eef4f2]">
                 {#if selectedArmy}
-                  {armyTitle(selectedArmy)}
+                  {armyDisplayName(selectedArmy)}
                 {:else if sel.building}
                   {bName(sel.building.type)}
                 {:else if sel.armies?.length}
@@ -3374,6 +3449,23 @@
             {@const selectedStack = sel.armies?.filter((army) => army.owner?.value === $userId) ?? []}
             {@const selectedTroops = selectedArmy.troops.filter((stack) => (stack.count ?? 1) > 0)}
             <section class="inspector-section">
+              {#if selectedArmyOwned}
+                <form class="mb-3 flex items-end gap-2 border-b border-[#465a5f] pb-3" on:submit|preventDefault={() => renameSelectedArmy(selectedArmy)}>
+                  <label class="min-w-0 flex-1">
+                    <span class="inspector-stat-label">Army name</span>
+                    <input
+                      class="mt-1 h-8 w-full border border-[#53686c] bg-[#172326] px-2.5 text-[11px] font-semibold text-[#edf2ef] outline-none transition-colors focus:border-blue-300/60"
+                      bind:value={armyNameDraft}
+                      maxlength="32"
+                      autocomplete="off"
+                      aria-label="Army name"
+                    />
+                  </label>
+                  <button class="game-action game-action-secondary !h-8 !w-auto px-3" type="submit" disabled={renamingArmy || !armyNameDraft.trim() || armyNameDraft.trim() === selectedArmy.name}>
+                    {renamingArmy ? 'Saving…' : 'Rename'}
+                  </button>
+                </form>
+              {/if}
               <div class="grid grid-cols-[auto_repeat(4,minmax(0,1fr))] items-center gap-3">
                 {#if selectedArmy.compositionVisibility !== ArmyCompositionVisibility.HIDDEN && selectedTroops[0]}
                   {@render troopGlyph(selectedTroops[0].type)}
@@ -3772,7 +3864,7 @@
                     <div class="min-w-0 flex-1">
                       <div class="flex items-center gap-1.5">
                         <span class="h-1.5 w-1.5 shrink-0 {owned ? 'bg-blue-400' : 'bg-red-400'}"></span>
-                        <span class="truncate text-[11px] font-bold {owned ? 'text-blue-200' : 'text-red-200'}">{armyTitle(army)}</span>
+                        <span class="truncate text-[11px] font-bold {owned ? 'text-blue-200' : 'text-red-200'}">{armyDisplayName(army)}</span>
                       </div>
                       {#if order}
                         <div class="mt-1 flex min-w-0 items-center gap-1.5">
@@ -4157,8 +4249,8 @@
 
         <div class="battle-dialog-timing">
           <div>
-            <span>Status</span>
-            <strong class="text-red-200">In progress</strong>
+            <span>Rounds fought</span>
+            <strong class="text-red-200">{selectedBattle.completedRounds}</strong>
           </div>
           <div>
             <span>Engaged</span>
@@ -4180,13 +4272,13 @@
         </div>
 
         <div class="battle-dialog-body">
-          {@render battleSidePanel('Attackers', selectedBattle.attackers, true)}
+          {@render battleSidePanel('Attackers', selectedBattle.attackers, true, selectedBattle.completedRounds)}
           <div class="battle-versus" aria-hidden="true">VS</div>
-          {@render battleSidePanel('Defenders', selectedBattle.defenders, false)}
+          {@render battleSidePanel('Defenders', selectedBattle.defenders, false, selectedBattle.completedRounds)}
         </div>
 
         <footer class="battle-dialog-footer">
-          <p>Strength reflects currently disclosed formations. Battle state refreshes on server combat ticks.</p>
+          <p>Casualties are public for both sides. Starting and surviving strength remains visible only to that side. State refreshes on server combat ticks.</p>
           <div class="flex shrink-0 gap-2">
             <button class="game-action game-action-secondary" on:click={() => (showBattlePanel = false)}>Close</button>
             {#if selectedArmy?.owner?.value === $userId}
