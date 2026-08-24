@@ -97,6 +97,7 @@
   let showBuild = false;
   let showCityManagement = false;
   let showBattlePanel = false;
+  let battleNow = Date.now();
   let selectedBattleId: string | null = null;
   let cityManagementView: 'city' | 'building' = 'city';
   let recruitType: (typeof TROOP_TYPES)[number] = TroopType.SOLDIER;
@@ -282,8 +283,12 @@
   const tick = setInterval(() => {
     now = Date.now();
   }, 1000);
+  const battleClock = setInterval(() => {
+    if (showBattlePanel) battleNow = Date.now();
+  }, 250);
   onDestroy(() => {
     clearInterval(tick);
+    clearInterval(battleClock);
     if (trainingNoticeTimer) clearTimeout(trainingNoticeTimer);
   });
 
@@ -353,6 +358,7 @@
       drawSel(x, y);
     }
     selectedBattleId = battleId;
+    battleNow = Date.now();
     showBattlePanel = true;
   };
 
@@ -1515,15 +1521,13 @@
       const clashWave = easeMotion ? 0.5 + 0.5 * Math.sin(t * 4.4) : 1;
       const impactWave = Math.pow(clashWave, 8);
       for (const [, entry] of battleGfx) {
-        entry.marker.y = entry.baseY + (easeMotion ? Math.sin(t * 2.2) * 1.5 : 0);
-        entry.leftSword.rotation = -0.86 + clashWave * 0.18;
-        entry.rightSword.rotation = 0.86 - clashWave * 0.18;
-        entry.leftSword.x = -5 + clashWave * 2;
-        entry.rightSword.x = 5 - clashWave * 2;
+        entry.marker.y = entry.baseY + (easeMotion ? Math.sin(t * 2.2) * 0.75 : 0);
+        entry.leftSword.rotation = 0.94 - clashWave * 0.16;
+        entry.rightSword.rotation = -0.94 + clashWave * 0.16;
         entry.impact.alpha = 0.15 + impactWave * 0.85;
-        entry.impact.scale.set(0.75 + impactWave * 0.35);
+        entry.impact.scale.set(0.8 + impactWave * 0.25);
         entry.pulse.alpha = 0.55 + clashWave * 0.4;
-        entry.pulse.scale.set(0.96 + clashWave * 0.08);
+        entry.pulse.scale.set(0.98 + clashWave * 0.05);
       }
 
       const siegePulse = easeMotion ? 0.5 + 0.5 * Math.sin(t * 3.6) : 0.75;
@@ -1642,21 +1646,30 @@
     if (!active) return;
 
     const marker = new Container();
-    marker.position.set(20, -42);
+    marker.position.set(0, -46);
     marker.zIndex = 3e6;
     marker.eventMode = 'static';
-    marker.cursor = 'pointer';
+    marker.cursor = "url('/cursors/action.svg') 3 2, none";
+    marker.hitArea = new Rectangle(-19, -9, 38, 42);
     marker.on('pointerdown', (event) => {
       if (event.button !== 0) return;
       event.stopPropagation();
       focusBuilding(building);
     });
 
+    const accent = active.type === TroopType.ARCHER ? 0x86bd91 : active.type === TroopType.CAVALRY ? 0xd1a464 : active.type === TroopType.ARTILLERY ? 0xa995c7 : 0xc9d8d5;
+    const connector = new Graphics();
+    connector.moveTo(0, 10);
+    connector.lineTo(0, 30);
+    connector.stroke({ color: accent, width: 1.25, alpha: 0.85 });
+    connector.circle(0, 30, 2.2);
+    connector.fill({ color: accent, alpha: 0.95 });
+
     const plate = new Graphics();
-    plate.rect(-17, -7, 34, 14);
+    plate.poly([-17, -7, 17, -7, 17, 7, 4, 7, 0, 11, -4, 7, -17, 7]);
     plate.fill({ color: 0x1b292b, alpha: 0.98 });
-    plate.rect(-17, -7, 34, 14);
-    plate.stroke({ color: 0x6f8d8b, width: 1, alpha: 1 });
+    plate.poly([-17, -7, 17, -7, 17, 7, 4, 7, 0, 11, -4, 7, -17, 7]);
+    plate.stroke({ color: accent, width: 1, alpha: 1 });
 
     const glyph = new Graphics();
     if (active.type === TroopType.ARCHER) {
@@ -1714,7 +1727,7 @@
       glyph.moveTo(-12, 6);
       glyph.lineTo(-8, 6);
     }
-    glyph.stroke({ color: 0xb8cbc5, width: 1.35, alpha: 1 });
+    glyph.stroke({ color: accent, width: 1.35, alpha: 1 });
 
     const label = new Text({
       text: active.count.toLocaleString(),
@@ -1732,32 +1745,31 @@
     label.position.x = 4;
 
     const progress = new Graphics();
-    marker.addChild(plate, glyph, label, progress);
+    marker.addChild(connector, plate, glyph, label, progress);
     tile.addChild(marker);
     trainingGfx.set(key, { gfx: progress, startMs: timestampMs(active.startedAt), endMs: timestampMs(active.completesAt) });
   };
 
   const drawMapSword = (gfx: Graphics) => {
-    gfx.poly([0, -16, 3, -11, 2, 5, -2, 5, -3, -11]);
-    gfx.fill({ color: 0xf4e7c1, alpha: 1 });
-    gfx.poly([0, -16, 3, -11, 2, 5, -2, 5, -3, -11]);
-    gfx.stroke({ color: 0x512326, width: 1, alpha: 1 });
-    gfx.moveTo(-6, 5);
-    gfx.lineTo(6, 5);
-    gfx.stroke({ color: 0xf87171, width: 2.5, alpha: 1 });
-    gfx.rect(-1.5, 6, 3, 7);
-    gfx.fill({ color: 0xb88b4a, alpha: 1 });
+    gfx.poly([0, -11, 2.2, -8, 1.5, 3.5, -1.5, 3.5, -2.2, -8]);
+    gfx.fill({ color: 0xef4444, alpha: 1 });
+    gfx.poly([0, -11, 2.2, -8, 1.5, 3.5, -1.5, 3.5, -2.2, -8]);
+    gfx.stroke({ color: 0x450a0a, width: 0.9, alpha: 1 });
+    gfx.moveTo(-4, 3.5);
+    gfx.lineTo(4, 3.5);
+    gfx.stroke({ color: 0xfca5a5, width: 1.8, alpha: 1 });
+    gfx.rect(-1.1, 4.5, 2.2, 5.5);
+    gfx.fill({ color: 0xb91c1c, alpha: 1 });
   };
 
-  const addBattleMarker = (battle: Battle, tile: Container, key: string, onSiegeCenter: boolean) => {
-    const siege = !!battle.defenders?.militiaCityId;
+  const addBattleMarker = (battle: Battle, tile: Container, key: string) => {
     const marker = new Container();
-    const baseY = onSiegeCenter ? -82 : -53;
+    const baseY = -38;
     marker.position.set(0, baseY);
     marker.zIndex = 4e6;
     marker.eventMode = 'static';
     marker.cursor = "url('/cursors/action.svg') 3 2, none";
-    marker.hitArea = new Rectangle(-28, -27, 56, 54);
+    marker.hitArea = new Rectangle(-18, -18, 36, 36);
     marker.on('pointerdown', (event) => {
       if (event.button !== 0) return;
       event.stopPropagation();
@@ -1765,50 +1777,35 @@
     });
 
     const pulse = new Graphics();
-    pulse.circle(0, -3, 22);
-    pulse.fill({ color: 0xef4444, alpha: 0.12 });
-    pulse.circle(0, -3, 22);
-    pulse.stroke({ color: 0xf87171, width: 2, alpha: 0.72 });
+    pulse.circle(0, -2, 14);
+    pulse.fill({ color: 0xef4444, alpha: 0.1 });
+    pulse.circle(0, -2, 14);
+    pulse.stroke({ color: 0xef4444, width: 1.4, alpha: 0.7 });
 
     const plate = new Graphics();
-    plate.rect(-24, -23, 48, 39);
-    plate.fill({ color: 0x241315, alpha: 0.97 });
-    plate.rect(-24, -23, 48, 39);
-    plate.stroke({ color: siege ? 0xf59e0b : 0xf87171, width: 1.5, alpha: 1 });
+    plate.circle(0, -2, 11.5);
+    plate.fill({ color: 0x240b0d, alpha: 0.9 });
+    plate.circle(0, -2, 11.5);
+    plate.stroke({ color: 0x991b1b, width: 1, alpha: 0.9 });
 
     const leftSword = new Graphics();
     const rightSword = new Graphics();
     drawMapSword(leftSword);
     drawMapSword(rightSword);
-    leftSword.position.set(-3, -5);
-    rightSword.position.set(3, -5);
-    leftSword.rotation = -0.72;
-    rightSword.rotation = 0.72;
+    leftSword.position.set(0, -2);
+    rightSword.position.set(0, -2);
+    leftSword.rotation = 0.78;
+    rightSword.rotation = -0.78;
 
     const impact = new Graphics();
     for (let i = 0; i < 8; i++) {
       const angle = (i / 8) * Math.PI * 2;
-      impact.moveTo(Math.cos(angle) * 3, -5 + Math.sin(angle) * 3);
-      impact.lineTo(Math.cos(angle) * 8, -5 + Math.sin(angle) * 8);
+      impact.moveTo(Math.cos(angle) * 1.5, -2 + Math.sin(angle) * 1.5);
+      impact.lineTo(Math.cos(angle) * 4.5, -2 + Math.sin(angle) * 4.5);
     }
-    impact.stroke({ color: 0xfef3c7, width: 1.4, alpha: 1 });
+    impact.stroke({ color: 0xfca5a5, width: 1, alpha: 1 });
 
-    const label = new Text({
-      text: siege ? 'SIEGE' : 'BATTLE',
-      roundPixels: true,
-      resolution: 4,
-      style: {
-        fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'],
-        fontSize: 7,
-        fontWeight: 'bold',
-        letterSpacing: 1,
-        fill: siege ? '#fde68a' : '#fecaca'
-      }
-    });
-    label.anchor.set(0.5);
-    label.position.set(0, 10);
-
-    marker.addChild(pulse, plate, leftSword, rightSword, impact, label);
+    marker.addChild(pulse, plate, leftSword, rightSword, impact);
     tile.addChild(marker);
     battleGfx.set(key, { marker, leftSword, rightSword, impact, pulse, baseY });
   };
@@ -1818,7 +1815,7 @@
     marker.zIndex = 3.5e6;
     marker.eventMode = 'static';
     marker.cursor = "url('/cursors/action.svg') 3 2, none";
-    marker.hitArea = new Rectangle(-HW, -68, HW * 2, HH + 68);
+    marker.hitArea = new Rectangle(-HW, -HH, HW * 2, HH * 2);
     marker.on('pointerdown', (event) => {
       if (event.button !== 0) return;
       event.stopPropagation();
@@ -1831,23 +1828,7 @@
     pulse.poly(DIAMOND_VERTS);
     pulse.stroke({ color: 0xef4444, width: 3, alpha: 0.85 });
 
-    const banner = new Container();
-    banner.position.set(0, -58);
-    const plate = new Graphics();
-    plate.rect(-31, -7, 62, 14);
-    plate.fill({ color: 0x2b1012, alpha: 0.97 });
-    plate.rect(-31, -7, 62, 14);
-    plate.stroke({ color: 0xf87171, width: 1, alpha: 1 });
-    const label = new Text({
-      text: 'UNDER SIEGE',
-      roundPixels: true,
-      resolution: 4,
-      style: { fontFamily: ['Tahoma', 'Verdana', 'Arial', 'sans-serif'], fontSize: 7, fontWeight: 'bold', letterSpacing: 0.7, fill: '#fecaca' }
-    });
-    label.anchor.set(0.5);
-    banner.addChild(plate, label);
-
-    marker.addChild(pulse, banner);
+    marker.addChild(pulse);
     tile.addChild(marker);
     siegeGfx.set(key, { marker, pulse });
   };
@@ -1949,11 +1930,7 @@
     if (visible) {
       const activeBattle = battleAt(col, row);
       if (activeBattle) {
-        const onSiegeCenter =
-          !!activeBattle.defenders?.militiaCityId &&
-          activeBattle.defenders.militiaCityId.value === td?.city?.cityId?.value &&
-          (td?.building?.type === BuildingType.CITY_CENTER || td?.building?.type === BuildingType.TOWN_CENTER);
-        addBattleMarker(activeBattle, tc, k, onSiegeCenter);
+        addBattleMarker(activeBattle, tc, k);
       }
 
       const isSettlementCenter = td?.building?.type === BuildingType.CITY_CENTER || td?.building?.type === BuildingType.TOWN_CENTER;
@@ -2579,6 +2556,58 @@
   </div>
 {/snippet}
 
+{#snippet recruitmentPool(city: City)}
+  {@const totalResidents = residents(city)}
+  {@const recruitableResidents = trainablePopulation(city)}
+  {@const militiaResidents = militiaPopulation(city)}
+  {@const coreResidents = Math.max(0, totalResidents - recruitableResidents - militiaResidents)}
+  <div class="border border-[#465a5f] bg-black/[0.08] px-3 py-2.5">
+    <div class="flex items-center justify-between gap-3">
+      <div>
+        <div class="inspector-label">Recruitment pool</div>
+        <div class="mt-0.5 text-[9px] text-[#758486]">Available recruits and permanent local defense.</div>
+      </div>
+      <span class="text-[9px] tabular-nums text-[#78847e]">{totalResidents.toLocaleString()} residents</span>
+    </div>
+
+    <div class="mt-2 grid grid-cols-2 gap-2">
+      <div class="border border-emerald-200/20 bg-emerald-200/[0.05] px-3 py-2.5">
+        <div class="text-[8px] font-bold uppercase tracking-[0.1em] text-emerald-200/75">Recruitable</div>
+        <strong class="mt-0.5 block text-xl tabular-nums text-emerald-100">{recruitableResidents.toLocaleString()}</strong>
+        <div class="mt-0.5 text-[8px] text-[#7f9188]">Can be committed to training now</div>
+      </div>
+      <div class="border border-blue-200/20 bg-blue-200/[0.05] px-3 py-2.5">
+        <div class="text-[8px] font-bold uppercase tracking-[0.1em] text-blue-200/75">Militia</div>
+        <strong class="mt-0.5 block text-xl tabular-nums text-blue-100">{militiaResidents.toLocaleString()}</strong>
+        <div class="mt-0.5 text-[8px] text-[#7f8e91]">Remain as local settlement defense</div>
+      </div>
+    </div>
+
+    <div class="mt-2 flex h-2 bg-white/[0.06]">
+      {@render populationSegment('core civilians', coreResidents, 'Core civilians cannot currently be recruited.', '#59665a', totalResidents > 0 ? (coreResidents / totalResidents) * 100 : 0)}
+      {@render populationSegment(
+        'recruitable residents',
+        recruitableResidents,
+        'Residents available to transfer into troop training.',
+        '#77bfa6',
+        totalResidents > 0 ? (recruitableResidents / totalResidents) * 100 : 0
+      )}
+      {@render populationSegment(
+        'militia',
+        militiaResidents,
+        'Permanent local defenders who are not part of the training pool.',
+        '#78a9b5',
+        totalResidents > 0 ? (militiaResidents / totalResidents) * 100 : 0
+      )}
+    </div>
+    <div class="mt-1.5 flex items-center gap-3 text-[8px] tabular-nums text-[#74817a]">
+      <span><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#59665a]"></i>{coreResidents.toLocaleString()} core</span>
+      <span class="text-emerald-200/70"><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#77bfa6]"></i>{recruitableResidents.toLocaleString()} recruitable</span>
+      <span class="text-blue-200/70"><i class="mr-1 inline-block h-1.5 w-1.5 bg-[#78a9b5]"></i>{militiaResidents.toLocaleString()} militia</span>
+    </div>
+  </div>
+{/snippet}
+
 {#snippet resourceGlyph(kind: 'gold' | 'food')}
   {#if kind === 'gold'}
     <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -3148,7 +3177,9 @@
         aria-modal={showCityManagement && sel.city && !selectedArmy ? 'true' : undefined}
         aria-label={showCityManagement && sel.city && !selectedArmy
           ? cityManagementView === 'building' && sel.building
-            ? `${bName(sel.building.type)} management`
+            ? sel.city.owner?.value === $userId
+              ? `${bName(sel.building.type)} management`
+              : `${bName(sel.building.type)} details`
             : sel.city.owner?.value === $userId
               ? `${sel.city.name} management`
               : `${sel.city.name} details`
@@ -3195,7 +3226,9 @@
                 <div class="mt-0.5 flex min-w-0 items-center gap-x-1 truncate text-[10px] text-[#aaa997]">
                   {#if sel.city}{showCityManagement
                       ? cityManagementView === 'building'
-                        ? 'Building Management'
+                        ? sel.city.owner?.value === $userId
+                          ? 'Building Management'
+                          : 'Building Details'
                         : sel.city.owner?.value === $userId
                           ? `${cName(sel.city.type)} Management`
                           : `${cName(sel.city.type)} Details`
@@ -3328,7 +3361,7 @@
                     <path d="M3 5h14M3 10h14M3 15h14" />
                     <circle cx="7" cy="5" r="1.7" fill="currentColor" /><circle cx="13" cy="10" r="1.7" fill="currentColor" /><circle cx="8" cy="15" r="1.7" fill="currentColor" />
                   </svg>
-                  Manage {bName(sel.building.type)}
+                  {sel.city?.owner?.value === $userId ? `Manage ${bName(sel.building.type)}` : 'View details'}
                 {/if}
               </button>
             </div>
@@ -3405,7 +3438,10 @@
                   </span>
                   <button
                     class="border border-red-300/25 bg-red-300/[0.08] px-2.5 py-1 text-[9px] font-bold uppercase tracking-[0.08em] text-red-100 hover:bg-red-300/[0.14]"
-                    on:click={() => (showBattlePanel = true)}
+                    on:click={() => {
+                      battleNow = Date.now();
+                      showBattlePanel = true;
+                    }}
                   >
                     Open battle
                   </button>
@@ -3956,7 +3992,7 @@
                   </button>
                 </div>
 
-                <div class="mt-2">{@render populationUse(trainingCity)}</div>
+                <div class="mt-2">{@render recruitmentPool(trainingCity)}</div>
                 <button class="game-action game-action-secondary mt-2 w-full" on:click={() => openSettlementPolicy(trainingCity)}>
                   {@render managementGlyph('cities')}
                   Manage {cName(trainingCity.type)} policy
@@ -4099,7 +4135,7 @@
   {#if showBattlePanel && selectedBattle}
     {@const battleStartedMs = timestampMs(selectedBattle.startedAt)}
     {@const nextBattleTickMs = timestampMs(selectedBattle.nextTickAt)}
-    {@const battleTickRemainingMs = nextBattleTickMs ? Math.max(0, Math.min(BATTLE_TICK_MS, nextBattleTickMs - now)) : 0}
+    {@const battleTickRemainingMs = nextBattleTickMs ? Math.max(0, Math.min(BATTLE_TICK_MS, nextBattleTickMs - battleNow)) : 0}
     {@const battleTickProgress = nextBattleTickMs ? Math.max(0, Math.min(100, (1 - battleTickRemainingMs / BATTLE_TICK_MS) * 100)) : 0}
     <div class="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3 sm:p-8" transition:fade={{ duration: 140 }}>
       <div class="battle-dialog" role="dialog" aria-modal="true" aria-label="Battle details">
@@ -4138,14 +4174,9 @@
           <div class="mb-1.5 flex items-center justify-between text-[8px] font-bold uppercase tracking-[0.11em] text-[#928c75]">
             <span>Round progress</span><span class="tabular-nums text-amber-100">{nextBattleTickMs ? `${Math.ceil(battleTickRemainingMs / 1000)}s to next round` : 'Synchronizing'}</span>
           </div>
-          {#key nextBattleTickMs}
-            <div class="h-1.5 overflow-hidden bg-white/[0.07]">
-              <div
-                class="battle-round-fill h-full bg-gradient-to-r from-red-500 to-amber-300"
-                style={`--battle-round-start: ${battleTickProgress}%; --battle-round-duration: ${battleTickRemainingMs}ms;`}
-              ></div>
-            </div>
-          {/key}
+          <div class="h-1.5 overflow-hidden bg-white/[0.07]">
+            <div class="h-full bg-gradient-to-r from-red-500 to-amber-300" style={`width: ${battleTickProgress}%`}></div>
+          </div>
         </div>
 
         <div class="battle-dialog-body">
