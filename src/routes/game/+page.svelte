@@ -444,6 +444,7 @@
   $: queuedTrainingCount = [...trainingQueues.values()].reduce((total, queue) => total + currentTrainingQueue(queue).length, 0);
   $: sortedMailboxMessages = [...$mailboxMessages].sort((a, b) => timestampMs(b.createdAt) - timestampMs(a.createdAt));
   $: unreadMailboxCount = $mailboxMessages.filter((message) => !message.readAt).length;
+  $: selectedMailboxMessage = selectedMailboxMessageId ? $mailboxMessages.find((message) => message.mailboxMessageId?.value === selectedMailboxMessageId) : undefined;
   $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
   $: selectedTrainingOrders = selectedBarracksId ? currentTrainingQueue(trainingQueues.get(selectedBarracksId) ?? []) : [];
   $: selectedPolicyCityId = sel?.city?.owner?.value === $userId ? (sel?.city?.cityId?.value ?? null) : null;
@@ -676,7 +677,7 @@
   const openMailboxMessage = async (message: MailboxMessage) => {
     const id = message.mailboxMessageId?.value;
     if (!id) return;
-    selectedMailboxMessageId = selectedMailboxMessageId === id ? null : id;
+    selectedMailboxMessageId = id;
     if (message.readAt) return;
     try {
       const response = await mailboxClient.markMailboxMessageRead({ mailboxMessageId: message.mailboxMessageId });
@@ -698,6 +699,7 @@
     cancelMoveMode();
     showCityManagement = false;
     managementOpen = false;
+    selectedMailboxMessageId = null;
     drawSel(x, y);
   };
 
@@ -2047,6 +2049,7 @@
         break;
       case 'Escape':
         if (moveArmyId) cancelMoveMode();
+        else if (selectedMailboxMessageId) selectedMailboxMessageId = null;
         else if (showHelp) showHelp = false;
         else if (showBattlePanel) showBattlePanel = false;
         else if (showCityManagement) showCityManagement = false;
@@ -2670,10 +2673,9 @@
             <span>{unreadMailboxCount} unread</span>
           </div>
           {#each sortedMailboxMessages as message}
-            {@const expanded = selectedMailboxMessageId === message.mailboxMessageId?.value}
             {@const report = message.content.case === 'battleReport' ? message.content.value : undefined}
             <div class="mb-1.5 border {message.readAt ? 'border-white/[0.07] bg-black/[0.08]' : 'border-amber-200/20 bg-amber-200/[0.045]'}">
-              <button class="w-full px-3 py-2.5 text-left" on:click={() => openMailboxMessage(message)} aria-expanded={expanded}>
+              <button class="w-full px-3 py-2.5 text-left" on:click={() => openMailboxMessage(message)} aria-haspopup="dialog">
                 <div class="flex items-start gap-2.5">
                   <span class="mt-1 h-1.5 w-1.5 shrink-0 {message.readAt ? 'bg-[#59635d]' : 'bg-amber-300'}"></span>
                   <div class="min-w-0 flex-1">
@@ -2698,56 +2700,9 @@
                     {/if}
                     <div class="mt-1 text-[8px] text-[#626d66]">{reportDate(message.createdAt)}</div>
                   </div>
-                  <span class="text-[#68736d]">{expanded ? '−' : '+'}</span>
+                  <span class="text-[#68736d]">›</span>
                 </div>
               </button>
-              {#if expanded && report}
-                <div class="border-t border-white/[0.07] px-2.5 pb-2.5 pt-2">
-                  <div class="grid grid-cols-2 gap-px bg-white/[0.06] text-[8px]">
-                    <div class="bg-[#1c282a] p-2">
-                      <span class="block uppercase tracking-wide text-[#68756e]">Resolution</span><strong class="mt-0.5 block text-[10px] text-[#dfe4dc]"
-                        >{reportResolutionLabel(report.resolution)}</strong
-                      >
-                    </div>
-                    <div class="bg-[#1c282a] p-2">
-                      <span class="block uppercase tracking-wide text-[#68756e]">Duration</span><strong class="mt-0.5 block text-[10px] text-[#dfe4dc]">{fmtCountdown(reportDuration(report))}</strong>
-                    </div>
-                    <div class="bg-[#1c282a] p-2">
-                      <span class="block uppercase tracking-wide text-[#68756e]">Started</span><strong class="mt-0.5 block text-[9px] text-[#bdc6be]">{reportDate(report.startedAt)}</strong>
-                    </div>
-                    <div class="bg-[#1c282a] p-2">
-                      <span class="block uppercase tracking-wide text-[#68756e]">Ended</span><strong class="mt-0.5 block text-[9px] text-[#bdc6be]">{reportDate(report.endedAt)}</strong>
-                    </div>
-                  </div>
-                  <div class="mt-2 space-y-2">
-                    {@render reportSideRecord('Attackers', report.attackers, true)}
-                    {@render reportSideRecord('Defenders', report.defenders, false)}
-                  </div>
-                  <section class="mt-2 border border-white/[0.09] bg-black/[0.1]">
-                    <div class="border-b border-white/[0.07] px-2.5 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-[#aab5ad]">Round log</div>
-                    <div class="divide-y divide-white/[0.06]">
-                      {#each report.rounds as round}
-                        <div class="px-2.5 py-2">
-                          <div class="flex items-center justify-between gap-2 text-[8px]">
-                            <strong class="text-[#d6ded7]">Round {round.number}</strong>
-                            <span class="text-[#69756e]">{reportDate(round.occurredAt)}</span>
-                          </div>
-                          <div class="mt-1 grid grid-cols-2 gap-2 text-[8px] tabular-nums">
-                            <span class="text-red-200/80">Attack power {Math.round(round.attackerPower).toLocaleString()} · {reportLossTotal(round.attackerLosses)} lost</span>
-                            <span class="text-right text-blue-200/80">Defense power {Math.round(round.defenderPower).toLocaleString()} · {reportLossTotal(round.defenderLosses)} lost</span>
-                          </div>
-                          {@render reportRoundLosses(round.attackerLosses)}
-                          {@render reportRoundLosses(round.defenderLosses)}
-                        </div>
-                      {:else}
-                        <div class="px-2.5 py-3 text-center text-[8px] text-[#68736d]">Resolved before the first combat exchange.</div>
-                      {/each}
-                    </div>
-                  </section>
-                  <button class="game-action game-action-secondary mt-2 w-full" on:click={() => focusBattleReport(report)}>Center battle site</button>
-                  <div class="mt-1.5 text-center text-[8px] text-[#606b64]">Report {shortId(report.battleId?.value)} · permanently archived</div>
-                </div>
-              {/if}
             </div>
           {:else}
             <div class="px-3 py-8 text-center text-[11px] leading-relaxed text-[#737c75]">Your inbox is empty. Battle reports and future realm notices will be archived here.</div>
@@ -2755,6 +2710,100 @@
         {/if}
       </div>
     </aside>
+  {/if}
+
+  {#if selectedMailboxMessage}
+    {@const report = selectedMailboxMessage.content.case === 'battleReport' ? selectedMailboxMessage.content.value : undefined}
+    <div
+      class="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3 sm:p-8"
+      on:pointerdown|self={() => (selectedMailboxMessageId = null)}
+      transition:fade={{ duration: 140 }}
+    >
+      <div class="mail-dialog inspector-panel" role="dialog" aria-modal="true" aria-label={report ? `${reportOutcomeLabel(report.outcome)} battle report` : 'Mailbox message'}>
+        <header class="mail-dialog-header">
+          <span class="selection-crest h-10 w-10 text-amber-100" aria-hidden="true">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
+              <path d="M3 6h18v13H3V6Z" /><path d="m4 7 8 7 8-7" />
+            </svg>
+          </span>
+          <div class="min-w-0 flex-1">
+            {#if report}
+              <div class="text-[9px] font-bold uppercase tracking-[0.14em] text-[#c3b77d]">
+                {report.engagement === BattleReportEngagement.SETTLEMENT_SIEGE ? 'Siege report' : 'Battle report'} · {reportRoleLabel(report.role)}
+              </div>
+              <h2
+                class="mt-0.5 truncate text-lg font-bold {report.outcome === BattleReportOutcome.VICTORY
+                  ? 'text-emerald-200'
+                  : report.outcome === BattleReportOutcome.DEFEAT
+                    ? 'text-red-200'
+                    : 'text-amber-100'}"
+              >
+                {reportOutcomeLabel(report.outcome)} at tile {report.tileId?.x ?? '—'}, {report.tileId?.y ?? '—'}
+              </h2>
+            {:else}
+              <div class="text-[9px] font-bold uppercase tracking-[0.14em] text-[#c3b77d]">Realm dispatch</div>
+              <h2 class="mt-0.5 text-lg font-bold text-[#edf1e8]">System message</h2>
+            {/if}
+            <div class="mt-0.5 text-[9px] text-[#8a958e]">Received {reportDate(selectedMailboxMessage.createdAt)}</div>
+          </div>
+          <button class="battle-dialog-close" aria-label="Close message" on:click={() => (selectedMailboxMessageId = null)}>×</button>
+        </header>
+
+        <div class="mail-dialog-body">
+          {#if report}
+            <div class="grid grid-cols-2 gap-px bg-white/[0.06] text-[9px] sm:grid-cols-4">
+              <div class="bg-[#1c282a] p-3">
+                <span class="block uppercase tracking-wide text-[#68756e]">Resolution</span><strong class="mt-1 block text-[11px] text-[#dfe4dc]">{reportResolutionLabel(report.resolution)}</strong>
+              </div>
+              <div class="bg-[#1c282a] p-3">
+                <span class="block uppercase tracking-wide text-[#68756e]">Duration</span><strong class="mt-1 block text-[11px] text-[#dfe4dc]">{fmtCountdown(reportDuration(report))}</strong>
+              </div>
+              <div class="bg-[#1c282a] p-3">
+                <span class="block uppercase tracking-wide text-[#68756e]">Started</span><strong class="mt-1 block text-[10px] text-[#bdc6be]">{reportDate(report.startedAt)}</strong>
+              </div>
+              <div class="bg-[#1c282a] p-3">
+                <span class="block uppercase tracking-wide text-[#68756e]">Ended</span><strong class="mt-1 block text-[10px] text-[#bdc6be]">{reportDate(report.endedAt)}</strong>
+              </div>
+            </div>
+            <div class="grid gap-3 p-3 md:grid-cols-2">
+              {@render reportSideRecord('Attackers', report.attackers, true)}
+              {@render reportSideRecord('Defenders', report.defenders, false)}
+            </div>
+            <section class="mx-3 mb-3 border border-white/[0.09] bg-black/[0.1]">
+              <div class="border-b border-white/[0.07] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-[#aab5ad]">Round log</div>
+              <div class="divide-y divide-white/[0.06]">
+                {#each report.rounds as round}
+                  <div class="px-3 py-2.5">
+                    <div class="flex items-center justify-between gap-2 text-[9px]">
+                      <strong class="text-[#d6ded7]">Round {round.number}</strong>
+                      <span class="text-[#69756e]">{reportDate(round.occurredAt)}</span>
+                    </div>
+                    <div class="mt-1 grid grid-cols-2 gap-3 text-[9px] tabular-nums">
+                      <span class="text-red-200/80">Attack power {Math.round(round.attackerPower).toLocaleString()} · {reportLossTotal(round.attackerLosses)} lost</span>
+                      <span class="text-right text-blue-200/80">Defense power {Math.round(round.defenderPower).toLocaleString()} · {reportLossTotal(round.defenderLosses)} lost</span>
+                    </div>
+                    {@render reportRoundLosses(round.attackerLosses)}
+                    {@render reportRoundLosses(round.defenderLosses)}
+                  </div>
+                {:else}
+                  <div class="px-3 py-4 text-center text-[9px] text-[#68736d]">Resolved before the first combat exchange.</div>
+                {/each}
+              </div>
+            </section>
+          {:else}
+            <div class="px-5 py-10 text-center text-sm text-[#858f88]">This dispatch has no additional details.</div>
+          {/if}
+        </div>
+
+        <footer class="mail-dialog-footer">
+          <span>{report ? `Report ${shortId(report.battleId?.value)} · permanently archived` : 'Permanently archived'}</span>
+          <div class="flex gap-2">
+            <button class="game-action game-action-secondary !w-auto" on:click={() => (selectedMailboxMessageId = null)}>Close</button>
+            {#if report}<button class="game-action game-action-primary !w-auto" on:click={() => focusBattleReport(report)}>Center battle site</button>{/if}
+          </div>
+        </footer>
+      </div>
+    </div>
   {/if}
 
   <!-- Tile selection stays compact; city management expands explicitly into a focused dialog. -->
