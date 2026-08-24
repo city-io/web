@@ -123,6 +123,7 @@
   let trainingQueues = new Map<string, TrainingOrder[]>();
   let trainingOverviewLoading = false;
   let lastTrainingOverviewPoll = 0;
+  let trainingCityId: string | null = null;
   let trainingNoticeTimer: ReturnType<typeof setTimeout> | null = null;
   let policyDraftCityId: string | null = null;
   let militiaDraft = 10;
@@ -191,6 +192,9 @@
     }
     managementTab = tab;
     managementOpen = true;
+    if (tab === 'training' && !trainingCityId) {
+      trainingCityId = $cities.find((city) => city.owner?.value === $userId)?.cityId?.value ?? null;
+    }
   };
 
   const isSettlementCenter = (building?: Building) => building?.type === BuildingType.CITY_CENTER || building?.type === BuildingType.TOWN_CENTER;
@@ -293,7 +297,7 @@
   };
   const bName = (t: BuildingType) => BN[t] ?? 'Unknown';
   const cName = (t: CityType) => (t === CityType.CITY ? 'City' : t === CityType.TOWN ? 'Town' : 'Settlement');
-  const barracksCapacity = (building: Building) => Math.max(0, building.level * 5);
+  const barracksTrainingSpeed = (building: Building) => getLevelStats(BuildingType.BARRACKS, building.level)?.trainingSpeedMultiplier || 1;
   const residents = (city: City) => Math.max(0, Math.floor(city.population));
   const housingCapacity = (city: City) => Math.max(0, Math.floor(city.populationCap));
   const taxpayerPopulation = (city: City) => Math.min(residents(city), Math.max(0, Math.floor(city.taxablePopulation)));
@@ -301,7 +305,6 @@
   const demographicsKnown = (city?: City) => !!city?.demographicsVisible;
   const trainablePopulation = (city?: City) => (city ? Math.max(0, Math.floor(city.recruitablePopulation)) : 0);
   const troopPopulationCost = (type: TroopType, count: number) => (TROOP_STATS[type as keyof typeof TROOP_STATS]?.population ?? 0) * count;
-  const queuePopulationCost = (orders: TrainingOrder[]) => orders.reduce((total, order) => total + troopPopulationCost(order.type, order.count), 0);
   const armyPersonnel = (army: Army) => army.troops.reduce((total, stack) => total + troopPopulationCost(stack.type, stack.count ?? 0), 0);
   const armyFoodUpkeep = (army: Army) => army.troops.reduce((total, stack) => total + (TROOP_STATS[stack.type as keyof typeof TROOP_STATS]?.foodPerHour ?? 0) * (stack.count ?? 0), 0);
   const troopStackTotal = (stacks: { count?: number }[]) => stacks.reduce((total, stack) => total + (stack.count ?? 0), 0);
@@ -442,11 +445,15 @@
   $: ownedCityIds = new Set($cities.filter((city) => city.owner?.value === $userId).map((city) => city.cityId?.value));
   $: ownedBarracks = $buildings.filter((building) => building.type === BuildingType.BARRACKS && ownedCityIds.has(building.cityId?.value));
   $: queuedTrainingCount = [...trainingQueues.values()].reduce((total, queue) => total + currentTrainingQueue(queue).length, 0);
+  $: activeTrainingCount = [...trainingQueues.values()].reduce((total, queue) => total + currentTrainingQueue(queue).filter((order) => !!order.startedAt).length, 0);
+  $: waitingTrainingCount = Math.max(0, queuedTrainingCount - activeTrainingCount);
   $: sortedMailboxMessages = [...$mailboxMessages].sort((a, b) => timestampMs(b.createdAt) - timestampMs(a.createdAt));
   $: unreadMailboxCount = $mailboxMessages.filter((message) => !message.readAt).length;
   $: selectedMailboxMessage = selectedMailboxMessageId ? $mailboxMessages.find((message) => message.mailboxMessageId?.value === selectedMailboxMessageId) : undefined;
   $: selectedBarracksId = sel?.building?.type === BuildingType.BARRACKS && sel.city?.owner?.value === $userId ? (sel.building.buildingId?.value ?? null) : null;
-  $: selectedTrainingOrders = selectedBarracksId ? currentTrainingQueue(trainingQueues.get(selectedBarracksId) ?? []) : [];
+  $: selectedTrainingOrders = selectedBarracksId
+    ? currentTrainingQueue(trainingQueues.get(sel?.building?.cityId?.value ?? '') ?? []).filter((order) => order.barracksId?.value === selectedBarracksId)
+    : [];
   $: selectedPolicyCityId = sel?.city?.owner?.value === $userId ? (sel?.city?.cityId?.value ?? null) : null;
   $: if (selectedPolicyCityId && selectedPolicyCityId !== policyDraftCityId) {
     policyDraftCityId = selectedPolicyCityId;
@@ -459,7 +466,7 @@
     militiaTargetDraft = sel?.city?.militiaTarget ?? militiaTargetDraft;
     taxDraft = sel?.city?.taxRatePercent ?? taxDraft;
   }
-  $: if (ownedBarracks.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
+  $: if (ownedCities.length && trainingOrdersAvailable && now - lastTrainingOverviewPoll >= 3000) {
     loadTrainingOverview();
   }
 
@@ -535,7 +542,9 @@
 
   const timestampMs = (timestamp?: Timestamp): number => (timestamp ? Number(timestamp.seconds) * 1000 + timestamp.nanos / 1e6 : 0);
 
-  const currentTrainingQueue = (orders: TrainingOrder[]): TrainingOrder[] => orders.filter((order) => !order.completesAt || timestampMs(order.completesAt) > now);
+  // The server removes an order only after its army has spawned. Keep overdue
+  // active work visible at 0s while a completion retry is in flight.
+  const currentTrainingQueue = (orders: TrainingOrder[]): TrainingOrder[] => orders;
 
   // ── reactive store sync ─────────────────────────────────
   // buildLookup is cheap (rebuilds a Map) — run synchronously so tileData is always fresh.
@@ -850,9 +859,9 @@
     lastTrainingOverviewPoll = Date.now();
     try {
       const entries = await Promise.all(
-        ownedBarracks.flatMap((barracks) => {
-          const id = barracks.buildingId?.value;
-          return id ? [armyClient.listTrainingOrders({ barracksId: { value: id } }).then((response) => [id, response.orders] as const)] : [];
+        ownedCities.flatMap((city) => {
+          const id = city.cityId?.value;
+          return id ? [armyClient.listTrainingOrders({ cityId: { value: id } }).then((response) => [id, response.orders] as const)] : [];
         })
       );
       const nextQueues = new Map(entries);
@@ -860,7 +869,7 @@
         [...queues]
           .map(
             ([id, orders]) =>
-              `${id}:${orders.map((order) => `${order.trainingOrderId?.value}:${order.type}:${order.count}:${timestampMs(order.startedAt)}:${timestampMs(order.completesAt)}`).join(',')}`
+              `${id}:${orders.map((order) => `${order.trainingOrderId?.value}:${order.barracksId?.value ?? 'queued'}:${order.type}:${order.count}:${timestampMs(order.startedAt)}:${timestampMs(order.completesAt)}`).join(',')}`
           )
           .sort()
           .join('|');
@@ -874,30 +883,24 @@
     }
   };
 
-  const queueTroops = async () => {
-    const barracks = sel?.building;
-    if (!barracks || barracks.type !== BuildingType.BARRACKS) return;
-    const capacity = barracksCapacity(barracks);
-    const count = Math.max(1, Math.min(capacity, Math.floor(recruitCount)));
-    const stat = TROOP_STATS[recruitType];
+  const queueTroops = async (city: City) => {
+    const cityId = city.cityId?.value;
+    if (!cityId) return;
+    const count = Math.max(1, Math.floor(recruitCount));
     recruitCount = count;
     busy = true;
     err = '';
     notice = '';
     try {
-      const response = await armyClient.trainTroops({ barracksId: barracks.buildingId, type: recruitType, count });
+      const response = await armyClient.trainTroops({ cityId: city.cityId, type: recruitType, count });
       if (response.order) {
         const orderId = response.order.trainingOrderId?.value;
-        const barracksId = barracks.buildingId?.value;
-        if (barracksId) {
-          const queue = currentTrainingQueue(trainingQueues.get(barracksId) ?? []);
-          trainingQueues = new Map(trainingQueues).set(barracksId, [...queue.filter((order) => order.trainingOrderId?.value !== orderId), response.order]);
-        }
+        const queue = currentTrainingQueue(trainingQueues.get(cityId) ?? []);
+        trainingQueues = new Map(trainingQueues).set(cityId, [...queue.filter((order) => order.trainingOrderId?.value !== orderId), response.order]);
       } else {
         lastTrainingOverviewPoll = 0;
       }
-      const populationCost = count * stat.population;
-      const trainingNotice = `${count} ${troopName(recruitType, count)} queued · ${populationCost} ${populationCost === 1 ? 'resident' : 'residents'} mobilized · ${fmtCountdown(count * stat.trainSeconds * 1000)}`;
+      const trainingNotice = `${count} ${troopName(recruitType, count)} added to ${city.name}'s pipeline · costs reserved`;
       notice = trainingNotice;
       if (trainingNoticeTimer) clearTimeout(trainingNoticeTimer);
       trainingNoticeTimer = setTimeout(() => {
@@ -910,6 +913,34 @@
     } finally {
       busy = false;
     }
+  };
+
+  const cancelTrainingOrder = async (city: City, order: TrainingOrder) => {
+    const cityId = city.cityId?.value;
+    const orderId = order.trainingOrderId?.value;
+    if (!cityId || !orderId || order.startedAt) return;
+    busy = true;
+    err = '';
+    try {
+      await armyClient.cancelTrainingOrder({ cityId: city.cityId, trainingOrderId: order.trainingOrderId });
+      trainingQueues = new Map(trainingQueues).set(
+        cityId,
+        (trainingQueues.get(cityId) ?? []).filter((candidate) => candidate.trainingOrderId?.value !== orderId)
+      );
+      notice = `Queued ${troopName(order.type, order.count)} cancelled · gold and residents refunded`;
+    } catch (e: unknown) {
+      err = errorText(e, 'Training cancellation failed');
+    } finally {
+      busy = false;
+    }
+  };
+
+  const openCityTraining = (cityId?: string) => {
+    if (!cityId) return;
+    trainingCityId = cityId;
+    managementTab = 'training';
+    managementOpen = true;
+    showCityManagement = false;
   };
 
   const mergeOwnedArmies = async (stack: Army[], targetId?: string) => {
@@ -1518,8 +1549,8 @@
 
   const addTrainingMarker = (building: Building, tile: Container, key: string) => {
     const id = building.buildingId?.value;
-    const queue = id ? currentTrainingQueue(trainingQueues.get(id) ?? []) : [];
-    const active = queue[0];
+    const cityQueue = currentTrainingQueue(trainingQueues.get(building.cityId?.value ?? '') ?? []);
+    const active = id ? cityQueue.find((order) => order.barracksId?.value === id && !!order.startedAt) : undefined;
     if (!active) return;
 
     const marker = new Container();
@@ -2575,8 +2606,8 @@
                   ? `${ownedCities.length} settlements under your rule`
                   : managementTab === 'training'
                     ? queuedTrainingCount
-                      ? `${queuedTrainingCount} ${queuedTrainingCount === 1 ? 'batch' : 'batches'} in training`
-                      : 'Barracks ready'
+                      ? `${activeTrainingCount} active · ${waitingTrainingCount} waiting across ${ownedCities.length} ${ownedCities.length === 1 ? 'city' : 'cities'}`
+                      : `${ownedBarracks.length} training ${ownedBarracks.length === 1 ? 'lane' : 'lanes'} ready`
                     : unreadMailboxCount
                       ? `${unreadMailboxCount} unread ${unreadMailboxCount === 1 ? 'message' : 'messages'}`
                       : `${sortedMailboxMessages.length} archived ${sortedMailboxMessages.length === 1 ? 'message' : 'messages'}`}
@@ -2651,55 +2682,155 @@
             </button>
           {/each}
         {:else if managementTab === 'training'}
-          <div class="flex items-center justify-between px-1 pb-2 text-[10px] text-[#778078]">
-            <span>{ownedBarracks.length} {ownedBarracks.length === 1 ? 'barracks' : 'barracks'}</span>
-            {#if trainingOverviewLoading}<span>Refreshing…</span>{/if}
+          <div class="mb-2 grid grid-cols-3 border border-white/[0.08] bg-black/[0.1] text-center">
+            <div class="border-r border-white/[0.07] px-2 py-2">
+              <strong class="block text-sm tabular-nums text-blue-100">{ownedBarracks.length}</strong><span class="text-[8px] uppercase tracking-wide text-[#76817a]">lanes</span>
+            </div>
+            <div class="border-r border-white/[0.07] px-2 py-2">
+              <strong class="block text-sm tabular-nums text-emerald-200">{activeTrainingCount}</strong><span class="text-[8px] uppercase tracking-wide text-[#76817a]">active</span>
+            </div>
+            <div class="px-2 py-2">
+              <strong class="block text-sm tabular-nums text-amber-100">{waitingTrainingCount}</strong><span class="text-[8px] uppercase tracking-wide text-[#76817a]">waiting</span>
+            </div>
           </div>
-          {#each ownedBarracks as barracks}
-            {@const queue = currentTrainingQueue(trainingQueues.get(barracks.buildingId?.value ?? '') ?? [])}
-            {@const committedPopulation = queuePopulationCost(queue)}
-            {@const active = queue[0]}
-            {@const startsAt = timestampMs(active?.startedAt)}
-            {@const completesAt = timestampMs(active?.completesAt)}
-            {@const activeProgress = active && startsAt > 0 && completesAt > startsAt ? Math.max(0, Math.min(100, ((now - startsAt) / (completesAt - startsAt)) * 100)) : 0}
-            <button
-              class="mb-1.5 w-full border border-white/[0.07] bg-black/[0.08] px-3 py-2.5 text-left transition-colors hover:border-white/[0.14] hover:bg-white/[0.04]"
-              on:click={() => focusBuilding(barracks)}
-            >
-              <div class="flex items-center justify-between gap-3">
-                <span class="text-xs font-semibold text-[#dce1dc]">Barracks · level {barracks.level}</span>
-                <span class="text-[10px] text-[#879089]">{queue.length ? `${queue.length} ${queue.length === 1 ? 'batch' : 'batches'}` : 'Ready'}</span>
-              </div>
-              <div class="mt-1 text-[10px] text-[#7b847d]">Tile {barracks.coords?.x ?? '—'}, {barracks.coords?.y ?? '—'}</div>
-              {#if active}
-                <div class="mt-2 border-t border-white/[0.06] pt-2">
-                  <div class="flex items-center justify-between gap-3 text-[10px]">
-                    <span class="flex items-center gap-2 text-blue-200/80">
-                      <span class="training-order-icon">{@render troopGlyph(active.type)}</span>
-                      Training {active.count}
-                      {troopName(active.type, active.count)}
-                    </span>
-                    <span class="tabular-nums text-[#9ba49d]">{completesAt ? fmtCountdown(completesAt - now) : 'Waiting'}</span>
-                  </div>
-                  {#if completesAt > startsAt}
-                    <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.07]">
-                      <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div>
+          <div class="flex items-center justify-between px-1 pb-2 text-[9px] text-[#778078]">
+            <span>Each city feeds one FIFO queue into its barracks.</span>
+            {#if trainingOverviewLoading}<span>Syncing…</span>{/if}
+          </div>
+          {#each ownedCities as city}
+            {@const cityId = city.cityId?.value ?? ''}
+            {@const cityBarracks = ownedBarracks.filter((building) => building.cityId?.value === cityId)}
+            {@const cityOrders = currentTrainingQueue(trainingQueues.get(cityId) ?? [])}
+            {@const activeOrders = cityOrders.filter((order) => !!order.startedAt)}
+            {@const pendingOrders = cityOrders.filter((order) => !order.startedAt)}
+            {@const selected = trainingCityId === cityId}
+            <section class="mb-2 border {selected ? 'border-blue-200/25 bg-blue-200/[0.035]' : 'border-white/[0.07] bg-black/[0.08]'}">
+              <button class="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left" on:click={() => (trainingCityId = selected ? null : cityId)}>
+                <span class="min-w-0">
+                  <strong class="block truncate text-xs text-[#e1e7e2]">{city.name}</strong>
+                  <span class="mt-0.5 block text-[9px] tabular-nums text-[#79857d]"
+                    >{trainablePopulation(city).toLocaleString()} recruitable · {cityBarracks.length} {cityBarracks.length === 1 ? 'lane' : 'lanes'}</span
+                  >
+                </span>
+                <span class="text-[9px] tabular-nums {pendingOrders.length ? 'text-amber-200' : 'text-[#879089]'}">{activeOrders.length} active · {pendingOrders.length} queued</span>
+              </button>
+
+              <div class="grid grid-cols-1 gap-1 border-t border-white/[0.06] p-2">
+                {#each cityBarracks as barracks, laneIndex}
+                  {@const active = activeOrders.find((order) => order.barracksId?.value === barracks.buildingId?.value)}
+                  {@const startsAt = timestampMs(active?.startedAt)}
+                  {@const completesAt = timestampMs(active?.completesAt)}
+                  {@const progress = active && completesAt > startsAt ? Math.max(0, Math.min(100, ((now - startsAt) / (completesAt - startsAt)) * 100)) : 0}
+                  {@const constructing = barracks.level < 1 || !!barracks.constructionEnd}
+                  <button class="border border-white/[0.07] bg-black/[0.12] px-2.5 py-2 text-left hover:border-white/[0.16]" on:click={() => focusBuilding(barracks)}>
+                    <div class="flex items-center justify-between gap-2 text-[9px]">
+                      <span class="font-semibold text-[#bbc8c3]">Lane {laneIndex + 1} · Barracks Lv {barracks.level}</span>
+                      <span class="tabular-nums text-blue-200/70">{barracksTrainingSpeed(barracks).toFixed(2)}× speed</span>
                     </div>
-                  {/if}
-                  {#if queue.length > 1}
-                    <div class="mt-1.5 text-[9px] tabular-nums text-[#707971]">+{queue.length - 1} {queue.length === 2 ? 'batch' : 'batches'} waiting</div>
-                  {/if}
-                  <div class="mt-1 text-[9px] tabular-nums text-blue-200/60">
-                    {committedPopulation.toLocaleString()}
-                    {committedPopulation === 1 ? 'resident' : 'residents'} already mobilized
-                  </div>
+                    {#if active}
+                      <div class="mt-1.5 flex items-center justify-between gap-2 text-[10px]">
+                        <span class="flex min-w-0 items-center gap-1.5 text-blue-100"
+                          ><span class="training-order-icon">{@render troopGlyph(active.type)}</span><span class="truncate">{active.count} {troopName(active.type, active.count)}</span></span
+                        >
+                        <span class="shrink-0 tabular-nums text-[#a4ada7]">{fmtCountdown(completesAt - now)}</span>
+                      </div>
+                      <div class="mt-1.5 h-0.5 overflow-hidden bg-white/[0.07]"><div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${progress}%`}></div></div>
+                    {:else}
+                      <div class="mt-1.5 text-[9px] {constructing ? 'text-amber-200/70' : 'text-emerald-200/65'}">
+                        {constructing ? 'Unavailable during construction' : pendingOrders.length ? 'Claiming next queued batch…' : 'Idle and ready'}
+                      </div>
+                    {/if}
+                  </button>
+                {:else}
+                  <div class="border border-dashed border-white/[0.08] px-3 py-3 text-center text-[9px] text-[#6f7972]">Build a barracks to process this city pipeline.</div>
+                {/each}
+              </div>
+
+              {#if pendingOrders.length}
+                <div class="border-t border-white/[0.06] px-2 pb-2 pt-1.5">
+                  <div class="mb-1 px-1 text-[8px] font-bold uppercase tracking-[0.1em] text-[#78837b]">Waiting queue · fully refundable</div>
+                  {#each pendingOrders as order, queueIndex}
+                    <div class="flex items-center gap-2 border-t border-white/[0.05] px-1 py-1.5 first:border-t-0">
+                      <span class="w-4 text-[9px] tabular-nums text-[#68736c]">{queueIndex + 1}</span>
+                      <span class="training-order-icon">{@render troopGlyph(order.type)}</span>
+                      <span class="min-w-0 flex-1">
+                        <span class="block truncate text-[10px] text-[#b6c0b9]">{order.count} {troopName(order.type, order.count)}</span>
+                        <span class="block truncate text-[8px] tabular-nums text-[#707b74]">refund {order.goldCost.toLocaleString()}g · {order.populationCost.toLocaleString()} residents</span>
+                      </span>
+                      <button
+                        class="border border-red-300/20 px-2 py-1 text-[8px] font-bold uppercase tracking-wide text-red-200/80 hover:bg-red-300/10 disabled:opacity-30"
+                        disabled={busy}
+                        on:click={() => cancelTrainingOrder(city, order)}>Cancel</button
+                      >
+                    </div>
+                  {/each}
                 </div>
-              {:else}
-                <div class="mt-2 border-t border-white/[0.06] pt-2 text-[10px] text-[#68716a]">Ready · select to train troops</div>
               {/if}
-            </button>
+
+              {#if selected}
+                {@const stat = TROOP_STATS[recruitType]}
+                {@const available = trainablePopulation(city)}
+                {@const maxCount = Math.max(1, Math.floor(available / Math.max(1, stat.population)))}
+                {@const count = Number.isFinite(recruitCount) ? Math.max(1, Math.floor(recruitCount)) : 1}
+                {@const populationCost = count * stat.population}
+                {@const goldCost = count * stat.gold}
+                {@const affordable = BigInt(goldCost) <= $gold}
+                {@const canQueue = cityBarracks.length > 0 && count <= maxCount && affordable && populationCost <= available}
+                <div class="border-t border-blue-200/15 bg-black/[0.1] p-2.5">
+                  <div class="mb-2 flex items-center justify-between">
+                    <span class="text-[9px] font-bold uppercase tracking-[0.1em] text-blue-100/80">Recruitment pool</span><span class="text-[9px] tabular-nums text-blue-100"
+                      >{available.toLocaleString()} available</span
+                    >
+                  </div>
+                  <div class="mb-1 h-1 overflow-hidden bg-white/[0.08]">
+                    <div class="h-full bg-emerald-300/70" style={`width: ${residents(city) > 0 ? Math.min(100, (available / residents(city)) * 100) : 0}%`}></div>
+                  </div>
+                  <div class="mb-2 flex justify-between text-[8px] tabular-nums text-[#6f7b73]">
+                    <span>{residents(city).toLocaleString()} residents</span><span>{Math.max(0, residents(city) - available).toLocaleString()} core + militia</span>
+                  </div>
+                  <div class="mb-2 text-[9px] font-bold uppercase tracking-[0.1em] text-blue-100/80">Add batch</div>
+                  <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
+                    {#each TROOP_TYPES as type}
+                      {@const option = TROOP_STATS[type]}
+                      <button
+                        class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 {recruitType === type
+                          ? 'bg-[#48666d]/65 text-white'
+                          : 'text-[#929c94] hover:bg-white/[0.04]'}"
+                        on:click={() => (recruitType = type)}
+                      >
+                        {@render troopGlyph(type)}<span class="mt-1 truncate text-[8px] font-bold">{option.name}</span>
+                      </button>
+                    {/each}
+                  </div>
+                  <label class="mt-2 block border border-white/[0.08] bg-black/10 px-2.5 py-2">
+                    <span class="flex items-center justify-between text-[9px]"
+                      ><span>Batch size</span><input
+                        class="numeric-entry numeric-entry-count"
+                        aria-label="Number of troops to train"
+                        type="number"
+                        min="1"
+                        max={maxCount}
+                        step="1"
+                        bind:value={recruitCount}
+                      /></span
+                    >
+                    <input class="mt-2 block w-full accent-[#78a9b5]" type="range" min="1" max={maxCount} step="1" bind:value={recruitCount} />
+                  </label>
+                  <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[9px] tabular-nums">
+                    <span class="text-[#7d8881]">Reserved now</span><span class="text-right {affordable ? 'text-amber-100' : 'text-red-300'}"
+                      >{goldCost.toLocaleString()} gold · {populationCost.toLocaleString()} residents</span
+                    >
+                    <span class="text-[#7d8881]">Base lane time</span><span class="text-right text-blue-100">{fmtCountdown(count * stat.trainSeconds * 1000)}</span>
+                  </div>
+                  <div class="mt-2 text-[8px] leading-relaxed text-[#748078]">The oldest queued batch goes to the next free barracks. Its lane speed determines the actual finish time.</div>
+                  <button class="game-action game-action-primary mt-2 w-full" disabled={busy || !canQueue} on:click={() => queueTroops(city)}
+                    >{busy ? 'Working…' : `Queue ${count} ${troopName(recruitType, count)}`}</button
+                  >
+                </div>
+              {/if}
+            </section>
           {:else}
-            <div class="px-3 py-8 text-center text-[11px] leading-relaxed text-[#737c75]">Build a barracks in one of your cities to train troops.</div>
+            <div class="px-3 py-8 text-center text-[11px] leading-relaxed text-[#737c75]">Claim a city and build barracks to create a training pipeline.</div>
           {/each}
         {:else}
           <div class="flex items-center justify-between px-1 pb-2 text-[10px] text-[#778078]">
@@ -3495,18 +3626,8 @@
             {@const nextStats = getLevelStats(sel.building.type, sel.building.level + 1)}
             {@const upgrading = !!(sel.building.constructionStart && sel.building.constructionEnd && Number(sel.building.constructionEnd.seconds) * 1000 > now)}
             {@const isBarracks = sel.building.type === BuildingType.BARRACKS}
-            {@const recruitStat = TROOP_STATS[recruitType]}
-            {@const trainingCapacity = isBarracks ? barracksCapacity(sel.building) : 0}
-            {@const availablePopulation = trainablePopulation(sel.city)}
-            {@const batchCount = Number.isFinite(recruitCount) ? Math.floor(recruitCount) : 1}
-            {@const trainingCost = batchCount * recruitStat.gold}
-            {@const canAffordTraining = BigInt(trainingCost) <= $gold}
-            {@const trainingPopulation = batchCount * recruitStat.population}
-            {@const populationAfterTraining = Math.max(0, availablePopulation - trainingPopulation)}
-            {@const trainingBatchSeconds = batchCount * recruitStat.trainSeconds}
             {@const barracksTrainingInProgress = isBarracks && trainingOrdersAvailable && selectedTrainingOrders.length > 0}
             {@const canAffordUpgrade = !!nextStats && canAfford(nextStats.cost)}
-            {@const canTrain = isBarracks && !isBuilding && !upgrading && batchCount >= 1 && batchCount <= trainingCapacity && canAffordTraining && trainingPopulation <= availablePopulation}
             <section class="inspector-section">
               <div class="flex items-center gap-2.5">
                 {@render structureGlyph(sel.building.type, sel.building.level)}
@@ -3548,13 +3669,16 @@
                       <span class="text-blue-300">+{stats.population}</span>
                     </div>
                   {/if}
+                  {#if isBarracks}
+                    <div class="inspector-row"><span>Training lane</span><span class="text-blue-200">{stats.trainingSpeedMultiplier.toFixed(2)}× speed</span></div>
+                  {/if}
                 </div>
               {/if}
               {#if nextStats && sel.city?.owner?.value === $userId}
                 <div class="mt-3 border-t border-white/[0.07] pt-3">
                   <div class="inspector-label mb-1">Next level</div>
                   {#if barracksTrainingInProgress}
-                    <div class="mb-2 text-[10px] text-amber-200/80">Finish the training queue before upgrading this barracks.</div>
+                    <div class="mb-2 text-[10px] text-amber-200/80">Finish this barracks' active batch before upgrading it.</div>
                   {/if}
                   <div class="inspector-row">
                     <span>Cost</span>
@@ -3590,6 +3714,16 @@
                       </span>
                     </div>
                   {/if}
+                  {#if isBarracks}
+                    <div class="inspector-row">
+                      <span>Training speed</span>
+                      <span
+                        ><span class="text-[#646e66]">{stats?.trainingSpeedMultiplier.toFixed(2)}×</span><span class="mx-1 text-[#555e57]">→</span><span class="text-blue-200"
+                          >{nextStats.trainingSpeedMultiplier.toFixed(2)}×</span
+                        ></span
+                      >
+                    </div>
+                  {/if}
                 </div>
               {/if}
               {#if sel.city?.owner?.value === $userId}
@@ -3618,117 +3752,37 @@
               {/if}
             </section>
             {#if isBarracks && sel.city?.owner?.value === $userId && !isBuilding}
+              {@const activeOrder = selectedTrainingOrders[0]}
+              {@const activeStartsAt = timestampMs(activeOrder?.startedAt)}
+              {@const activeCompletesAt = timestampMs(activeOrder?.completesAt)}
+              {@const activeProgress = activeOrder && activeCompletesAt > activeStartsAt ? Math.max(0, Math.min(100, ((now - activeStartsAt) / (activeCompletesAt - activeStartsAt)) * 100)) : 0}
               <section class="inspector-section barracks-training-section">
-                <div class="barracks-training-scroll">
-                  {#if trainingOrdersAvailable && selectedTrainingOrders.length > 0}
-                    {@const activeOrder = selectedTrainingOrders[0]}
-                    {@const queuedPopulation = queuePopulationCost(selectedTrainingOrders)}
-                    {@const activeStartsAt = timestampMs(activeOrder.startedAt)}
-                    {@const activeCompletesAt = timestampMs(activeOrder.completesAt)}
-                    {@const activeProgress =
-                      activeStartsAt > 0 && activeCompletesAt > activeStartsAt ? Math.max(0, Math.min(100, ((now - activeStartsAt) / (activeCompletesAt - activeStartsAt)) * 100)) : 0}
-                    <div class="mb-2 border border-blue-200/15 bg-blue-200/[0.05] px-2.5 py-2">
-                      <div class="flex items-center justify-between gap-3 text-[10px]">
-                        <span class="flex items-center gap-2 font-semibold text-blue-100">
-                          <span class="training-order-icon">{@render troopGlyph(activeOrder.type)}</span>
-                          Training {activeOrder.count}
-                          {troopName(activeOrder.type, activeOrder.count)}
-                        </span>
-                        <span class="tabular-nums text-blue-200/80">{activeCompletesAt ? fmtCountdown(activeCompletesAt - now) : 'Waiting'}</span>
-                      </div>
-                      {#if activeStartsAt > 0 && activeCompletesAt > activeStartsAt}
-                        <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.08]">
-                          <div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div>
-                        </div>
-                      {/if}
-                      {#if selectedTrainingOrders.length > 1}
-                        <div class="mt-1.5 text-[9px] tabular-nums text-[#7f9292]">
-                          +{selectedTrainingOrders.length - 1}
-                          {selectedTrainingOrders.length === 2 ? 'batch' : 'batches'} waiting
-                        </div>
-                      {/if}
-                      <div class="mt-1 text-[9px] tabular-nums text-blue-200/70">
-                        {queuedPopulation.toLocaleString()}
-                        {queuedPopulation === 1 ? 'resident' : 'residents'} transferred into this queue
-                      </div>
-                    </div>
-                  {/if}
-                  <div class="mb-2 flex items-center justify-between gap-3">
-                    <span class="inspector-label">Train troops</span>
-                    <span class="text-[10px] tabular-nums text-[#818a83]">Batch limit {trainingCapacity}</span>
+                <div class="inspector-label">Training lane</div>
+                <div class="mt-2 border border-blue-200/15 bg-blue-200/[0.04] px-3 py-2.5">
+                  <div class="flex items-center justify-between text-[10px]">
+                    <span class="font-semibold text-[#c8d4d0]">Barracks level {sel.building.level}</span><span class="tabular-nums text-blue-200"
+                      >{barracksTrainingSpeed(sel.building).toFixed(2)}× speed</span
+                    >
                   </div>
-                  <div class="mb-3">{@render populationUse(sel.city!)}</div>
-                  <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
-                    {#each TROOP_TYPES as type}
-                      {@const option = TROOP_STATS[type]}
-                      <button
-                        class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 text-center transition-colors {recruitType === type
-                          ? 'bg-[#48666d]/65 text-white'
-                          : 'text-[#9d9c8d] hover:bg-white/[0.04] hover:text-white'}"
-                        on:click={() => (recruitType = type)}
+                  {#if activeOrder}
+                    <div class="mt-2 flex items-center justify-between gap-3 border-t border-white/[0.07] pt-2 text-[10px]">
+                      <span class="flex min-w-0 items-center gap-2 text-blue-100"
+                        ><span class="training-order-icon">{@render troopGlyph(activeOrder.type)}</span><span class="truncate"
+                          >Training {activeOrder.count} {troopName(activeOrder.type, activeOrder.count)}</span
+                        ></span
                       >
-                        {@render troopGlyph(type)}
-                        <span class="mt-1 block w-full truncate text-[9px] font-bold">{option.name}</span>
-                        <span class="mt-0.5 block text-[8px] tabular-nums text-[#859799]">
-                          {option.gold}g · {option.population}
-                          {option.population === 1 ? 'recruit' : 'recruits'}
-                        </span>
-                      </button>
-                    {/each}
-                  </div>
-                  <label class="mt-3 block border border-white/[0.08] bg-black/10 px-3 py-2.5">
-                    <span class="flex items-center justify-between gap-3 text-[10px]">
-                      <span class="font-semibold text-[#bdc8c7]">Number to train</span>
-                      <span class="flex items-center gap-1 text-sm tabular-nums text-blue-200">
-                        <input class="numeric-entry numeric-entry-count" aria-label="Number of troops to train" type="number" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
-                        <span>/ {trainingCapacity}</span>
-                      </span>
-                    </span>
-                    <input class="mt-2 block w-full accent-[#78a9b5]" type="range" min="1" max={trainingCapacity} step="1" bind:value={recruitCount} />
-                    <span class="mt-1 flex justify-between text-[8px] tabular-nums text-[#687679]"><span>1</span><span>Batch capacity {trainingCapacity}</span></span>
-                  </label>
-                  <div class="mt-2 border border-blue-200/10 bg-blue-200/[0.035] px-2 py-1.5 text-[9px] leading-relaxed text-[#849698]">
-                    Recruits leave the city population as soon as the order is queued. Population growth can replenish the available pool.
-                  </div>
-                  <div class="mt-2 border-t border-[#465a5f] pt-1.5">
-                    <div class="inspector-row">
-                      <span>Gold cost</span>
-                      <span class={canAffordTraining ? 'text-amber-200' : 'text-red-300'}>{trainingCost.toLocaleString()} gold</span>
+                      <span class="shrink-0 tabular-nums text-[#a7b0aa]">{fmtCountdown(activeCompletesAt - now)}</span>
                     </div>
-                    <div class="inspector-row">
-                      <span>Residents recruited</span>
-                      <span class={trainingPopulation <= availablePopulation ? 'text-blue-200' : 'text-red-300'}>{trainingPopulation.toLocaleString()}</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span>Recruitable after</span>
-                      {#if trainingPopulation <= availablePopulation}
-                        <span class="text-emerald-200">
-                          <span class="text-[#78817a]">{availablePopulation.toLocaleString()} →</span>
-                          {populationAfterTraining.toLocaleString()}
-                        </span>
-                      {:else}
-                        <span class="text-red-300">{availablePopulation.toLocaleString()} available · {(trainingPopulation - availablePopulation).toLocaleString()} short</span>
-                      {/if}
-                    </div>
-                    <div class="inspector-row">
-                      <span>Ready in</span>
-                      <span>{recruitStat.trainSeconds}s each · {fmtCountdown(trainingBatchSeconds * 1000)} batch</span>
-                    </div>
-                    <div class="inspector-row">
-                      <span>Army upkeep</span>
-                      <span class="text-red-300/80">-{(batchCount * recruitStat.foodPerHour).toLocaleString()} food/hr</span>
-                    </div>
-                  </div>
+                    <div class="mt-2 h-0.5 overflow-hidden bg-white/[0.08]"><div class="h-full bg-blue-300/80 transition-[width] duration-500" style={`width: ${activeProgress}%`}></div></div>
+                    <p class="mt-2 text-[9px] leading-relaxed text-[#77847d]">This batch has started and cannot be cancelled or refunded.</p>
+                  {:else}
+                    <div class="mt-2 border-t border-white/[0.07] pt-2 text-[10px] text-emerald-200/70">Idle · automatically claims the oldest batch from {sel.city?.name}'s queue.</div>
+                  {/if}
                 </div>
-                <div class="barracks-training-action">
-                  <button class="game-action game-action-primary w-full" disabled={busy || !canTrain} on:click={queueTroops}>
-                    <svg viewBox="0 0 24 24" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="square" stroke-linejoin="miter">
-                      <circle cx="9" cy="7" r="3" />
-                      <path d="M3.5 19v-1.5c0-3 2.5-5 5.5-5s5.5 2 5.5 5V19M18 8v6M15 11h6" />
-                    </svg>
-                    {busy ? 'Working…' : 'Train'}
-                  </button>
-                </div>
+                <button class="game-action game-action-secondary mt-3 w-full" on:click={() => openCityTraining(sel?.city?.cityId?.value)}>
+                  <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 5h14M3 10h14M3 15h9M5 3v4M10 8v4M15 13v4" /></svg>
+                  Open city training
+                </button>
               </section>
             {/if}
           {:else if !selectedArmy && !sel.building && sel.city?.owner?.value === $userId && !showCityManagement}

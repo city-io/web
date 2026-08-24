@@ -23,6 +23,8 @@ message BuildingLevelStats {
   google.protobuf.Duration construction_time = 3;
   repeated ResourceRate production = 4;
   double population = 5;
+  // Barracks only: throughput relative to a level-one training lane.
+  double training_speed_multiplier = 6;
 }
 
 message BuildingConfig {
