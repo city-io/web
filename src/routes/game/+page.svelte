@@ -141,6 +141,7 @@
   let policySaving = false;
   let activeGameTooltip: { title: string; detail: string; x: number; y: number; below: boolean } | null = null;
   let selectedMailboxMessageId: string | null = null;
+  let mailRoundLogExpanded = false;
 
   const showGameTooltip = (event: MouseEvent | FocusEvent, title: string, detail: string) => {
     const rect = (event.currentTarget as HTMLElement).getBoundingClientRect();
@@ -751,6 +752,7 @@
     const id = message.mailboxMessageId?.value;
     if (!id) return;
     selectedMailboxMessageId = id;
+    mailRoundLogExpanded = false;
     if (message.readAt) return;
     try {
       const response = await mailboxClient.markMailboxMessageRead({ mailboxMessageId: message.mailboxMessageId });
@@ -3118,12 +3120,19 @@
 
   {#if selectedMailboxMessage}
     {@const report = selectedMailboxMessage.content.case === 'battleReport' ? selectedMailboxMessage.content.value : undefined}
+    {@const visibleReportRounds = report ? (mailRoundLogExpanded ? report.rounds : report.rounds.slice(0, 3)) : []}
+    {@const hiddenReportRoundCount = report ? Math.max(0, report.rounds.length - visibleReportRounds.length) : 0}
     <div
       class="pointer-events-auto absolute inset-0 z-30 flex items-center justify-center bg-black/60 p-3 sm:p-8"
       on:pointerdown|self={() => (selectedMailboxMessageId = null)}
       transition:fade={{ duration: 140 }}
     >
-      <div class="mail-dialog inspector-panel" role="dialog" aria-modal="true" aria-label={report ? `${reportOutcomeLabel(report.outcome)} battle report` : 'Mailbox message'}>
+      <div
+        class="mail-dialog inspector-panel {report ? 'mail-dialog-report' : ''}"
+        role="dialog"
+        aria-modal="true"
+        aria-label={report ? `${reportOutcomeLabel(report.outcome)} battle report` : 'Mailbox message'}
+      >
         <header class="mail-dialog-header">
           <span class="selection-crest h-10 w-10 text-amber-100" aria-hidden="true">
             <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
@@ -3155,7 +3164,7 @@
 
         <div class="mail-dialog-body">
           {#if report}
-            <div class="grid grid-cols-2 gap-px bg-white/[0.06] text-[9px] sm:grid-cols-4">
+            <div class="grid shrink-0 grid-cols-2 gap-px bg-white/[0.06] text-[9px] sm:grid-cols-4">
               <div class="bg-[#1c282a] p-3">
                 <span class="block uppercase tracking-wide text-[#68756e]">Resolution</span><strong class="mt-1 block text-[11px] text-[#dfe4dc]">{reportResolutionLabel(report.resolution)}</strong>
               </div>
@@ -3169,7 +3178,7 @@
                 <span class="block uppercase tracking-wide text-[#68756e]">Ended</span><strong class="mt-1 block text-[10px] text-[#bdc6be]">{reportDate(report.endedAt)}</strong>
               </div>
             </div>
-            <div class="grid gap-3 p-3 md:grid-cols-2">
+            <div class="grid shrink-0 gap-3 p-3 md:grid-cols-2">
               {@render reportSideRecord(
                 'Attackers',
                 report.attackers,
@@ -3183,10 +3192,13 @@
                 report.rounds.reduce((total, round) => total + reportLossTotal(round.defenderLosses), 0)
               )}
             </div>
-            <section class="mx-3 mb-3 border border-white/[0.09] bg-black/[0.1]">
-              <div class="border-b border-white/[0.07] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-[#aab5ad]">Round log</div>
-              <div class="divide-y divide-white/[0.06]">
-                {#each report.rounds as round}
+            <section class="mail-round-log mx-3 mb-3 border border-white/[0.09] bg-black/[0.1]">
+              <div class="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.07] px-3 py-2 text-[9px] font-bold uppercase tracking-[0.1em] text-[#aab5ad]">
+                <span>Round log</span>
+                <span class="font-normal tabular-nums text-[#68756e]">{report.rounds.length} {report.rounds.length === 1 ? 'round' : 'rounds'}</span>
+              </div>
+              <div class="mail-round-log-list divide-y divide-white/[0.06] {mailRoundLogExpanded ? 'mail-round-log-list-expanded' : ''}">
+                {#each visibleReportRounds as round}
                   <div class="px-3 py-2.5">
                     <div class="flex items-center justify-between gap-2 text-[9px]">
                       <strong class="text-[#d6ded7]">Round {round.number}</strong>
@@ -3213,6 +3225,13 @@
                   <div class="px-3 py-4 text-center text-[9px] text-[#68736d]">Resolved before the first combat exchange.</div>
                 {/each}
               </div>
+              {#if hiddenReportRoundCount > 0}
+                <button class="mail-round-log-toggle" on:click={() => (mailRoundLogExpanded = true)}>
+                  Show {hiddenReportRoundCount} more {hiddenReportRoundCount === 1 ? 'round' : 'rounds'}
+                </button>
+              {:else if mailRoundLogExpanded && report.rounds.length > 3}
+                <button class="mail-round-log-toggle" on:click={() => (mailRoundLogExpanded = false)}>Show first 3 rounds</button>
+              {/if}
             </section>
           {:else}
             <div class="px-5 py-10 text-center text-sm text-[#858f88]">This dispatch has no additional details.</div>
