@@ -551,6 +551,41 @@
     box-shadow: inset 0 0 0 1px rgba(191, 219, 254, 0.08);
   }
 
+  .battle-casualty-composition {
+    @apply flex flex-wrap gap-1.5;
+  }
+
+  .battle-casualty-chip {
+    @apply flex min-w-[6.25rem] items-center gap-1.5 border border-red-200/15 bg-black/[0.14] p-1 pr-1.5 text-red-100/90;
+  }
+
+  .battle-casualty-chip .unit-token,
+  .battle-casualty-kind-token {
+    @apply flex h-7 w-7 shrink-0 items-center justify-center text-red-100/80;
+    border: 1px solid rgba(254, 202, 202, 0.16);
+    background: rgba(72, 32, 32, 0.22);
+    box-shadow: inset 0 1px rgba(254, 226, 226, 0.06);
+  }
+
+  .battle-casualty-chip .unit-token > svg,
+  .battle-casualty-kind-token > svg {
+    @apply h-5 w-5;
+  }
+
+  .battle-casualty-chip .unit-tier {
+    @apply min-w-3 text-[6px] leading-[10px];
+    background: #281b1c;
+    border-color: rgba(254, 202, 202, 0.18);
+  }
+
+  .battle-casualty-chip strong {
+    @apply block text-[10px] tabular-nums leading-none text-red-100;
+  }
+
+  .battle-casualty-chip > span:last-child > span {
+    @apply mt-0.5 block truncate text-[7px] leading-none text-[#9b8d8b];
+  }
+
   .structure-token {
     @apply relative flex h-11 w-11 shrink-0 items-center justify-center text-[#d8e5e2];
     border: 1px solid #62767b;

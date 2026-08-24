@@ -320,17 +320,10 @@
   const troopStackTotal = (stacks: { count?: number }[]) => stacks.reduce((total, stack) => total + (stack.count ?? 0), 0);
   const troopStackCount = (stacks: { type: TroopType; count?: number }[], type: TroopType) => stacks.find((stack) => stack.type === type)?.count ?? 0;
   const battleMilitaryLosses = (losses?: BattleLossSummary) => troopStackTotal(losses?.troops ?? []) + Number(losses?.militia ?? 0n);
-  const battleLossParts = (losses?: BattleLossSummary) => [
-    ...(losses?.troops ?? []).filter((stack) => (stack.count ?? 0) > 0).map((stack) => `${stack.count} ${troopName(stack.type, stack.count)}`),
-    ...(losses?.militia && losses.militia > 0n ? [`${losses.militia.toString()} militia`] : []),
-    ...(losses?.civilians && losses.civilians > 0n ? [`${losses.civilians.toString()} civilians`] : [])
-  ];
   const reportArmyLosses = (army: BattleReportArmy) => troopStackTotal(army.startingTroops) - troopStackTotal(army.survivingTroops);
   const reportSideStart = (side?: ReportSide) => (side?.armies ?? []).reduce((total, army) => total + troopStackTotal(army.startingTroops), Number(side?.startingMilitia ?? 0n));
   const reportSideSurvivors = (side?: ReportSide) => (side?.armies ?? []).reduce((total, army) => total + troopStackTotal(army.survivingTroops), Number(side?.survivingMilitia ?? 0n));
   const reportLossTotal = (losses: BattleReportLoss[]) => losses.reduce((total, loss) => total + troopStackTotal(loss.troops) + Number(loss.militia), 0);
-  const reportLossDescription = (loss: BattleReportLoss) =>
-    [...loss.troops.map((stack) => `${stack.count ?? 0} ${troopName(stack.type, stack.count)}`), ...(loss.militia > 0n ? [`${loss.militia.toString()} militia`] : [])].join(' · ');
   const reportLossSource = (report: BattleReport, loss: BattleReportLoss) => {
     if (loss.militiaCityId) {
       const settlement = [report.attackers?.settlement, report.defenders?.settlement].find((candidate) => candidate?.cityId?.value === loss.militiaCityId?.value);
@@ -2488,15 +2481,6 @@
   </section>
 {/snippet}
 
-{#snippet reportRoundLosses(losses: BattleReportLoss[], report: BattleReport)}
-  {#each losses as loss}
-    <div class="mt-0.5 flex items-start justify-between gap-2 text-[8px] text-[#77827b]">
-      <span>{reportLossSource(report, loss)}</span>
-      <span class="text-right tabular-nums text-red-200/80">{reportLossDescription(loss)}</span>
-    </div>
-  {/each}
-{/snippet}
-
 {#snippet populationSegment(label: string, count: number, detail: string, color: string, width: number)}
   <span
     class="relative block h-full"
@@ -2721,6 +2705,85 @@
   </span>
 {/snippet}
 
+{#snippet casualtyKindGlyph(kind: 'militia' | 'civilian')}
+  <span class="battle-casualty-kind-token" aria-hidden="true">
+    {#if kind === 'militia'}
+      <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <path d="M18 4 29 8v8c0 7-4.4 12.6-11 16-6.6-3.4-11-9-11-16V8l11-4Z" fill="currentColor" opacity=".14" />
+        <path d="M18 4 29 8v8c0 7-4.4 12.6-11 16-6.6-3.4-11-9-11-16V8l11-4Z" stroke-width="1.8" />
+        <path d="M12 19h12M18 10v18" stroke-width="1.8" />
+      </svg>
+    {:else}
+      <svg viewBox="0 0 36 36" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round">
+        <circle cx="18" cy="11" r="5" fill="currentColor" opacity=".18" stroke-width="1.8" />
+        <path d="M8 31v-4c0-5.5 4.5-9 10-9s10 3.5 10 9v4H8Z" fill="currentColor" opacity=".12" stroke-width="1.8" />
+      </svg>
+    {/if}
+  </span>
+{/snippet}
+
+{#snippet casualtyComposition(troops: { type: TroopType; count?: number }[], militia: bigint = 0n, civilians: bigint = 0n, emptyLabel = 'No casualties')}
+  {@const troopLosses = troops.filter((stack) => (stack.count ?? 0) > 0)}
+  <div class="battle-casualty-composition">
+    {#each troopLosses as stack}
+      <span class="battle-casualty-chip" title={`${stack.count ?? 0} ${troopName(stack.type, stack.count)}`}>
+        {@render troopGlyph(stack.type)}
+        <span class="min-w-0">
+          <strong>{(stack.count ?? 0).toLocaleString()}</strong>
+          <span>{troopName(stack.type, stack.count)}</span>
+        </span>
+      </span>
+    {/each}
+    {#if militia > 0n}
+      <span class="battle-casualty-chip" title={`${militia.toString()} militia`}>
+        {@render casualtyKindGlyph('militia')}
+        <span class="min-w-0">
+          <strong>{militia.toLocaleString()}</strong>
+          <span>Militia</span>
+        </span>
+      </span>
+    {/if}
+    {#if civilians > 0n}
+      <span class="battle-casualty-chip" title={`${civilians.toString()} civilian casualties`}>
+        {@render casualtyKindGlyph('civilian')}
+        <span class="min-w-0">
+          <strong>{civilians.toLocaleString()}</strong>
+          <span>Civilians</span>
+        </span>
+      </span>
+    {/if}
+    {#if troopLosses.length === 0 && militia === 0n && civilians === 0n}
+      <span class="text-[8px] text-[#707c75]">{emptyLabel}</span>
+    {/if}
+  </div>
+{/snippet}
+
+{#snippet reportRoundCasualties(label: string, losses: BattleReportLoss[], civilians: bigint, report: BattleReport, attacking: boolean, power: number | null)}
+  <section class="border border-white/[0.07] bg-black/[0.09] px-2 py-1.5">
+    <div class="flex items-center justify-between gap-2 text-[8px] font-bold uppercase tracking-[0.08em]">
+      <span class={attacking ? 'text-red-200/90' : 'text-blue-200/90'}>{label}</span>
+      {#if power !== null}<span class="font-normal tabular-nums text-[#77837c]">Power {Math.round(power).toLocaleString()}</span>{/if}
+    </div>
+    <div class="mt-1 space-y-1.5 border-t border-white/[0.05] pt-1.5">
+      {#each losses.filter((loss) => troopStackTotal(loss.troops) > 0 || loss.militia > 0n) as loss}
+        <div>
+          <span class="mb-1 block truncate text-[8px] text-[#7c8881]">{reportLossSource(report, loss)}</span>
+          {@render casualtyComposition(loss.troops, loss.militia)}
+        </div>
+      {/each}
+      {#if civilians > 0n}
+        <div>
+          <span class="mb-1 block text-[8px] text-[#7c8881]">Civilian population</span>
+          {@render casualtyComposition([], 0n, civilians)}
+        </div>
+      {/if}
+      {#if reportLossTotal(losses) === 0 && civilians === 0n}
+        <span class="block py-0.5 text-[8px] text-[#707c75]">No casualties</span>
+      {/if}
+    </div>
+  </section>
+{/snippet}
+
 {#snippet structureGlyph(type: BuildingType, level: number)}
   <span class="structure-token">
     <svg viewBox="0 0 42 42" aria-hidden="true" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round">
@@ -2753,8 +2816,6 @@
   {@const deployed = troopStackTotal(side?.startingTroops ?? []) + Number(side?.startingMilitiaCount ?? 0n)}
   {@const remaining = troopStackTotal(side?.survivingTroops ?? []) + Number(side?.militiaCount ?? 0n)}
   {@const totalLosses = battleMilitaryLosses(side?.cumulativeLosses)}
-  {@const cumulativeParts = battleLossParts(side?.cumulativeLosses)}
-  {@const lastRoundParts = battleLossParts(side?.lastRoundLosses)}
   <section class="battle-side {attackers ? 'battle-side-attackers' : 'battle-side-defenders'}">
     <div class="flex items-start justify-between gap-3 border-b border-white/[0.08] px-3 py-2.5">
       <div>
@@ -2783,15 +2844,13 @@
       </div>
     </div>
 
-    <div class="border-b border-white/[0.08] bg-red-300/[0.035] px-3 py-2">
-      <div class="flex items-center justify-between gap-3 text-[8px] font-bold uppercase tracking-[0.09em]">
-        <span class="text-[#8b9690]">Casualty detail</span>
-        <span class="text-red-200/80">{cumulativeParts.length ? cumulativeParts.join(' · ') : 'None'}</span>
-      </div>
+    <div class="border-b border-white/[0.08] bg-red-300/[0.035] px-3 py-2.5">
+      <div class="mb-1.5 text-[8px] font-bold uppercase tracking-[0.09em] text-[#8b9690]">Total casualties</div>
+      {@render casualtyComposition(side?.cumulativeLosses?.troops ?? [], side?.cumulativeLosses?.militia ?? 0n, side?.cumulativeLosses?.civilians ?? 0n, 'None')}
       {#if completedRounds > 0}
-        <div class="mt-1.5 flex items-center justify-between gap-3 border-t border-red-200/10 pt-1.5 text-[9px]">
-          <span class="text-[#7f8a84]">Round {completedRounds}</span>
-          <span class="text-right tabular-nums text-red-100">{lastRoundParts.length ? lastRoundParts.join(' · ') : 'No casualties'}</span>
+        <div class="mt-2 border-t border-red-200/10 pt-2">
+          <div class="mb-1.5 text-[8px] font-bold uppercase tracking-[0.08em] text-[#7f8a84]">Round {completedRounds}</div>
+          {@render casualtyComposition(side?.lastRoundLosses?.troops ?? [], side?.lastRoundLosses?.militia ?? 0n, side?.lastRoundLosses?.civilians ?? 0n)}
         </div>
       {/if}
     </div>
@@ -3204,22 +3263,17 @@
                       <strong class="text-[#d6ded7]">Round {round.number}</strong>
                       <span class="text-[#69756e]">{reportDate(round.occurredAt)}</span>
                     </div>
-                    <div class="mt-1 grid grid-cols-2 gap-3 text-[9px] tabular-nums">
-                      <span class="text-red-200/80">
-                        {report.attackers?.strengthVisible ? `Attack power ${Math.round(round.attackerPower).toLocaleString()} · ` : ''}{reportLossTotal(round.attackerLosses)} military lost{round.attackerCivilianCasualties >
-                        0n
-                          ? ` · ${round.attackerCivilianCasualties} civilians`
-                          : ''}
-                      </span>
-                      <span class="text-right text-blue-200/80">
-                        {report.defenders?.strengthVisible ? `Defense power ${Math.round(round.defenderPower).toLocaleString()} · ` : ''}{reportLossTotal(round.defenderLosses)} military lost{round.defenderCivilianCasualties >
-                        0n
-                          ? ` · ${round.defenderCivilianCasualties} civilians`
-                          : ''}
-                      </span>
+                    <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                      {@render reportRoundCasualties('Attackers', round.attackerLosses, round.attackerCivilianCasualties, report, true, report.attackers?.strengthVisible ? round.attackerPower : null)}
+                      {@render reportRoundCasualties(
+                        'Defenders',
+                        round.defenderLosses,
+                        round.defenderCivilianCasualties,
+                        report,
+                        false,
+                        report.defenders?.strengthVisible ? round.defenderPower : null
+                      )}
                     </div>
-                    {@render reportRoundLosses(round.attackerLosses, report)}
-                    {@render reportRoundLosses(round.defenderLosses, report)}
                   </div>
                 {:else}
                   <div class="px-3 py-4 text-center text-[9px] text-[#68736d]">Resolved before the first combat exchange.</div>
