@@ -23,6 +23,8 @@
 
   $: mapWidth = $gameConfig.mapSize || 75;
   $: mapHeight = $gameConfig.mapSize || 75;
+  $: minimapWidth = mapHeight;
+  $: minimapHeight = mapWidth;
 
   const terrainColor = (type: TerrainType) => {
     switch (type) {
@@ -49,15 +51,19 @@
 
   const clamp = (value: number, min: number, max: number) => Math.max(min, Math.min(max, value));
 
+  const toMinimap = (x: number, y: number) => ({ x: mapHeight - 1 - y, y: x });
+  const fromMinimap = (x: number, y: number) => ({ x: y, y: mapHeight - 1 - x });
+
   const minimapBounds = () => {
     if (dragBounds) return dragBounds;
-    const cols = mapWidth / minimapZoom;
-    const rows = mapHeight / minimapZoom;
+    const cols = minimapWidth / minimapZoom;
+    const rows = minimapHeight / minimapZoom;
+    const center = toMinimap($mapCenter.x, $mapCenter.y);
     return {
       cols,
       rows,
-      left: clamp($mapCenter.x - cols / 2, 0, mapWidth - cols),
-      top: clamp($mapCenter.y - rows / 2, 0, mapHeight - rows)
+      left: clamp(center.x - cols / 2, 0, minimapWidth - cols),
+      top: clamp(center.y - rows / 2, 0, minimapHeight - rows)
     };
   };
 
@@ -75,19 +81,20 @@
 
     if ($tiles.size) {
       const firstCol = Math.max(0, Math.floor(left));
-      const lastCol = Math.min(mapWidth, Math.ceil(left + cols));
+      const lastCol = Math.min(minimapWidth, Math.ceil(left + cols));
       const firstRow = Math.max(0, Math.floor(top));
-      const lastRow = Math.min(mapHeight, Math.ceil(top + rows));
-      for (let y = firstRow; y < lastRow; y++) {
-        for (let x = firstCol; x < lastCol; x++) {
+      const lastRow = Math.min(minimapHeight, Math.ceil(top + rows));
+      for (let minimapY = firstRow; minimapY < lastRow; minimapY++) {
+        for (let minimapX = firstCol; minimapX < lastCol; minimapX++) {
+          const { x, y } = fromMinimap(minimapX, minimapY);
           const visibility = visibilityAt(x, y);
           if (visibility === TileVisibilityState.UNEXPLORED) continue;
           const color = terrainColor($tiles.get(tileKey(x, y))?.terrain ?? TerrainType.GRASSLAND);
           ctx.fillStyle = visibility === TileVisibilityState.VISIBLE ? color : `${color}88`;
-          const x1 = Math.floor((x - left) * scaleX);
-          const y1 = Math.floor((y - top) * scaleY);
-          const x2 = Math.ceil((x + 1 - left) * scaleX);
-          const y2 = Math.ceil((y + 1 - top) * scaleY);
+          const x1 = Math.floor((minimapX - left) * scaleX);
+          const y1 = Math.floor((minimapY - top) * scaleY);
+          const x2 = Math.ceil((minimapX + 1 - left) * scaleX);
+          const y2 = Math.ceil((minimapY + 1 - top) * scaleY);
           ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
         }
       }
@@ -98,8 +105,9 @@
       if (!c.start) continue;
       const own = c.owner?.value === $userId;
       if (!own && visibilityAt(c.start.x, c.start.y) !== TileVisibilityState.VISIBLE) continue;
+      const position = toMinimap(c.start.x, c.start.y + c.size - 1);
       ctx.fillStyle = own ? 'rgba(68,153,255,0.5)' : c.owner ? 'rgba(221,68,68,0.5)' : 'rgba(153,153,153,0.4)';
-      ctx.fillRect(Math.floor((c.start.x - left) * scaleX), Math.floor((c.start.y - top) * scaleY), Math.ceil(c.size * scaleX), Math.ceil(c.size * scaleY));
+      ctx.fillRect(Math.floor((position.x - left) * scaleX), Math.floor((position.y - top) * scaleY), Math.ceil(c.size * scaleX), Math.ceil(c.size * scaleY));
     }
 
     // Buildings as bright pixels.
@@ -107,24 +115,27 @@
     for (const b of $buildings) {
       if (!b.coords) continue;
       if (visibilityAt(b.coords.x, b.coords.y) !== TileVisibilityState.VISIBLE) continue;
-      ctx.fillRect(Math.floor((b.coords.x - left) * scaleX), Math.floor((b.coords.y - top) * scaleY), Math.max(1, scaleX), Math.max(1, scaleY));
+      const position = toMinimap(b.coords.x, b.coords.y);
+      ctx.fillRect(Math.floor((position.x - left) * scaleX), Math.floor((position.y - top) * scaleY), Math.max(1, scaleX), Math.max(1, scaleY));
     }
 
     // Armies use owner colors and a slightly larger dot than buildings.
     for (const army of $armies) {
       if (!army.coords) continue;
       if (visibilityAt(army.coords.x, army.coords.y) !== TileVisibilityState.VISIBLE) continue;
+      const position = toMinimap(army.coords.x, army.coords.y);
       ctx.fillStyle = army.owner?.value === $userId ? '#60a5fa' : '#f87171';
-      ctx.fillRect(Math.floor((army.coords.x - left) * scaleX) - 1, Math.floor((army.coords.y - top) * scaleY) - 1, Math.max(2, scaleX + 1), Math.max(2, scaleY + 1));
+      ctx.fillRect(Math.floor((position.x - left) * scaleX) - 1, Math.floor((position.y - top) * scaleY) - 1, Math.max(2, scaleX + 1), Math.max(2, scaleY + 1));
     }
 
     // Viewport rectangle from the live map center + visible span.
     if (viewCols > 0 && viewRows > 0) {
-      const vx = ($mapCenter.x - viewCols / 2 - left) * scaleX;
-      const vy = ($mapCenter.y - viewRows / 2 - top) * scaleY;
+      const center = toMinimap($mapCenter.x, $mapCenter.y);
+      const vx = (center.x - viewRows / 2 - left) * scaleX;
+      const vy = (center.y - viewCols / 2 - top) * scaleY;
       ctx.strokeStyle = '#efe2c4';
       ctx.lineWidth = 1;
-      ctx.strokeRect(Math.round(vx) + 0.5, Math.round(vy) + 0.5, Math.round(viewCols * scaleX), Math.round(viewRows * scaleY));
+      ctx.strokeRect(Math.round(vx) + 0.5, Math.round(vy) + 0.5, Math.round(viewRows * scaleX), Math.round(viewCols * scaleY));
     }
 
     ctx.strokeStyle = 'rgba(255,255,255,0.12)';
@@ -151,8 +162,9 @@
   const panFromPointer = (clientX: number, clientY: number) => {
     const rect = canvas.getBoundingClientRect();
     const { cols, rows, left, top } = minimapBounds();
-    const col = clamp(Math.round(left + ((clientX - rect.left) / rect.width) * cols), 0, mapWidth - 1);
-    const row = clamp(Math.round(top + ((clientY - rect.top) / rect.height) * rows), 0, mapHeight - 1);
+    const position = fromMinimap(left + ((clientX - rect.left) / rect.width) * cols, top + ((clientY - rect.top) / rect.height) * rows);
+    const col = clamp(Math.round(position.x), 0, mapWidth - 1);
+    const row = clamp(Math.round(position.y), 0, mapHeight - 1);
     onPan(col, row);
   };
 
