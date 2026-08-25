@@ -6,7 +6,7 @@
   import { fly, fade } from 'svelte/transition';
   import { Application, Container, Graphics, Rectangle, Text } from 'pixi.js';
   import { HW, HH, DIAMOND_VERTS, EDGE_TO_NEIGHBOR, tileToScreen, screenToTile, tileKey, mapBounds } from '$lib/game/iso';
-  import { getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
+  import { getMemoryFogSprite, getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
   import { TROOP_STATS, TROOP_TYPES, armyDisplayName, armySize, armyTitle, createArmyMarker, troopName, type ArmyPathStep } from '$lib/game/troops';
   import MiniMap from '$lib/components/MiniMap.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
@@ -45,6 +45,7 @@
   const MOVE_ORDER_SUBMIT_DELAY_MS = 0;
   type MovePreviewResult = 'loaded' | 'failed' | 'superseded';
   type ArmyOrderIntent = 'move' | 'attack' | 'siege' | 'retreat';
+  type TileRenderData = { tile?: Tile; city?: City; building?: Building; armies?: Army[] };
 
   // ── pixi state ──────────────────────────────────────────
   let app: Application;
@@ -78,10 +79,27 @@
 
   // tiles
   let loaded = new Map<string, Container>();
+  let loadedCoords = new Map<string, { col: number; row: number }>();
   let visibleTileKeys = new Set<string>();
   let visibleBoundsKey = '';
   let tileLabels = new Map<string, Container>();
-  let tileData = new Map<string, { tile?: Tile; city?: City; building?: Building; armies?: Army[] }>();
+  let tileData = new Map<string, TileRenderData>();
+  let tileRenderSignatures = new Map<string, string>();
+  let syncedTiles: Map<string, Tile> | null = null;
+  let syncedCities: City[] | null = null;
+  let syncedBuildings: Building[] | null = null;
+  let syncedArmies: Army[] | null = null;
+  let syncedArmyOrders: ArmyOrder[] | null = null;
+  let syncedBattles: Battle[] | null = null;
+  let syncedTileVisibility: Map<string, TileVisibilityState> | null = null;
+  let syncedTrainingQueues: Map<string, TrainingOrder[]> | null = null;
+  let renderedSelectedArmyId: string | null = null;
+  let cityLookup = new Map<string, City>();
+  let tileKeysByCity = new Map<string, Set<string>>();
+  let buildingsByTile = new Map<string, Building>();
+  let armiesByTile = new Map<string, Army[]>();
+  let dirtyTileKeys = new Set<string>();
+  let tilePruneTimer: ReturnType<typeof setTimeout> | null = null;
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
   let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
   let trainingGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number }>();
@@ -297,6 +315,7 @@
     clearInterval(tick);
     clearInterval(battleClock);
     if (trainingNoticeTimer) clearTimeout(trainingNoticeTimer);
+    if (tilePruneTimer) clearTimeout(tilePruneTimer);
   });
 
   // ── names ───────────────────────────────────────────────
@@ -347,10 +366,22 @@
       const army = $armies.find((candidate) => candidate.armyId?.value === armyId.value);
       return army ? [army] : [];
     });
-  const battleAt = (x: number, y: number): Battle | undefined => $battles.find((battle) => battle.tileId?.x === x && battle.tileId?.y === y);
-  const siegeBattleForCity = (cityId?: string): Battle | undefined => (cityId ? $battles.find((battle) => battle.defenders?.militiaCityId?.value === cityId) : undefined);
-  const occupationOrderForCity = (cityId?: string): ArmyOrder | undefined =>
-    cityId ? $armyOrders.find((order) => order.objective.case === 'conquerSettlement' && order.objective.value.cityId?.value === cityId && !!order.objective.value.captureStartedAt) : undefined;
+  const indexFirst = <T,>(values: T[], keyOf: (value: T) => string | undefined): Map<string, T> => {
+    const result = new Map<string, T>();
+    for (const value of values) {
+      const key = keyOf(value);
+      if (key && !result.has(key)) result.set(key, value);
+    }
+    return result;
+  };
+  $: battleByTile = indexFirst($battles, (battle) => (battle.tileId ? tileKey(battle.tileId.x, battle.tileId.y) : undefined));
+  $: siegeBattleByCity = indexFirst($battles, (battle) => battle.defenders?.militiaCityId?.value);
+  $: occupationOrderByCity = indexFirst($armyOrders, (order) =>
+    order.objective.case === 'conquerSettlement' && order.objective.value.captureStartedAt ? order.objective.value.cityId?.value : undefined
+  );
+  const battleAt = (x: number, y: number): Battle | undefined => battleByTile.get(tileKey(x, y));
+  const siegeBattleForCity = (cityId?: string): Battle | undefined => (cityId ? siegeBattleByCity.get(cityId) : undefined);
+  const occupationOrderForCity = (cityId?: string): ArmyOrder | undefined => (cityId ? occupationOrderByCity.get(cityId) : undefined);
 
   const openBattle = (battle: Battle) => {
     const battleId = battle.battleId?.value;
@@ -598,15 +629,15 @@
   const currentTrainingQueue = (orders: TrainingOrder[]): TrainingOrder[] => orders;
 
   // ── reactive store sync ─────────────────────────────────
-  // buildLookup is cheap (rebuilds a Map) — run synchronously so tileData is always fresh.
-  // rebuildTiles is expensive (destroys/creates Pixi containers) — debounce via rAF.
+  // Keep the lookup current synchronously for input handling. Pixi refreshes are
+  // coalesced into one animation frame and replace only tiles whose signature changed.
   let renderPending = false;
   const scheduleRender = () => {
     if (renderPending || !cont) return;
     renderPending = true;
     requestAnimationFrame(() => {
       renderPending = false;
-      rebuildTiles();
+      refreshRenderedTiles();
     });
   };
   $: if ($tiles || $tileVisibility || $cities || $buildings || $armies || $armyOrders || $battles) {
@@ -654,24 +685,116 @@
   }
 
   // ── tile data ───────────────────────────────────────────
+  const markTileDirty = (key: string, includeNeighbors = true) => {
+    dirtyTileKeys.add(key);
+    if (!includeNeighbors) return;
+    const [col, row] = key.split(',').map(Number);
+    for (const [dc, dr] of EDGE_TO_NEIGHBOR) dirtyTileKeys.add(tileKey(col + dc, row + dr));
+  };
+
+  const markCityTilesDirty = (cityId?: string) => {
+    if (!cityId) return;
+    for (const key of tileKeysByCity.get(cityId) ?? []) markTileDirty(key);
+  };
+
+  const setTileDataPart = <K extends keyof TileRenderData>(key: string, part: K, value: TileRenderData[K]) => {
+    const current = tileData.get(key) ?? {};
+    if (current[part] === value) return;
+    const next = { ...current, [part]: value };
+    if (!next.tile && !next.city && !next.building && !next.armies?.length) tileData.delete(key);
+    else tileData.set(key, next);
+    markTileDirty(key);
+  };
+
   const buildLookup = () => {
-    tileData.clear();
-    for (const [key, tile] of $tiles) tileData.set(key, { tile });
-    const cityById = new Map($cities.map((city) => [city.cityId?.value, city]));
-    for (const [key, data] of tileData) {
-      const city = cityById.get(data.tile?.cityId?.value);
-      if (city) tileData.set(key, { ...data, city });
+    if ($cities !== syncedCities) {
+      const nextCities = new Map($cities.flatMap((city) => (city.cityId?.value ? [[city.cityId.value, city] as const] : [])));
+      const changedCityIds = new Set([...cityLookup.keys(), ...nextCities.keys()]);
+      for (const cityId of changedCityIds) {
+        const previous = cityLookup.get(cityId);
+        const next = nextCities.get(cityId);
+        if (previous === next) continue;
+        for (const key of tileKeysByCity.get(cityId) ?? []) setTileDataPart(key, 'city', next);
+      }
+      cityLookup = nextCities;
+      syncedCities = $cities;
     }
-    for (const b of $buildings) {
-      if (!b.coords) continue;
-      const k = tileKey(b.coords.x, b.coords.y);
-      tileData.set(k, { ...tileData.get(k), building: b });
+
+    if ($tiles !== syncedTiles) {
+      const nextTileKeysByCity = new Map<string, Set<string>>();
+      for (const [key, tile] of $tiles) {
+        const cityId = tile.cityId?.value;
+        if (cityId) {
+          const keys = nextTileKeysByCity.get(cityId) ?? new Set<string>();
+          keys.add(key);
+          nextTileKeysByCity.set(cityId, keys);
+        }
+        if (syncedTiles?.get(key) !== tile) {
+          setTileDataPart(key, 'tile', tile);
+          setTileDataPart(key, 'city', cityId ? cityLookup.get(cityId) : undefined);
+        }
+      }
+      for (const key of syncedTiles?.keys() ?? []) {
+        if ($tiles.has(key)) continue;
+        setTileDataPart(key, 'tile', undefined);
+        setTileDataPart(key, 'city', undefined);
+      }
+      tileKeysByCity = nextTileKeysByCity;
+      syncedTiles = $tiles;
     }
-    for (const army of $armies) {
-      if (!army.coords) continue;
-      const k = tileKey(army.coords.x, army.coords.y);
-      const current = tileData.get(k);
-      tileData.set(k, { ...current, armies: [...(current?.armies ?? []), army] });
+
+    if ($buildings !== syncedBuildings) {
+      const nextBuildingsByTile = new Map<string, Building>();
+      for (const building of $buildings) {
+        if (building.coords) nextBuildingsByTile.set(tileKey(building.coords.x, building.coords.y), building);
+      }
+      for (const key of new Set([...buildingsByTile.keys(), ...nextBuildingsByTile.keys()])) {
+        setTileDataPart(key, 'building', nextBuildingsByTile.get(key));
+      }
+      buildingsByTile = nextBuildingsByTile;
+      syncedBuildings = $buildings;
+    }
+
+    if ($armies !== syncedArmies) {
+      const nextArmiesByTile = new Map<string, Army[]>();
+      for (const army of $armies) {
+        if (!army.coords) continue;
+        const key = tileKey(army.coords.x, army.coords.y);
+        nextArmiesByTile.set(key, [...(nextArmiesByTile.get(key) ?? []), army]);
+      }
+      for (const key of new Set([...armiesByTile.keys(), ...nextArmiesByTile.keys()])) {
+        const previous = armiesByTile.get(key);
+        const next = nextArmiesByTile.get(key);
+        const unchanged = previous?.length === next?.length && previous?.every((army, index) => army === next?.[index]);
+        if (!unchanged) setTileDataPart(key, 'armies', next);
+      }
+      armiesByTile = nextArmiesByTile;
+      syncedArmies = $armies;
+    }
+
+    if ($tileVisibility !== syncedTileVisibility) {
+      for (const [key, visibility] of $tileVisibility) {
+        if (syncedTileVisibility?.get(key) !== visibility) markTileDirty(key);
+      }
+      for (const key of syncedTileVisibility?.keys() ?? []) {
+        if (!$tileVisibility.has(key)) markTileDirty(key);
+      }
+      syncedTileVisibility = $tileVisibility;
+    }
+
+    if ($battles !== syncedBattles) {
+      for (const battle of [...(syncedBattles ?? []), ...$battles]) {
+        if (battle.tileId) markTileDirty(tileKey(battle.tileId.x, battle.tileId.y), false);
+        markCityTilesDirty(battle.defenders?.militiaCityId?.value);
+      }
+      syncedBattles = $battles;
+    }
+
+    if ($armyOrders !== syncedArmyOrders) {
+      for (const order of [...(syncedArmyOrders ?? []), ...$armyOrders]) {
+        if (order.objective.case === 'conquerSettlement') markCityTilesDirty(order.objective.value.cityId?.value);
+      }
+      syncedArmyOrders = $armyOrders;
     }
   };
 
@@ -859,28 +982,6 @@
   };
 
   // ── data actions ────────────────────────────────────────
-  const rebuildTiles = () => {
-    for (const [, c] of loaded) c.destroy({ children: true });
-    loaded.clear();
-    visibleTileKeys.clear();
-    visibleBoundsKey = '';
-    for (const label of labelLayer?.removeChildren() ?? []) label.destroy({ children: true });
-    tileLabels.clear();
-    constructionGfx.clear();
-    starvingGfx.clear();
-    trainingGfx.clear();
-    battleGfx.clear();
-    siegeGfx.clear();
-    occupationGfx.clear();
-    if (selGfx) {
-      selGfx.destroy();
-      selGfx = null;
-    }
-    loadVisible();
-    if (sel) drawSel(sel.x, sel.y);
-    if (moveArmyId) drawMovePreview(moveTarget ?? moveHover, moveOrderActive ? orderForArmy(movingArmy) : undefined);
-  };
-
   const errorText = (e: unknown, fallback: string): string => {
     if (e instanceof ConnectError) return e.rawMessage;
     return e instanceof Error ? e.message : fallback;
@@ -1518,6 +1619,9 @@
     centerCam($mapCenter.x, $mapCenter.y, true);
     setupInput();
     loadVisible();
+    dirtyTileKeys.clear();
+    renderedSelectedArmyId = selectedArmyId;
+    syncedTrainingQueues = trainingQueues;
 
     // Selection pulse + construction overlay animation
     app.ticker.add(() => {
@@ -1530,7 +1634,8 @@
       }
 
       const nowMs = Date.now();
-      for (const [, entry] of constructionGfx) {
+      for (const [key, entry] of constructionGfx) {
+        if (!visibleTileKeys.has(key)) continue;
         const { gfx, startMs, endMs } = entry;
         gfx.clear();
 
@@ -1553,7 +1658,8 @@
         gfx.stroke({ color, width: 2.5, alpha: 0.7 });
       }
 
-      for (const [, entry] of trainingGfx) {
+      for (const [key, entry] of trainingGfx) {
+        if (!visibleTileKeys.has(key)) continue;
         const { gfx, startMs, endMs } = entry;
         const active = startMs > 0 && endMs > startMs;
         if (active && nowMs >= endMs) {
@@ -1572,7 +1678,8 @@
       // their impact point; reduced-motion users get the same static symbol.
       const clashWave = easeMotion ? 0.5 + 0.5 * Math.sin(t * 4.4) : 1;
       const impactWave = Math.pow(clashWave, 8);
-      for (const [, entry] of battleGfx) {
+      for (const [key, entry] of battleGfx) {
+        if (!visibleTileKeys.has(key)) continue;
         entry.marker.y = entry.baseY + (easeMotion ? Math.sin(t * 2.2) * 0.75 : 0);
         entry.leftSword.rotation = 0.94 - clashWave * 0.16;
         entry.rightSword.rotation = -0.94 + clashWave * 0.16;
@@ -1583,7 +1690,8 @@
       }
 
       const siegePulse = easeMotion ? 0.5 + 0.5 * Math.sin(t * 3.6) : 0.75;
-      for (const [, entry] of siegeGfx) {
+      for (const [key, entry] of siegeGfx) {
+        if (!visibleTileKeys.has(key)) continue;
         entry.pulse.alpha = 0.5 + siegePulse * 0.5;
         entry.pulse.scale.set(0.98 + siegePulse * 0.07);
       }
@@ -1591,7 +1699,8 @@
       // Occupation is intentionally amber rather than combat red. It marks
       // the whole disputed territory and gives the center a stronger pulse.
       const occupationPulse = easeMotion ? 0.5 + 0.5 * Math.sin(t * 3) : 0.7;
-      for (const [, entry] of occupationGfx) {
+      for (const [key, entry] of occupationGfx) {
+        if (!visibleTileKeys.has(key)) continue;
         const { gfx, segs, isCenter } = entry;
         gfx.clear();
         for (const segment of segs) {
@@ -1614,7 +1723,8 @@
 
       // Starvation — pulsing red territory border + caution icon on the center
       const sPulse = 0.5 + 0.5 * Math.sin(t * 4);
-      for (const [, entry] of starvingGfx) {
+      for (const [key, entry] of starvingGfx) {
+        if (!visibleTileKeys.has(key)) continue;
         const { gfx, segs, isCenter } = entry;
         if (!gfx.visible) continue;
         gfx.clear();
@@ -1692,10 +1802,14 @@
     tileLabels.set(key, wrapper);
   };
 
+  const activeTrainingForBuilding = (building?: Building): TrainingOrder | undefined => {
+    const id = building?.buildingId?.value;
+    if (!id || building?.type !== BuildingType.BARRACKS) return undefined;
+    return currentTrainingQueue(trainingQueues.get(building.cityId?.value ?? '') ?? []).find((order) => order.barracksId?.value === id && !!order.startedAt);
+  };
+
   const addTrainingMarker = (building: Building, tile: Container, key: string) => {
-    const id = building.buildingId?.value;
-    const cityQueue = currentTrainingQueue(trainingQueues.get(building.cityId?.value ?? '') ?? []);
-    const active = id ? cityQueue.find((order) => order.barracksId?.value === id && !!order.startedAt) : undefined;
+    const active = activeTrainingForBuilding(building);
     if (!active) return;
 
     const marker = new Container();
@@ -1886,11 +2000,53 @@
     siegeGfx.set(key, { marker, pulse });
   };
 
+  const renderObjectIds = new WeakMap<object, number>();
+  let nextRenderObjectId = 1;
+  const renderObjectId = (value?: object): number => {
+    if (!value) return 0;
+    const existing = renderObjectIds.get(value);
+    if (existing) return existing;
+    const id = nextRenderObjectId++;
+    renderObjectIds.set(value, id);
+    return id;
+  };
+
+  const tileRenderSignature = (col: number, row: number): string => {
+    const data = tileData.get(tileKey(col, row));
+    const neighborState = EDGE_TO_NEIGHBOR.map(([dc, dr]) => {
+      const neighbor = tileData.get(tileKey(col + dc, row + dr));
+      return `${renderObjectId(neighbor?.tile)}.${renderObjectId(neighbor?.city)}.${visibilityAt(col + dc, row + dr)}`;
+    }).join(',');
+    const battle = battleAt(col, row);
+    const siegeBattle = siegeBattleForCity(data?.city?.cityId?.value);
+    const occupation = occupationOrderForCity(data?.city?.cityId?.value);
+    const training = activeTrainingForBuilding(data?.building);
+    const armyState = data?.armies?.map((army) => renderObjectId(army)).join('.') ?? '';
+    return [
+      visibilityAt(col, row),
+      renderObjectId(data?.tile),
+      renderObjectId(data?.city),
+      renderObjectId(data?.building),
+      armyState,
+      data?.armies?.length ? selectedArmyId : '',
+      renderObjectId(battle),
+      renderObjectId(siegeBattle),
+      renderObjectId(occupation),
+      renderObjectId(training),
+      neighborState
+    ].join('|');
+  };
+
   const renderTile = (col: number, row: number) => {
     if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return;
     const k = tileKey(col, row);
     const existing = loaded.get(k);
     if (existing) {
+      if (tileRenderSignatures.get(k) !== tileRenderSignature(col, row)) {
+        destroyRenderedTile(k);
+        renderTile(col, row);
+        return;
+      }
       existing.visible = true;
       const label = tileLabels.get(k);
       if (label) label.visible = true;
@@ -1907,6 +2063,7 @@
     tc.zIndex = (col + row) * 8;
     cont.addChild(tc);
     loaded.set(k, tc);
+    loadedCoords.set(k, { col, row });
 
     const visibility = visibilityAt(col, row);
     const visible = visibility === TileVisibilityState.VISIBLE;
@@ -1925,9 +2082,7 @@
       if (transition) tc.addChild(transition);
     }
     if (explored) {
-      const memoryFog = new Graphics();
-      memoryFog.poly(DIAMOND_VERTS);
-      memoryFog.fill({ color: 0x101613, alpha: 0.52 });
+      const memoryFog = getMemoryFogSprite();
       memoryFog.zIndex = 9e5;
       tc.addChild(memoryFog);
     }
@@ -2081,6 +2236,78 @@
         }
       }
     }
+    tileRenderSignatures.set(k, tileRenderSignature(col, row));
+  };
+
+  const destroyRenderedTile = (key: string) => {
+    const tile = loaded.get(key);
+    if (tile) {
+      tile.parent?.removeChild(tile);
+      tile.destroy({ children: true });
+    }
+    const label = tileLabels.get(key);
+    if (label) {
+      label.parent?.removeChild(label);
+      label.destroy({ children: true });
+    }
+    loaded.delete(key);
+    loadedCoords.delete(key);
+    tileLabels.delete(key);
+    tileRenderSignatures.delete(key);
+    constructionGfx.delete(key);
+    starvingGfx.delete(key);
+    trainingGfx.delete(key);
+    battleGfx.delete(key);
+    siegeGfx.delete(key);
+    occupationGfx.delete(key);
+  };
+
+  const refreshRenderedTiles = () => {
+    if (renderedSelectedArmyId !== selectedArmyId) {
+      for (const key of armiesByTile.keys()) markTileDirty(key, false);
+      renderedSelectedArmyId = selectedArmyId;
+    }
+    if (syncedTrainingQueues !== trainingQueues) {
+      for (const key of buildingsByTile.keys()) markTileDirty(key, false);
+      syncedTrainingQueues = trainingQueues;
+    }
+    loadVisible();
+    for (const key of dirtyTileKeys) {
+      if (!visibleTileKeys.has(key)) continue;
+      const coords = loadedCoords.get(key);
+      if (!coords || tileRenderSignatures.get(key) === tileRenderSignature(coords.col, coords.row)) continue;
+      destroyRenderedTile(key);
+      renderTile(coords.col, coords.row);
+    }
+    dirtyTileKeys.clear();
+    if (sel) drawSel(sel.x, sel.y);
+    if (moveArmyId) void drawMovePreview(moveTarget ?? moveHover, moveOrderActive ? orderForArmy(movingArmy) : undefined);
+  };
+
+  const scheduleTileCachePrune = () => {
+    if (tilePruneTimer) clearTimeout(tilePruneTimer);
+    tilePruneTimer = setTimeout(() => {
+      tilePruneTimer = null;
+      if (drag || cont.x !== tgtX || cont.y !== tgtY || cont.scale.x !== tgtScale) {
+        scheduleTileCachePrune();
+        return;
+      }
+      const cacheLimit = Math.max(1024, visibleTileKeys.size * 2);
+      if (loaded.size <= cacheLimit) return;
+      for (const key of [...loaded.keys()]) {
+        if (loaded.size <= cacheLimit) break;
+        if (!visibleTileKeys.has(key)) destroyRenderedTile(key);
+      }
+    }, 750);
+  };
+
+  const tileIntersectsViewport = (col: number, row: number, scale: number): boolean => {
+    const point = tileToScreen(col, row);
+    const screenX = point.sx * scale + cont.x;
+    const screenY = point.sy * scale + cont.y;
+    // Include generous room for city labels and tall mountains while excluding
+    // the large corner triangles introduced by the tile-space AABB.
+    return screenX >= -192 * scale && screenX <= cw + 192 * scale && screenY >= -112 * scale && screenY <= ch + 64 * scale;
   };
 
   const loadVisible = () => {
@@ -2124,9 +2351,10 @@
     const nextVisibleTileKeys = new Set<string>();
     for (let col = firstCol; col <= lastCol; col++) {
       for (let row = firstRow; row <= lastRow; row++) {
+        if (!tileIntersectsViewport(col, row, s)) continue;
         const key = tileKey(col, row);
         nextVisibleTileKeys.add(key);
-        renderTile(col, row);
+        if (!visibleTileKeys.has(key)) renderTile(col, row);
       }
     }
     for (const key of visibleTileKeys) {
@@ -2137,6 +2365,7 @@
       if (label) label.visible = false;
     }
     visibleTileKeys = nextVisibleTileKeys;
+    scheduleTileCachePrune();
   };
 
   // ── selection ───────────────────────────────────────────

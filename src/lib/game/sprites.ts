@@ -1,4 +1,4 @@
-import { Sprite, Texture } from 'pixi.js';
+import { Rectangle, Sprite, Texture } from 'pixi.js';
 import { HW, HH, TH } from './iso';
 import { tileHash } from './colors';
 
@@ -451,8 +451,63 @@ function renderStructure(kind: StructureKind): HTMLCanvasElement {
 const terrainCache = new Map<string, Texture>();
 const transitionCache = new Map<string, Texture>();
 const structureCache = new Map<string, Texture>();
+let memoryFogTexture: Texture | null = null;
+let spriteAtlas: Texture | null = null;
 
 export function initSprites(): Promise<void> {
+  if (spriteAtlas) return Promise.resolve();
+
+  const entries: { canvas: HTMLCanvasElement; assign: (texture: Texture) => void }[] = [];
+  for (const kind of Object.keys(TERRAIN_VARIANTS) as TerrainKind[]) {
+    for (let variant = 0; variant < TERRAIN_VARIANTS[kind]; variant++) {
+      entries.push({
+        canvas: renderTerrain(kind, variant),
+        assign: (texture) => terrainCache.set(`${kind}:${variant}`, texture)
+      });
+    }
+  }
+  for (const kind of Object.keys(STRUCTURE_HEADROOM) as StructureKind[]) {
+    entries.push({ canvas: renderStructure(kind), assign: (texture) => structureCache.set(kind, texture) });
+  }
+
+  const memoryFog = document.createElement('canvas');
+  memoryFog.width = W;
+  memoryFog.height = GROUND_HEIGHT;
+  const memoryFogContext = memoryFog.getContext('2d')!;
+  diamondPath(memoryFogContext, W / 2, GROUND_CENTER_Y);
+  memoryFogContext.fillStyle = css(0x101613, 0.52);
+  memoryFogContext.fill();
+  entries.push({ canvas: memoryFog, assign: (texture) => (memoryFogTexture = texture) });
+
+  // Terrain variants used to be independent canvas texture sources. Packing
+  // the static art into one atlas lets Pixi batch thousands of explored tiles
+  // without changing any of the generated pixel art.
+  const padding = 1;
+  const columns = 16;
+  const slotWidth = W + padding * 2;
+  const slotHeight = Math.max(...entries.map((entry) => entry.canvas.height)) + padding * 2;
+  const atlasCanvas = document.createElement('canvas');
+  atlasCanvas.width = columns * slotWidth;
+  atlasCanvas.height = Math.ceil(entries.length / columns) * slotHeight;
+  const atlasContext = atlasCanvas.getContext('2d')!;
+  entries.forEach((entry, index) => {
+    const x = (index % columns) * slotWidth + padding;
+    const y = Math.floor(index / columns) * slotHeight + padding;
+    atlasContext.drawImage(entry.canvas, x, y);
+  });
+
+  spriteAtlas = Texture.from(atlasCanvas);
+  spriteAtlas.source.scaleMode = 'nearest';
+  entries.forEach((entry, index) => {
+    const x = (index % columns) * slotWidth + padding;
+    const y = Math.floor(index / columns) * slotHeight + padding;
+    entry.assign(
+      new Texture({
+        source: spriteAtlas!.source,
+        frame: new Rectangle(x, y, entry.canvas.width, entry.canvas.height)
+      })
+    );
+  });
   return Promise.resolve();
 }
 
@@ -460,6 +515,9 @@ function terrainTexture(kind: TerrainKind, variant: number): Texture {
   const key = `${kind}:${variant}`;
   const cached = terrainCache.get(key);
   if (cached) return cached;
+  initSprites();
+  const atlased = terrainCache.get(key);
+  if (atlased) return atlased;
   const texture = Texture.from(renderTerrain(kind, variant));
   texture.source.scaleMode = 'nearest';
   terrainCache.set(key, texture);
@@ -469,6 +527,9 @@ function terrainTexture(kind: TerrainKind, variant: number): Texture {
 function structureTexture(kind: StructureKind): Texture {
   const cached = structureCache.get(kind);
   if (cached) return cached;
+  initSprites();
+  const atlased = structureCache.get(kind);
+  if (atlased) return atlased;
   const texture = Texture.from(renderStructure(kind));
   texture.source.scaleMode = 'nearest';
   structureCache.set(kind, texture);
@@ -481,6 +542,13 @@ export function getTerrainSprite(kind: TerrainKind, col: number, row: number): S
   const sprite = new Sprite(texture);
   const headroom = TERRAIN_HEADROOM[kind];
   sprite.anchor.set(0.5, (PAD + headroom + HH) / (TH + headroom + PAD * 2));
+  return sprite;
+}
+
+export function getMemoryFogSprite(): Sprite {
+  if (!memoryFogTexture) initSprites();
+  const sprite = new Sprite(memoryFogTexture!);
+  sprite.anchor.set(0.5);
   return sprite;
 }
 
@@ -561,8 +629,13 @@ function drawTerrainEdge(ctx: CanvasRenderingContext2D, edge: number, kind: Terr
 }
 
 function transitionTexture(kind: TerrainKind, neighbors: TerrainNeighbors, variant: number): Texture | null {
-  if (kind === 'fog' || neighbors.every((neighbor) => neighbor === null || neighbor === 'fog' || neighbor === kind)) return null;
-  const key = `${kind}:${variant}:${neighbors.map((neighbor) => neighbor ?? '-').join(',')}`;
+  if (kind === 'fog') return null;
+  const renderedNeighbors = neighbors.map((neighbor, edge) => {
+    const isCoast = kind === 'water' || neighbor === 'water';
+    return neighbor && neighbor !== 'fog' && neighbor !== kind && (isCoast || edge < 2) ? neighbor : null;
+  }) as unknown as TerrainNeighbors;
+  if (renderedNeighbors.every((neighbor) => neighbor === null)) return null;
+  const key = `${kind}:${variant}:${renderedNeighbors.map((neighbor) => neighbor ?? '-').join(',')}`;
   const cached = transitionCache.get(key);
   if (cached) return cached;
 
@@ -571,13 +644,11 @@ function transitionTexture(kind: TerrainKind, neighbors: TerrainNeighbors, varia
   canvas.height = GROUND_HEIGHT;
   const ctx = canvas.getContext('2d')!;
   let drewEdge = false;
-  for (let edge = 0; edge < neighbors.length; edge++) {
-    const neighbor = neighbors[edge];
-    const isCoast = kind === 'water' || neighbor === 'water';
-    if (neighbor && neighbor !== 'fog' && neighbor !== kind && (isCoast || edge < 2)) {
-      drawTerrainEdge(ctx, edge, kind, neighbor, variant);
-      drewEdge = true;
-    }
+  for (let edge = 0; edge < renderedNeighbors.length; edge++) {
+    const neighbor = renderedNeighbors[edge];
+    if (!neighbor) continue;
+    drawTerrainEdge(ctx, edge, kind, neighbor, variant);
+    drewEdge = true;
   }
   if (!drewEdge) return null;
   const texture = Texture.from(canvas);

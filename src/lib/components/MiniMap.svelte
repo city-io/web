@@ -20,6 +20,8 @@
   let minimapZoom = MIN_ZOOM;
   let dragPointerId: number | null = null;
   let dragBounds: { cols: number; rows: number; left: number; top: number } | null = null;
+  let terrainCanvas: HTMLCanvasElement | null = null;
+  let terrainCacheDirty = true;
 
   $: mapWidth = $gameConfig.mapSize || 75;
   $: mapHeight = $gameConfig.mapSize || 75;
@@ -67,6 +69,30 @@
     };
   };
 
+  const rebuildTerrainCache = () => {
+    if (!terrainCanvas) terrainCanvas = document.createElement('canvas');
+    if (terrainCanvas.width !== minimapWidth || terrainCanvas.height !== minimapHeight) {
+      terrainCanvas.width = minimapWidth;
+      terrainCanvas.height = minimapHeight;
+    }
+    const context = terrainCanvas.getContext('2d');
+    if (!context) return;
+    context.fillStyle = '#1d241f';
+    context.fillRect(0, 0, minimapWidth, minimapHeight);
+    for (const [key, visibility] of $tileVisibility) {
+      if (visibility === TileVisibilityState.UNEXPLORED) continue;
+      const tile = $tiles.get(key);
+      const [fallbackX, fallbackY] = key.split(',').map(Number);
+      const x = tile?.tileId?.x ?? fallbackX;
+      const y = tile?.tileId?.y ?? fallbackY;
+      const position = toMinimap(x, y);
+      const color = terrainColor(tile?.terrain ?? TerrainType.GRASSLAND);
+      context.fillStyle = visibility === TileVisibilityState.VISIBLE ? color : `${color}88`;
+      context.fillRect(position.x, position.y, 1, 1);
+    }
+    terrainCacheDirty = false;
+  };
+
   const draw = () => {
     raf = 0;
     if (!canvas) return;
@@ -76,29 +102,9 @@
     const scaleX = SIZE / cols;
     const scaleY = SIZE / rows;
 
-    ctx.fillStyle = '#1d241f';
-    ctx.fillRect(0, 0, SIZE, SIZE);
-
-    if ($tiles.size) {
-      const firstCol = Math.max(0, Math.floor(left));
-      const lastCol = Math.min(minimapWidth, Math.ceil(left + cols));
-      const firstRow = Math.max(0, Math.floor(top));
-      const lastRow = Math.min(minimapHeight, Math.ceil(top + rows));
-      for (let minimapY = firstRow; minimapY < lastRow; minimapY++) {
-        for (let minimapX = firstCol; minimapX < lastCol; minimapX++) {
-          const { x, y } = fromMinimap(minimapX, minimapY);
-          const visibility = visibilityAt(x, y);
-          if (visibility === TileVisibilityState.UNEXPLORED) continue;
-          const color = terrainColor($tiles.get(tileKey(x, y))?.terrain ?? TerrainType.GRASSLAND);
-          ctx.fillStyle = visibility === TileVisibilityState.VISIBLE ? color : `${color}88`;
-          const x1 = Math.floor((minimapX - left) * scaleX);
-          const y1 = Math.floor((minimapY - top) * scaleY);
-          const x2 = Math.ceil((minimapX + 1 - left) * scaleX);
-          const y2 = Math.ceil((minimapY + 1 - top) * scaleY);
-          ctx.fillRect(x1, y1, x2 - x1, y2 - y1);
-        }
-      }
-    }
+    if (terrainCacheDirty || !terrainCanvas) rebuildTerrainCache();
+    ctx.imageSmoothingEnabled = false;
+    if (terrainCanvas) ctx.drawImage(terrainCanvas, left, top, cols, rows, 0, 0, SIZE, SIZE);
 
     // City territories as owner-colored blocks.
     for (const c of $cities) {
@@ -145,6 +151,11 @@
   const schedule = () => {
     if (!raf) raf = requestAnimationFrame(draw);
   };
+
+  $: if ($tiles || $tileVisibility || minimapWidth || minimapHeight) {
+    terrainCacheDirty = true;
+    schedule();
+  }
 
   // Redraw when any source changes ($mapCenter is an object, always truthy —
   // the condition exists only to register the reactive dependencies).
