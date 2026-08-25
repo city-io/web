@@ -78,6 +78,9 @@
 
   // tiles
   let loaded = new Map<string, Container>();
+  let visibleTileKeys = new Set<string>();
+  let visibleBoundsKey = '';
+  let tileLabels = new Map<string, Container>();
   let tileData = new Map<string, { tile?: Tile; city?: City; building?: Building; armies?: Army[] }>();
   let constructionGfx = new Map<string, { gfx: Graphics; startMs: number; endMs: number; cx: number; cy: number }>();
   let starvingGfx = new Map<string, { gfx: Graphics; segs: number[][]; isCenter: boolean }>();
@@ -679,6 +682,12 @@
     return screenToTile((-cont.x + cw / 2) / cont.scale.x, (-cont.y + ch / 2) / cont.scale.y);
   };
 
+  const syncMapCenter = () => {
+    const center = getCenter();
+    if (center.x === $mapCenter.x && center.y === $mapCenter.y) return;
+    mapCenter.set(center);
+  };
+
   // Clamp a container position to the iso map's screen-space AABB (pure).
   const clampPos = (x: number, y: number, s: number) => {
     const pad = 200;
@@ -700,7 +709,7 @@
     cont.y = tgtY;
     cont.scale.set(tgtScale);
     loadVisible();
-    mapCenter.set(getCenter());
+    syncMapCenter();
   };
 
   const centerCam = (col: number, row: number, snap = false) => {
@@ -846,14 +855,17 @@
     cont.y = ny;
     cont.scale.set(ns);
     loadVisible();
-    mapCenter.set(getCenter());
+    syncMapCenter();
   };
 
   // ── data actions ────────────────────────────────────────
   const rebuildTiles = () => {
     for (const [, c] of loaded) c.destroy({ children: true });
     loaded.clear();
+    visibleTileKeys.clear();
+    visibleBoundsKey = '';
     for (const label of labelLayer?.removeChildren() ?? []) label.destroy({ children: true });
+    tileLabels.clear();
     constructionGfx.clear();
     starvingGfx.clear();
     trainingGfx.clear();
@@ -1484,6 +1496,7 @@
     const c = clampPos(tgtX, tgtY, tgtScale);
     tgtX = c.x;
     tgtY = c.y;
+    visibleBoundsKey = '';
     loadVisible();
   };
 
@@ -1493,7 +1506,7 @@
     app = new Application();
     await app.init({ width: cw, height: ch, backgroundColor: 0x171c18, antialias: false, roundPixels: true, resolution: window.devicePixelRatio || 1, autoDensity: true });
     el.appendChild(app.canvas);
-    cont = new Container();
+    cont = new Container({ isRenderGroup: true });
     cont.sortableChildren = true;
     cont.interactive = true;
     cont.hitArea = new Rectangle(-1e5, -1e5, 2e5, 2e5);
@@ -1633,7 +1646,7 @@
   };
 
   // ── tile rendering ──────────────────────────────────────
-  const addCityLabel = (city: City, px: number, py: number) => {
+  const addCityLabel = (city: City, px: number, py: number, key: string) => {
     const owned = city.owner?.value === $userId;
     const ownerColor = owned ? 0x336ca8 : city.owner ? 0x9b3f38 : 0x66685f;
     const wrapper = new Container();
@@ -1676,6 +1689,7 @@
     wrapper.addChild(badge, population, name);
     wrapper.pivot.x = (badgeWidth + 4 + name.width) / 2;
     labelLayer.addChild(wrapper);
+    tileLabels.set(key, wrapper);
   };
 
   const addTrainingMarker = (building: Building, tile: Container, key: string) => {
@@ -1875,7 +1889,13 @@
   const renderTile = (col: number, row: number) => {
     if (col < 0 || row < 0 || col >= worldWidth || row >= worldHeight) return;
     const k = tileKey(col, row);
-    if (loaded.has(k)) return;
+    const existing = loaded.get(k);
+    if (existing) {
+      existing.visible = true;
+      const label = tileLabels.get(k);
+      if (label) label.visible = true;
+      return;
+    }
 
     const td = tileData.get(k);
     const { sx: px, sy: py } = tileToScreen(col, row);
@@ -1912,7 +1932,7 @@
       tc.addChild(memoryFog);
     }
     if (visible && td?.building) tc.addChild(getStructureSprite(structureKind(td.building.type)));
-    if (visible && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py);
+    if (visible && td?.city && (td.building?.type === BuildingType.CITY_CENTER || td.building?.type === BuildingType.TOWN_CENTER)) addCityLabel(td.city, px, py, k);
 
     const visibleArmies = visible ? td?.armies : undefined;
     if (visibleArmies?.length) {
@@ -2091,10 +2111,32 @@
       colMax = Math.ceil(xMax) + 2;
     const rowMin = Math.floor(yMin) - 2,
       rowMax = Math.ceil(yMax) + 4;
+    const firstCol = Math.max(0, colMin);
+    const lastCol = Math.min(worldWidth - 1, colMax);
+    const firstRow = Math.max(0, rowMin);
+    const lastRow = Math.min(worldHeight - 1, rowMax);
+    const boundsKey = `${firstCol},${lastCol},${firstRow},${lastRow}`;
+    if (boundsKey === visibleBoundsKey) return;
+    visibleBoundsKey = boundsKey;
     // Feed the minimap's viewport rectangle (tile-space AABB of the view).
     viewTilesW = xMax - xMin;
     viewTilesH = yMax - yMin;
-    for (let col = colMin; col <= colMax; col++) for (let row = rowMin; row <= rowMax; row++) renderTile(col, row);
+    const nextVisibleTileKeys = new Set<string>();
+    for (let col = firstCol; col <= lastCol; col++) {
+      for (let row = firstRow; row <= lastRow; row++) {
+        const key = tileKey(col, row);
+        nextVisibleTileKeys.add(key);
+        renderTile(col, row);
+      }
+    }
+    for (const key of visibleTileKeys) {
+      if (nextVisibleTileKeys.has(key)) continue;
+      const tile = loaded.get(key);
+      if (tile) tile.visible = false;
+      const label = tileLabels.get(key);
+      if (label) label.visible = false;
+    }
+    visibleTileKeys = nextVisibleTileKeys;
   };
 
   // ── selection ───────────────────────────────────────────
@@ -2164,7 +2206,7 @@
       lastMoveX = p.x;
       lastMoveY = p.y;
       loadVisible();
-      mapCenter.set(getCenter());
+      syncMapCenter();
     });
 
     cont.on('pointerup', (e) => {
@@ -2204,7 +2246,7 @@
       } else if (!easeMotion || performance.now() - lastMoveT > 80) {
         // No flick (or motion easing off): stop where released.
         velX = velY = 0;
-        mapCenter.set(getCenter());
+        syncMapCenter();
       } else {
         // Flick: cap the throw speed; the ticker coasts the target from here.
         velX = Math.max(-4000, Math.min(4000, velX));
@@ -2214,7 +2256,7 @@
     });
 
     cont.on('pointerupoutside', () => {
-      if (drag) mapCenter.set(getCenter());
+      if (drag) syncMapCenter();
       drag = false;
     });
 
