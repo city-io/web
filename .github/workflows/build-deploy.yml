@@ -7,6 +7,12 @@ on:
 
   workflow_dispatch:
 
+# Normalize the branch name across push and delete events so deleting a merged
+# branch cancels its in-flight preview deploy before cleanup runs.
+concurrency:
+  group: nimbus-cityio-web-${{ github.event_name == 'delete' && github.event.ref || github.ref_name }}
+  cancel-in-progress: ${{ github.event_name == 'delete' }}
+
 jobs:
   build-and-deploy:
     if: github.event_name != 'delete'
