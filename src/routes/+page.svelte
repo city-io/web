@@ -28,6 +28,7 @@
 
       const response = await userClient.getUser({ userId: { value: id } });
       const user = response.user!;
+      if (!user.userId?.value || user.userId.value !== id) throw new Error('Stale session');
       userIdStore.set(user.userId?.value);
       emailStore.set(user.email);
       usernameStore.set(user.username);
