@@ -105,48 +105,60 @@
     const bag = delta.upserts;
     setResources(bag);
     const removed = removedIds(delta.deleted, delta.hidden);
-    citiesStore.update((previous) =>
-      upsertById(
-        previous.filter((city) => !removed.cities.has(city.cityId?.value ?? '')),
-        bag?.cities ?? [],
-        (city) => city.cityId?.value
-      )
-    );
-    buildingsStore.update((previous) =>
-      upsertById(
-        previous.filter((building) => !removed.buildings.has(building.buildingId?.value ?? '')),
-        bag?.buildings ?? [],
-        (building) => building.buildingId?.value
-      )
-    );
-    armiesStore.update((previous) =>
-      upsertById(
-        previous.filter((army) => !removed.armies.has(army.armyId?.value ?? '')),
-        bag?.armies ?? [],
-        (army) => army.armyId?.value
-      )
-    );
-    armyOrdersStore.update((previous) =>
-      upsertById(
-        previous.filter((order) => !removed.armyOrders.has(order.armyOrderId?.value ?? '')),
-        bag?.armyOrders ?? [],
-        (order) => order.armyOrderId?.value
-      )
-    );
-    battlesStore.update((previous) =>
-      upsertById(
-        previous.filter((battle) => !removed.battles.has(battle.battleId?.value ?? '')),
-        bag?.battles ?? [],
-        (battle) => battle.battleId?.value
-      )
-    );
-    mailboxMessagesStore.update((previous) =>
-      upsertById(
-        previous.filter((message) => !removed.mailboxMessages.has(message.mailboxMessageId?.value ?? '')),
-        bag?.mailboxMessages ?? [],
-        (message) => message.mailboxMessageId?.value
-      )
-    );
+    if (bag?.cities.length || removed.cities.size) {
+      citiesStore.update((previous) =>
+        upsertById(
+          previous.filter((city) => !removed.cities.has(city.cityId?.value ?? '')),
+          bag?.cities ?? [],
+          (city) => city.cityId?.value
+        )
+      );
+    }
+    if (bag?.buildings.length || removed.buildings.size) {
+      buildingsStore.update((previous) =>
+        upsertById(
+          previous.filter((building) => !removed.buildings.has(building.buildingId?.value ?? '')),
+          bag?.buildings ?? [],
+          (building) => building.buildingId?.value
+        )
+      );
+    }
+    if (bag?.armies.length || removed.armies.size) {
+      armiesStore.update((previous) =>
+        upsertById(
+          previous.filter((army) => !removed.armies.has(army.armyId?.value ?? '')),
+          bag?.armies ?? [],
+          (army) => army.armyId?.value
+        )
+      );
+    }
+    if (bag?.armyOrders.length || removed.armyOrders.size) {
+      armyOrdersStore.update((previous) =>
+        upsertById(
+          previous.filter((order) => !removed.armyOrders.has(order.armyOrderId?.value ?? '')),
+          bag?.armyOrders ?? [],
+          (order) => order.armyOrderId?.value
+        )
+      );
+    }
+    if (bag?.battles.length || removed.battles.size) {
+      battlesStore.update((previous) =>
+        upsertById(
+          previous.filter((battle) => !removed.battles.has(battle.battleId?.value ?? '')),
+          bag?.battles ?? [],
+          (battle) => battle.battleId?.value
+        )
+      );
+    }
+    if (bag?.mailboxMessages.length || removed.mailboxMessages.size) {
+      mailboxMessagesStore.update((previous) =>
+        upsertById(
+          previous.filter((message) => !removed.mailboxMessages.has(message.mailboxMessageId?.value ?? '')),
+          bag?.mailboxMessages ?? [],
+          (message) => message.mailboxMessageId?.value
+        )
+      );
+    }
     if (bag?.tiles.length) {
       tilesStore.update((previous) => {
         const result = new Map(previous);
