@@ -2,30 +2,26 @@
 // @generated from file cityio/service/v1/config.proto (package cityio.service.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage, GenService } from '@bufbuild/protobuf/codegenv2';
-import { fileDesc, messageDesc, serviceDesc } from '@bufbuild/protobuf/codegenv2';
-import type { BuildingType, Rate } from '../../entity/v1/common_pb';
-import { file_cityio_entity_v1_common } from '../../entity/v1/common_pb';
-import type { Duration } from '@bufbuild/protobuf/wkt';
-import { file_google_protobuf_duration } from '@bufbuild/protobuf/wkt';
-import type { Message } from '@bufbuild/protobuf';
+import type { GenFile, GenMessage, GenService } from "@bufbuild/protobuf/codegenv2";
+import { fileDesc, messageDesc, serviceDesc } from "@bufbuild/protobuf/codegenv2";
+import type { BuildingType, Rate } from "../../entity/v1/common_pb";
+import { file_cityio_entity_v1_common } from "../../entity/v1/common_pb";
+import type { Duration } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_duration } from "@bufbuild/protobuf/wkt";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cityio/service/v1/config.proto.
  */
-export const file_cityio_service_v1_config: GenFile =
-  /*@__PURE__*/
-  fileDesc(
-    'Ch5jaXR5aW8vc2VydmljZS92MS9jb25maWcucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIjIKDlJlc291cmNlQW1vdW50EhAKCHJlc291cmNlGAEgASgJEg4KBmFtb3VudBgCIAEoAyJGCgxSZXNvdXJjZVJhdGUSEAoIcmVzb3VyY2UYASABKAkSJAoEcmF0ZRgCIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZSL2AQoSQnVpbGRpbmdMZXZlbFN0YXRzEg0KBWxldmVsGAEgASgFEi8KBGNvc3QYAiADKAsyIS5jaXR5aW8uc2VydmljZS52MS5SZXNvdXJjZUFtb3VudBI0ChFjb25zdHJ1Y3Rpb25fdGltZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIzCgpwcm9kdWN0aW9uGAQgAygLMh8uY2l0eWlvLnNlcnZpY2UudjEuUmVzb3VyY2VSYXRlEhIKCnBvcHVsYXRpb24YBSABKAESIQoZdHJhaW5pbmdfc3BlZWRfbXVsdGlwbGllchgGIAEoASJ1Cg5CdWlsZGluZ0NvbmZpZxIsCgR0eXBlGAEgASgOMh4uY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ1R5cGUSNQoGbGV2ZWxzGAIgAygLMiUuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdMZXZlbFN0YXRzIhYKFEdldEdhbWVDb25maWdSZXF1ZXN0IvICChZQb3B1bGF0aW9uUG9saWN5Q29uZmlnEh0KFWNvcmVfY2l2aWxpYW5fcGVyY2VudBgBIAEoBRIfChdkZWZhdWx0X21pbGl0aWFfcGVyY2VudBgCIAEoBRIfChduZXV0cmFsX21pbGl0aWFfcGVyY2VudBgDIAEoBRIbChNtYXhfbWlsaXRpYV9wZXJjZW50GAQgASgFEhwKFG1heF9taWxpdGFyeV9wZXJjZW50GAUgASgFEiAKGGRlZmF1bHRfdGF4X3JhdGVfcGVyY2VudBgGIAEoBRIcChRtYXhfdGF4X3JhdGVfcGVyY2VudBgHIAEoBRI3Chd0YXhfZ29sZF9wZXJfcG9wdWxhdGlvbhgIIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIbChNtaW5fbWlsaXRpYV9wZXJjZW50GAkgASgFEiYKHm1heF90YXhfZ3Jvd3RoX3BlbmFsdHlfcGVyY2VudBgKIAEoBSKvAgoVR2V0R2FtZUNvbmZpZ1Jlc3BvbnNlEhAKCG1hcF9zaXplGAEgASgFEhEKCWNpdHlfc2l6ZRgCIAEoBRIVCg12aXNpb25fcmFkaXVzGAMgASgFEjAKDWJ1aWxkaW5nX3RpY2sYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SNAoJYnVpbGRpbmdzGAUgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdDb25maWcSLAoJY2l0eV90aWNrGAYgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEkQKEXBvcHVsYXRpb25fcG9saWN5GAcgASgLMikuY2l0eWlvLnNlcnZpY2UudjEuUG9wdWxhdGlvblBvbGljeUNvbmZpZzJzCg1Db25maWdTZXJ2aWNlEmIKDUdldEdhbWVDb25maWcSJy5jaXR5aW8uc2VydmljZS52MS5HZXRHYW1lQ29uZmlnUmVxdWVzdBooLmNpdHlpby5zZXJ2aWNlLnYxLkdldEdhbWVDb25maWdSZXNwb25zZWIGcHJvdG8z',
-    [file_cityio_entity_v1_common, file_google_protobuf_duration]
-  );
+export const file_cityio_service_v1_config: GenFile = /*@__PURE__*/
+  fileDesc("Ch5jaXR5aW8vc2VydmljZS92MS9jb25maWcucHJvdG8SEWNpdHlpby5zZXJ2aWNlLnYxIjIKDlJlc291cmNlQW1vdW50EhAKCHJlc291cmNlGAEgASgJEg4KBmFtb3VudBgCIAEoAyJGCgxSZXNvdXJjZVJhdGUSEAoIcmVzb3VyY2UYASABKAkSJAoEcmF0ZRgCIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZSKsAgoSQnVpbGRpbmdMZXZlbFN0YXRzEg0KBWxldmVsGAEgASgFEi8KBGNvc3QYAiADKAsyIS5jaXR5aW8uc2VydmljZS52MS5SZXNvdXJjZUFtb3VudBI0ChFjb25zdHJ1Y3Rpb25fdGltZRgDIAEoCzIZLmdvb2dsZS5wcm90b2J1Zi5EdXJhdGlvbhIzCgpwcm9kdWN0aW9uGAQgAygLMh8uY2l0eWlvLnNlcnZpY2UudjEuUmVzb3VyY2VSYXRlEhIKCnBvcHVsYXRpb24YBSABKAESIQoZdHJhaW5pbmdfc3BlZWRfbXVsdGlwbGllchgGIAEoARIVCg12aXNpb25fcmFkaXVzGAcgASgFEh0KFWRlZmVuc2VfYm9udXNfcGVyY2VudBgIIAEoBSJ1Cg5CdWlsZGluZ0NvbmZpZxIsCgR0eXBlGAEgASgOMh4uY2l0eWlvLmVudGl0eS52MS5CdWlsZGluZ1R5cGUSNQoGbGV2ZWxzGAIgAygLMiUuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdMZXZlbFN0YXRzIhYKFEdldEdhbWVDb25maWdSZXF1ZXN0IvICChZQb3B1bGF0aW9uUG9saWN5Q29uZmlnEh0KFWNvcmVfY2l2aWxpYW5fcGVyY2VudBgBIAEoBRIfChdkZWZhdWx0X21pbGl0aWFfcGVyY2VudBgCIAEoBRIfChduZXV0cmFsX21pbGl0aWFfcGVyY2VudBgDIAEoBRIbChNtYXhfbWlsaXRpYV9wZXJjZW50GAQgASgFEhwKFG1heF9taWxpdGFyeV9wZXJjZW50GAUgASgFEiAKGGRlZmF1bHRfdGF4X3JhdGVfcGVyY2VudBgGIAEoBRIcChRtYXhfdGF4X3JhdGVfcGVyY2VudBgHIAEoBRI3Chd0YXhfZ29sZF9wZXJfcG9wdWxhdGlvbhgIIAEoCzIWLmNpdHlpby5lbnRpdHkudjEuUmF0ZRIbChNtaW5fbWlsaXRpYV9wZXJjZW50GAkgASgFEiYKHm1heF90YXhfZ3Jvd3RoX3BlbmFsdHlfcGVyY2VudBgKIAEoBSLTAgoVR2V0R2FtZUNvbmZpZ1Jlc3BvbnNlEhAKCG1hcF9zaXplGAEgASgFEhEKCWNpdHlfc2l6ZRgCIAEoBRIVCg12aXNpb25fcmFkaXVzGAMgASgFEjAKDWJ1aWxkaW5nX3RpY2sYBCABKAsyGS5nb29nbGUucHJvdG9idWYuRHVyYXRpb24SNAoJYnVpbGRpbmdzGAUgAygLMiEuY2l0eWlvLnNlcnZpY2UudjEuQnVpbGRpbmdDb25maWcSLAoJY2l0eV90aWNrGAYgASgLMhkuZ29vZ2xlLnByb3RvYnVmLkR1cmF0aW9uEkQKEXBvcHVsYXRpb25fcG9saWN5GAcgASgLMikuY2l0eWlvLnNlcnZpY2UudjEuUG9wdWxhdGlvblBvbGljeUNvbmZpZxIiChpzdHJ1Y3R1cmVfcGxhY2VtZW50X3JhZGl1cxgIIAEoBTJzCg1Db25maWdTZXJ2aWNlEmIKDUdldEdhbWVDb25maWcSJy5jaXR5aW8uc2VydmljZS52MS5HZXRHYW1lQ29uZmlnUmVxdWVzdBooLmNpdHlpby5zZXJ2aWNlLnYxLkdldEdhbWVDb25maWdSZXNwb25zZWIGcHJvdG8z", [file_cityio_entity_v1_common, file_google_protobuf_duration]);
 
 /**
  * ResourceAmount is a one-shot amount (e.g. a build cost).
  *
  * @generated from message cityio.service.v1.ResourceAmount
  */
-export type ResourceAmount = Message<'cityio.service.v1.ResourceAmount'> & {
+export type ResourceAmount = Message<"cityio.service.v1.ResourceAmount"> & {
   /**
    * @generated from field: string resource = 1;
    */
@@ -41,14 +37,15 @@ export type ResourceAmount = Message<'cityio.service.v1.ResourceAmount'> & {
  * Describes the message cityio.service.v1.ResourceAmount.
  * Use `create(ResourceAmountSchema)` to create a new message.
  */
-export const ResourceAmountSchema: GenMessage<ResourceAmount> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_config, 0);
+export const ResourceAmountSchema: GenMessage<ResourceAmount> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 0);
 
 /**
  * ResourceRate is an ongoing flow (e.g. production per hour).
  *
  * @generated from message cityio.service.v1.ResourceRate
  */
-export type ResourceRate = Message<'cityio.service.v1.ResourceRate'> & {
+export type ResourceRate = Message<"cityio.service.v1.ResourceRate"> & {
   /**
    * @generated from field: string resource = 1;
    */
@@ -64,12 +61,13 @@ export type ResourceRate = Message<'cityio.service.v1.ResourceRate'> & {
  * Describes the message cityio.service.v1.ResourceRate.
  * Use `create(ResourceRateSchema)` to create a new message.
  */
-export const ResourceRateSchema: GenMessage<ResourceRate> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_config, 1);
+export const ResourceRateSchema: GenMessage<ResourceRate> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 1);
 
 /**
  * @generated from message cityio.service.v1.BuildingLevelStats
  */
-export type BuildingLevelStats = Message<'cityio.service.v1.BuildingLevelStats'> & {
+export type BuildingLevelStats = Message<"cityio.service.v1.BuildingLevelStats"> & {
   /**
    * @generated from field: int32 level = 1;
    */
@@ -101,18 +99,33 @@ export type BuildingLevelStats = Message<'cityio.service.v1.BuildingLevelStats'>
    * @generated from field: double training_speed_multiplier = 6;
    */
   trainingSpeedMultiplier: number;
+
+  /**
+   * Watchtower only: Chebyshev map-vision radius at this completed level.
+   *
+   * @generated from field: int32 vision_radius = 7;
+   */
+  visionRadius: number;
+
+  /**
+   * Centers and forts: effective durability added during eligible battles.
+   *
+   * @generated from field: int32 defense_bonus_percent = 8;
+   */
+  defenseBonusPercent: number;
 };
 
 /**
  * Describes the message cityio.service.v1.BuildingLevelStats.
  * Use `create(BuildingLevelStatsSchema)` to create a new message.
  */
-export const BuildingLevelStatsSchema: GenMessage<BuildingLevelStats> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_config, 2);
+export const BuildingLevelStatsSchema: GenMessage<BuildingLevelStats> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 2);
 
 /**
  * @generated from message cityio.service.v1.BuildingConfig
  */
-export type BuildingConfig = Message<'cityio.service.v1.BuildingConfig'> & {
+export type BuildingConfig = Message<"cityio.service.v1.BuildingConfig"> & {
   /**
    * @generated from field: cityio.entity.v1.BuildingType type = 1;
    */
@@ -128,23 +141,26 @@ export type BuildingConfig = Message<'cityio.service.v1.BuildingConfig'> & {
  * Describes the message cityio.service.v1.BuildingConfig.
  * Use `create(BuildingConfigSchema)` to create a new message.
  */
-export const BuildingConfigSchema: GenMessage<BuildingConfig> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_config, 3);
+export const BuildingConfigSchema: GenMessage<BuildingConfig> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 3);
 
 /**
  * @generated from message cityio.service.v1.GetGameConfigRequest
  */
-export type GetGameConfigRequest = Message<'cityio.service.v1.GetGameConfigRequest'> & {};
+export type GetGameConfigRequest = Message<"cityio.service.v1.GetGameConfigRequest"> & {
+};
 
 /**
  * Describes the message cityio.service.v1.GetGameConfigRequest.
  * Use `create(GetGameConfigRequestSchema)` to create a new message.
  */
-export const GetGameConfigRequestSchema: GenMessage<GetGameConfigRequest> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_config, 4);
+export const GetGameConfigRequestSchema: GenMessage<GetGameConfigRequest> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 4);
 
 /**
  * @generated from message cityio.service.v1.PopulationPolicyConfig
  */
-export type PopulationPolicyConfig = Message<'cityio.service.v1.PopulationPolicyConfig'> & {
+export type PopulationPolicyConfig = Message<"cityio.service.v1.PopulationPolicyConfig"> & {
   /**
    * @generated from field: int32 core_civilian_percent = 1;
    */
@@ -205,12 +221,13 @@ export type PopulationPolicyConfig = Message<'cityio.service.v1.PopulationPolicy
  * Describes the message cityio.service.v1.PopulationPolicyConfig.
  * Use `create(PopulationPolicyConfigSchema)` to create a new message.
  */
-export const PopulationPolicyConfigSchema: GenMessage<PopulationPolicyConfig> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_config, 5);
+export const PopulationPolicyConfigSchema: GenMessage<PopulationPolicyConfig> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 5);
 
 /**
  * @generated from message cityio.service.v1.GetGameConfigResponse
  */
-export type GetGameConfigResponse = Message<'cityio.service.v1.GetGameConfigResponse'> & {
+export type GetGameConfigResponse = Message<"cityio.service.v1.GetGameConfigResponse"> & {
   /**
    * @generated from field: int32 map_size = 1;
    */
@@ -245,13 +262,19 @@ export type GetGameConfigResponse = Message<'cityio.service.v1.GetGameConfigResp
    * @generated from field: cityio.service.v1.PopulationPolicyConfig population_policy = 7;
    */
   populationPolicy?: PopulationPolicyConfig | undefined;
+
+  /**
+   * @generated from field: int32 structure_placement_radius = 8;
+   */
+  structurePlacementRadius: number;
 };
 
 /**
  * Describes the message cityio.service.v1.GetGameConfigResponse.
  * Use `create(GetGameConfigResponseSchema)` to create a new message.
  */
-export const GetGameConfigResponseSchema: GenMessage<GetGameConfigResponse> = /*@__PURE__*/ messageDesc(file_cityio_service_v1_config, 6);
+export const GetGameConfigResponseSchema: GenMessage<GetGameConfigResponse> = /*@__PURE__*/
+  messageDesc(file_cityio_service_v1_config, 6);
 
 /**
  * @generated from service cityio.service.v1.ConfigService
@@ -261,8 +284,9 @@ export const ConfigService: GenService<{
    * @generated from rpc cityio.service.v1.ConfigService.GetGameConfig
    */
   getGameConfig: {
-    methodKind: 'unary';
+    methodKind: "unary";
     input: typeof GetGameConfigRequestSchema;
     output: typeof GetGameConfigResponseSchema;
-  };
-}> = /*@__PURE__*/ serviceDesc(file_cityio_service_v1_config, 0);
+  },
+}> = /*@__PURE__*/
+  serviceDesc(file_cityio_service_v1_config, 0);

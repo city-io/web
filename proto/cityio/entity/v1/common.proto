@@ -18,6 +18,8 @@ enum BuildingType {
   BUILDING_TYPE_HOUSE = 4;
   BUILDING_TYPE_FARM = 5;
   BUILDING_TYPE_MINE = 6;
+  BUILDING_TYPE_WATCHTOWER = 7;
+  BUILDING_TYPE_FORT = 8;
 }
 
 // TroopType identifies a kind of troop.

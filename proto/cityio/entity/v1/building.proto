@@ -6,7 +6,7 @@ import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/ids.proto";
 import "google/protobuf/timestamp.proto";
 
-// Building is a structure within a city.
+// Building is either part of a city or a standalone player-owned structure.
 message Building {
   BuildingId building_id = 1;
   CityId city_id = 2;
@@ -16,4 +16,7 @@ message Building {
   Coordinates coords = 6;
   optional google.protobuf.Timestamp construction_start = 7;
   optional google.protobuf.Timestamp construction_end = 8;
+  // Set only for standalone structures. City buildings inherit ownership from
+  // their city and continue to use city_id.
+  optional UserId owner = 9;
 }

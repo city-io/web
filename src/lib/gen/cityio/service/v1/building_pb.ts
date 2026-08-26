@@ -23,6 +23,9 @@ export const file_cityio_service_v1_building: GenFile = /*@__PURE__*/
  */
 export type CreateBuildingRequest = Message<"cityio.service.v1.CreateBuildingRequest"> & {
   /**
+   * Required for city buildings and omitted for standalone watchtowers/forts,
+   * which require one of the caller's armies on the target tile.
+   *
    * @generated from field: cityio.entity.v1.CityId city_id = 1;
    */
   cityId?: CityId | undefined;
@@ -161,6 +164,8 @@ export const DeleteBuildingResponseSchema: GenMessage<DeleteBuildingResponse> = 
  */
 export type ListBuildingsRequest = Message<"cityio.service.v1.ListBuildingsRequest"> & {
   /**
+   * When omitted, returns the caller's standalone structures.
+   *
    * @generated from field: cityio.entity.v1.CityId city_id = 1;
    */
   cityId?: CityId | undefined;
