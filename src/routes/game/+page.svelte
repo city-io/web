@@ -3682,7 +3682,7 @@
     class={showCityManagement && sel?.city && !selectedArmy
       ? 'pointer-events-auto absolute inset-0 z-10 flex items-center justify-center bg-black/40 p-3 sm:p-8'
       : `pointer-events-none absolute bottom-3 left-1/2 z-10 w-[calc(100vw-1.5rem)] max-w-[800px] -translate-x-1/2 sm:bottom-4 ${
-          !selectedArmy && !sel?.armies?.length && !showBuild ? 'sm:max-w-[460px]' : ''
+          !selectedArmy && (!sel?.armies?.length || sel?.building) && !showBuild ? 'sm:max-w-[460px]' : ''
         } ${managementOpen ? 'lg:left-4 lg:right-[22rem] lg:mx-auto lg:w-[calc(100%-23rem)] lg:translate-x-0' : ''}`}
     on:pointerdown|self={() => {
       if (showCityManagement && sel?.city && !selectedArmy) showCityManagement = false;
@@ -4303,7 +4303,7 @@
             </section>
           {/if}
 
-          {#if !selectedArmy && sel.armies?.length && !showCityManagement}
+          {#if !selectedArmy && !sel.building && sel.armies?.length && !showCityManagement}
             {@const stackCompositionExact = sel.armies.every((army) => army.compositionVisibility === ArmyCompositionVisibility.EXACT)}
             {@const friendlyArmies = sel.armies.filter((army) => army.owner?.value === $userId)}
             <section class="inspector-section">
@@ -4719,7 +4719,7 @@
                 </button>
               </div>
             {/if}
-          {:else if !selectedArmy && !sel.city && !sel.armies?.length}
+          {:else if !selectedArmy && !sel.city && !sel.building && !sel.armies?.length}
             <div class="inspector-empty px-5 py-8 text-sm text-[#85897d]">
               {selectedUnknown ? 'Beyond explored territory' : selectedVisibility === TileVisibilityState.EXPLORED ? 'Terrain remembered; current occupants are hidden' : 'No structures on this tile'}
             </div>
