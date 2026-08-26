@@ -24,6 +24,8 @@ message BattleSide {
   int64 starting_militia_count = 8;
   BattleLossSummary cumulative_losses = 9;
   BattleLossSummary last_round_losses = 10;
+  // Effective durability added by a settlement center and/or owned fort.
+  int32 defense_bonus_percent = 11;
 }
 
 // Battle exists only while combat is active. Each side can contain armies

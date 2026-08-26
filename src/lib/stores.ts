@@ -40,11 +40,12 @@ export const gameConfig = writable<{
   mapSize: number;
   citySize: number;
   visionRadius: number;
+  structurePlacementRadius: number;
   buildingTick?: Duration;
   cityTick?: Duration;
   buildings: BuildingConfig[];
   populationPolicy?: PopulationPolicyConfig;
-}>({ mapSize: 75, citySize: 5, visionRadius: 5, buildings: [] });
+}>({ mapSize: 75, citySize: 5, visionRadius: 3, structurePlacementRadius: 10, buildings: [] });
 
 export const capital = writable<City | null>(null);
 export const mapCenter = writable<{ x: number; y: number }>({ x: 0, y: 0 });

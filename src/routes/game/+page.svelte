@@ -111,7 +111,8 @@
   // ── UI state ────────────────────────────────────────────
   let sel: { x: number; y: number; tile?: Tile; city?: City; building?: Building; armies?: Army[] } | null = null;
   let buildType: BuildingType = BuildingType.HOUSE;
-  const placeTypes = [BuildingType.HOUSE, BuildingType.FARM, BuildingType.MINE, BuildingType.BARRACKS];
+  const cityPlaceTypes = [BuildingType.HOUSE, BuildingType.FARM, BuildingType.MINE, BuildingType.BARRACKS];
+  const standalonePlaceTypes = [BuildingType.WATCHTOWER, BuildingType.FORT];
   let busy = false;
   let err = '';
   let notice = '';
@@ -234,6 +235,12 @@
     showCityManagement = true;
   };
 
+  const openBuildPanel = (standalone: boolean) => {
+    if (standalone && !standalonePlaceTypes.includes(buildType)) buildType = BuildingType.WATCHTOWER;
+    if (!standalone && standalonePlaceTypes.includes(buildType)) buildType = BuildingType.HOUSE;
+    showBuild = true;
+  };
+
   // Keyboard navigation
   let showHelp = false;
   let cityCycleIdx = -1;
@@ -299,6 +306,8 @@
     if (type === BuildingType.FARM) return 'farm';
     if (type === BuildingType.MINE) return 'mine';
     if (type === BuildingType.BARRACKS) return 'barracks';
+    if (type === BuildingType.WATCHTOWER) return 'watchtower';
+    if (type === BuildingType.FORT) return 'fort';
     if (type === BuildingType.CITY_CENTER) return 'city_center';
     if (type === BuildingType.TOWN_CENTER) return 'town_center';
     return 'house';
@@ -326,9 +335,29 @@
     [BuildingType.BARRACKS]: 'Barracks',
     [BuildingType.HOUSE]: 'House',
     [BuildingType.FARM]: 'Farm',
-    [BuildingType.MINE]: 'Mine'
+    [BuildingType.MINE]: 'Mine',
+    [BuildingType.WATCHTOWER]: 'Watchtower',
+    [BuildingType.FORT]: 'Fort'
   };
   const bName = (t: BuildingType) => BN[t] ?? 'Unknown';
+  const buildingOwnerId = (building?: Building) => {
+    if (!building) return undefined;
+    if (building.owner?.value) return building.owner.value;
+    const cityId = building.cityId?.value;
+    return cityId ? $cities.find((city) => city.cityId?.value === cityId)?.owner?.value : undefined;
+  };
+  const buildingOwned = (building?: Building) => buildingOwnerId(building) === $userId;
+  const distanceToSettlement = (city: City, x: number, y: number) => {
+    if (!city.start) return Number.POSITIVE_INFINITY;
+    const dx = Math.max(0, city.start.x - x, x - (city.start.x + city.size - 1));
+    const dy = Math.max(0, city.start.y - y, y - (city.start.y + city.size - 1));
+    return Math.max(dx, dy);
+  };
+  const canPlaceStandaloneStructure = (selection: typeof sel) => {
+    if (!selection?.tile || selection.city || selection.building || selection.armies?.length || terrainAt(selection.x, selection.y) === TerrainType.WATER) return false;
+    const radius = $gameConfig.structurePlacementRadius || 10;
+    return $cities.some((city) => city.owner?.value === $userId && distanceToSettlement(city, selection.x, selection.y) <= radius);
+  };
   const cName = (t: CityType) => (t === CityType.CITY ? 'City' : t === CityType.TOWN ? 'Town' : 'Settlement');
   const barracksTrainingSpeed = (building: Building) => getLevelStats(BuildingType.BARRACKS, building.level)?.trainingSpeedMultiplier || 1;
   const residents = (city: City) => Math.max(0, Math.floor(city.population));
@@ -2482,7 +2511,10 @@
           const t = tileData.get(clickedKey);
           const doubleClicked = lastTileClickKey === clickedKey && clickedAt - lastTileClickAt <= DOUBLE_CLICK_MS;
           const openBuildingManagement = !!t?.building && doubleClicked;
-          const openConstruction = !t?.building && !t?.armies?.length && t?.city?.owner?.value === $userId && doubleClicked;
+          const selection = { x: mc.x, y: mc.y, ...t };
+          const openCityConstruction = !t?.building && !t?.armies?.length && t?.city?.owner?.value === $userId;
+          const openStandaloneConstruction = canPlaceStandaloneStructure(selection);
+          const openConstruction = doubleClicked && (openCityConstruction || openStandaloneConstruction);
           lastTileClickKey = clickedKey;
           lastTileClickAt = clickedAt;
           if (t?.armies?.length === 1 && !t.building) {
@@ -2490,10 +2522,12 @@
           } else {
             trackedArmyId = null;
             selectedArmyId = null;
-            sel = { x: mc.x, y: mc.y, ...t };
+            sel = selection;
             err = '';
             notice = '';
             showBuild = openConstruction;
+            if (openStandaloneConstruction) buildType = BuildingType.WATCHTOWER;
+            else if (openCityConstruction && standalonePlaceTypes.includes(buildType)) buildType = BuildingType.HOUSE;
             showCityManagement = false;
             recruitCount = 1;
             drawSel(mc.x, mc.y);
@@ -3100,6 +3134,12 @@
       {:else if type === BuildingType.BARRACKS}
         <path d="M7 34V15h28v19H7Z" fill="currentColor" opacity=".12" />
         <path d="M7 34V15h28v19M5 15h32M11 15V9h6v6M25 15V9h6v6M17 34V24h8v10M11 21h4M27 21h4" />
+      {:else if type === BuildingType.WATCHTOWER}
+        <path d="M14 35h14M16 35l3-23h4l3 23M17 28h8M18 20h6M13 12h16l-3-5H16l-3 5Z" fill="currentColor" opacity=".12" />
+        <path d="M14 35h14M16 35l3-23h4l3 23M17 28h8M18 20h6M13 12h16l-3-5H16l-3 5ZM17 20l8 8M25 20l-8 8" />
+      {:else if type === BuildingType.FORT}
+        <path d="M7 34V15h5v-5h5v5h8v-5h5v5h5v19H7Z" fill="currentColor" opacity=".12" />
+        <path d="M7 34V15h5v-5h5v5h8v-5h5v5h5v19M5 34h32M17 34V24h8v10M11 21h4M28 21h3" />
       {:else}
         <path d="M8 34V18L21 8l13 10v16H8Z" fill="currentColor" opacity=".12" />
         <path d="m6 19 15-12 15 12M9 18v16h24V18M17 34V23h8v11" />
@@ -3126,7 +3166,12 @@
           {(side?.userIds.length ?? 0) === 1 ? 'commander' : 'commanders'}
         </div>
       </div>
-      {#if yourSide}<span class="border border-amber-200/20 bg-amber-200/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-100">Your side</span>{/if}
+      <div class="flex flex-wrap justify-end gap-1.5">
+        {#if (side?.defenseBonusPercent ?? 0) > 0}<span class="border border-blue-200/20 bg-blue-200/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-blue-100"
+            >+{side?.defenseBonusPercent}% defense</span
+          >{/if}
+        {#if yourSide}<span class="border border-amber-200/20 bg-amber-200/[0.07] px-2 py-0.5 text-[8px] font-bold uppercase tracking-[0.08em] text-amber-100">Your side</span>{/if}
+      </div>
     </div>
 
     <div class="grid grid-cols-3 gap-px border-b border-white/[0.08] bg-white/[0.06]">
@@ -3826,7 +3871,7 @@
                     <path d="M3 5h14M3 10h14M3 15h14" />
                     <circle cx="7" cy="5" r="1.7" fill="currentColor" /><circle cx="13" cy="10" r="1.7" fill="currentColor" /><circle cx="8" cy="15" r="1.7" fill="currentColor" />
                   </svg>
-                  {sel.city?.owner?.value === $userId ? `Manage ${bName(sel.building.type)}` : 'View details'}
+                  {buildingOwned(sel.building) ? `Manage ${bName(sel.building.type)}` : 'View details'}
                 {/if}
               </button>
             </div>
@@ -4309,7 +4354,9 @@
                 {@render structureGlyph(sel.building.type, sel.building.level)}
                 <div class="min-w-0 flex-1">
                   <strong class="block truncate text-[12px] font-bold text-[#e9f0ee]">{bName(sel.building.type)}</strong>
-                  <span class="mt-0.5 block text-[9px] text-[#829496]">{isBuilding ? 'Work underway' : `Level ${sel.building.level} city building`}</span>
+                  <span class="mt-0.5 block text-[9px] text-[#829496]"
+                    >{isBuilding ? 'Work underway' : `Level ${sel.building.level} ${sel.building.owner ? 'standalone structure' : 'city building'}`}</span
+                  >
                 </div>
               </div>
               {#if sel.building.constructionStart && sel.building.constructionEnd}
@@ -4348,9 +4395,15 @@
                   {#if isBarracks}
                     <div class="inspector-row"><span>Training lane</span><span class="text-blue-200">{stats.trainingSpeedMultiplier.toFixed(2)}× speed</span></div>
                   {/if}
+                  {#if stats.visionRadius > 0}
+                    <div class="inspector-row"><span>Vision radius</span><span class="text-cyan-200">{stats.visionRadius} tiles</span></div>
+                  {/if}
+                  {#if stats.defenseBonusPercent > 0}
+                    <div class="inspector-row"><span>Defense</span><span class="text-blue-200">+{stats.defenseBonusPercent}% durability</span></div>
+                  {/if}
                 </div>
               {/if}
-              {#if nextStats && sel.city?.owner?.value === $userId}
+              {#if nextStats && buildingOwned(sel.building)}
                 <div class="mt-3 border-t border-white/[0.07] pt-3">
                   <div class="inspector-label mb-1">Next level</div>
                   {#if barracksTrainingInProgress}
@@ -4400,9 +4453,27 @@
                       >
                     </div>
                   {/if}
+                  {#if nextStats.visionRadius > 0}
+                    <div class="inspector-row">
+                      <span>Vision radius</span>
+                      <span
+                        ><span class="text-[#646e66]">{stats?.visionRadius ?? 0}</span><span class="mx-1 text-[#555e57]">→</span><span class="text-cyan-200">{nextStats.visionRadius} tiles</span></span
+                      >
+                    </div>
+                  {/if}
+                  {#if nextStats.defenseBonusPercent > 0}
+                    <div class="inspector-row">
+                      <span>Defense</span>
+                      <span
+                        ><span class="text-[#646e66]">+{stats?.defenseBonusPercent ?? 0}%</span><span class="mx-1 text-[#555e57]">→</span><span class="text-blue-200"
+                          >+{nextStats.defenseBonusPercent}%</span
+                        ></span
+                      >
+                    </div>
+                  {/if}
                 </div>
               {/if}
-              {#if sel.city?.owner?.value === $userId}
+              {#if buildingOwned(sel.building)}
                 <div class="mt-3 flex gap-2 border-t border-[#465a5f] pt-3">
                   <button
                     class="game-action game-action-primary flex-1"
@@ -4554,16 +4625,18 @@
                 </div>
               </section>
             {/if}
-          {:else if !selectedArmy && !sel.building && sel.city?.owner?.value === $userId && !showCityManagement}
+          {:else if !selectedArmy && !sel.building && (sel.city?.owner?.value === $userId || canPlaceStandaloneStructure(sel)) && !showCityManagement}
+            {@const standalonePlacement = !sel.city}
+            {@const placementTypes = standalonePlacement ? standalonePlaceTypes : cityPlaceTypes}
             {#if showBuild}
               {@const buildStats = getLevelStats(buildType, 1)}
               <section class="inspector-section">
                 <div class="mb-3 flex items-center justify-between">
-                  <span class="inspector-label">City works</span>
+                  <span class="inspector-label">{standalonePlacement ? 'Frontier structures' : 'City works'}</span>
                   <button class="text-xs font-medium text-[#9ba097] transition-colors hover:text-white" on:click={() => (showBuild = false)}>Cancel</button>
                 </div>
                 <div class="grid grid-cols-4 border-l border-t border-[#465a5f]">
-                  {#each placeTypes as bt}
+                  {#each placementTypes as bt}
                     <button
                       class="flex min-w-0 flex-col items-center border-b border-r border-[#465a5f] px-1 py-1.5 text-center transition-colors
 							{buildType === bt ? 'bg-[#48666d]/65 text-white' : 'text-[#9dacad] hover:bg-white/[0.04] hover:text-white'}"
@@ -4596,22 +4669,31 @@
                         <span class="text-blue-300">+{buildStats.population}</span>
                       </div>
                     {/if}
+                    {#if buildStats.visionRadius > 0}
+                      <div class="inspector-row"><span>Vision radius</span><span class="text-cyan-200">{buildStats.visionRadius} tiles</span></div>
+                    {/if}
+                    {#if buildStats.defenseBonusPercent > 0}
+                      <div class="inspector-row"><span>Defense</span><span class="text-blue-200">+{buildStats.defenseBonusPercent}% durability</span></div>
+                    {/if}
                   </div>
+                {/if}
+                {#if standalonePlacement}
+                  <div class="mt-3 text-[9px] text-[#7e8982]">Must remain within {$gameConfig.structurePlacementRadius || 10} tiles of an owned settlement.</div>
                 {/if}
               </section>
               <div class="inspector-actions">
                 <button
                   class="game-action game-action-primary w-full"
-                  disabled={busy}
-                  on:click={() => sel?.city && doAction(() => buildingClient.createBuilding({ cityId: sel!.city!.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Construction failed')}
+                  disabled={busy || (standalonePlacement && (!buildStats || !canAfford(buildStats.cost)))}
+                  on:click={() => sel && doAction(() => buildingClient.createBuilding({ cityId: sel!.city?.cityId, type: buildType, coords: { x: sel!.x, y: sel!.y } }), 'Construction failed')}
                   >{busy ? 'Working…' : `Construct ${bName(buildType)}`}</button
                 >
               </div>
             {:else}
               <div class="inspector-actions inspector-actions-compact">
-                <button class="game-action game-action-primary w-full" on:click={() => (showBuild = true)}>
+                <button class="game-action game-action-primary w-full" on:click={() => openBuildPanel(standalonePlacement)}>
                   <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-3.5 w-3.5" aria-hidden="true"><path d="M3 17h14M5 17V8l5-4 5 4v9M8 17v-5h4v5" /></svg>
-                  Construct
+                  Construct {standalonePlacement ? 'frontier structure' : ''}
                 </button>
               </div>
             {/if}

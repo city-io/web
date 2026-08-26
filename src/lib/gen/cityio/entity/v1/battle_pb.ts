@@ -2,30 +2,26 @@
 // @generated from file cityio/entity/v1/battle.proto (package cityio.entity.v1, syntax proto3)
 /* eslint-disable */
 
-import type { GenFile, GenMessage } from '@bufbuild/protobuf/codegenv2';
-import { fileDesc, messageDesc } from '@bufbuild/protobuf/codegenv2';
-import type { TroopStack } from './army_pb';
-import { file_cityio_entity_v1_army } from './army_pb';
-import type { ArmyId, BattleId, CityId, TileId, UserId } from './ids_pb';
-import { file_cityio_entity_v1_ids } from './ids_pb';
-import type { Timestamp } from '@bufbuild/protobuf/wkt';
-import { file_google_protobuf_timestamp } from '@bufbuild/protobuf/wkt';
-import type { Message } from '@bufbuild/protobuf';
+import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
+import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
+import type { TroopStack } from "./army_pb";
+import { file_cityio_entity_v1_army } from "./army_pb";
+import type { ArmyId, BattleId, CityId, TileId, UserId } from "./ids_pb";
+import { file_cityio_entity_v1_ids } from "./ids_pb";
+import type { Timestamp } from "@bufbuild/protobuf/wkt";
+import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
+import type { Message } from "@bufbuild/protobuf";
 
 /**
  * Describes the file cityio/entity/v1/battle.proto.
  */
-export const file_cityio_entity_v1_battle: GenFile =
-  /*@__PURE__*/
-  fileDesc(
-    'Ch1jaXR5aW8vZW50aXR5L3YxL2JhdHRsZS5wcm90bxIQY2l0eWlvLmVudGl0eS52MSJlChFCYXR0bGVMb3NzU3VtbWFyeRIsCgZ0cm9vcHMYASADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSDwoHbWlsaXRpYRgCIAEoAxIRCgljaXZpbGlhbnMYAyABKAMi8AMKCkJhdHRsZVNpZGUSKgoIdXNlcl9pZHMYASADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlVzZXJJZBIqCghhcm15X2lkcxgCIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEjYKD21pbGl0aWFfY2l0eV9pZBgDIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkSACIAQESFQoNbWlsaXRpYV9jb3VudBgEIAEoAxIYChBzdHJlbmd0aF92aXNpYmxlGAUgASgIEjUKD3N0YXJ0aW5nX3Ryb29wcxgGIAMoCzIcLmNpdHlpby5lbnRpdHkudjEuVHJvb3BTdGFjaxI2ChBzdXJ2aXZpbmdfdHJvb3BzGAcgAygLMhwuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFN0YWNrEh4KFnN0YXJ0aW5nX21pbGl0aWFfY291bnQYCCABKAMSPgoRY3VtdWxhdGl2ZV9sb3NzZXMYCSABKAsyIy5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUxvc3NTdW1tYXJ5Ej4KEWxhc3Rfcm91bmRfbG9zc2VzGAogASgLMiMuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVMb3NzU3VtbWFyeUISChBfbWlsaXRpYV9jaXR5X2lkIsACCgZCYXR0bGUSLQoJYmF0dGxlX2lkGAEgASgLMhouY2l0eWlvLmVudGl0eS52MS5CYXR0bGVJZBIpCgd0aWxlX2lkGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5UaWxlSWQSLwoJYXR0YWNrZXJzGAMgASgLMhwuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVTaWRlEi8KCWRlZmVuZGVycxgEIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlU2lkZRIuCgpzdGFydGVkX2F0GAUgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIwCgxuZXh0X3RpY2tfYXQYBiABKAsyGi5nb29nbGUucHJvdG9idWYuVGltZXN0YW1wEhgKEGNvbXBsZXRlZF9yb3VuZHMYByABKAViBnByb3RvMw',
-    [file_cityio_entity_v1_army, file_cityio_entity_v1_ids, file_google_protobuf_timestamp]
-  );
+export const file_cityio_entity_v1_battle: GenFile = /*@__PURE__*/
+  fileDesc("Ch1jaXR5aW8vZW50aXR5L3YxL2JhdHRsZS5wcm90bxIQY2l0eWlvLmVudGl0eS52MSJlChFCYXR0bGVMb3NzU3VtbWFyeRIsCgZ0cm9vcHMYASADKAsyHC5jaXR5aW8uZW50aXR5LnYxLlRyb29wU3RhY2sSDwoHbWlsaXRpYRgCIAEoAxIRCgljaXZpbGlhbnMYAyABKAMijwQKCkJhdHRsZVNpZGUSKgoIdXNlcl9pZHMYASADKAsyGC5jaXR5aW8uZW50aXR5LnYxLlVzZXJJZBIqCghhcm15X2lkcxgCIAMoCzIYLmNpdHlpby5lbnRpdHkudjEuQXJteUlkEjYKD21pbGl0aWFfY2l0eV9pZBgDIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuQ2l0eUlkSACIAQESFQoNbWlsaXRpYV9jb3VudBgEIAEoAxIYChBzdHJlbmd0aF92aXNpYmxlGAUgASgIEjUKD3N0YXJ0aW5nX3Ryb29wcxgGIAMoCzIcLmNpdHlpby5lbnRpdHkudjEuVHJvb3BTdGFjaxI2ChBzdXJ2aXZpbmdfdHJvb3BzGAcgAygLMhwuY2l0eWlvLmVudGl0eS52MS5Ucm9vcFN0YWNrEh4KFnN0YXJ0aW5nX21pbGl0aWFfY291bnQYCCABKAMSPgoRY3VtdWxhdGl2ZV9sb3NzZXMYCSABKAsyIy5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZUxvc3NTdW1tYXJ5Ej4KEWxhc3Rfcm91bmRfbG9zc2VzGAogASgLMiMuY2l0eWlvLmVudGl0eS52MS5CYXR0bGVMb3NzU3VtbWFyeRIdChVkZWZlbnNlX2JvbnVzX3BlcmNlbnQYCyABKAVCEgoQX21pbGl0aWFfY2l0eV9pZCLAAgoGQmF0dGxlEi0KCWJhdHRsZV9pZBgBIAEoCzIaLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlSWQSKQoHdGlsZV9pZBgCIAEoCzIYLmNpdHlpby5lbnRpdHkudjEuVGlsZUlkEi8KCWF0dGFja2VycxgDIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQmF0dGxlU2lkZRIvCglkZWZlbmRlcnMYBCABKAsyHC5jaXR5aW8uZW50aXR5LnYxLkJhdHRsZVNpZGUSLgoKc3RhcnRlZF9hdBgFIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXASMAoMbmV4dF90aWNrX2F0GAYgASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcBIYChBjb21wbGV0ZWRfcm91bmRzGAcgASgFYgZwcm90bzM", [file_cityio_entity_v1_army, file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
 
 /**
  * @generated from message cityio.entity.v1.BattleLossSummary
  */
-export type BattleLossSummary = Message<'cityio.entity.v1.BattleLossSummary'> & {
+export type BattleLossSummary = Message<"cityio.entity.v1.BattleLossSummary"> & {
   /**
    * @generated from field: repeated cityio.entity.v1.TroopStack troops = 1;
    */
@@ -46,12 +42,13 @@ export type BattleLossSummary = Message<'cityio.entity.v1.BattleLossSummary'> & 
  * Describes the message cityio.entity.v1.BattleLossSummary.
  * Use `create(BattleLossSummarySchema)` to create a new message.
  */
-export const BattleLossSummarySchema: GenMessage<BattleLossSummary> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_battle, 0);
+export const BattleLossSummarySchema: GenMessage<BattleLossSummary> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_battle, 0);
 
 /**
  * @generated from message cityio.entity.v1.BattleSide
  */
-export type BattleSide = Message<'cityio.entity.v1.BattleSide'> & {
+export type BattleSide = Message<"cityio.entity.v1.BattleSide"> & {
   /**
    * @generated from field: repeated cityio.entity.v1.UserId user_ids = 1;
    */
@@ -103,13 +100,21 @@ export type BattleSide = Message<'cityio.entity.v1.BattleSide'> & {
    * @generated from field: cityio.entity.v1.BattleLossSummary last_round_losses = 10;
    */
   lastRoundLosses?: BattleLossSummary | undefined;
+
+  /**
+   * Effective durability added by a settlement center and/or owned fort.
+   *
+   * @generated from field: int32 defense_bonus_percent = 11;
+   */
+  defenseBonusPercent: number;
 };
 
 /**
  * Describes the message cityio.entity.v1.BattleSide.
  * Use `create(BattleSideSchema)` to create a new message.
  */
-export const BattleSideSchema: GenMessage<BattleSide> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_battle, 1);
+export const BattleSideSchema: GenMessage<BattleSide> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_battle, 1);
 
 /**
  * Battle exists only while combat is active. Each side can contain armies
@@ -118,7 +123,7 @@ export const BattleSideSchema: GenMessage<BattleSide> = /*@__PURE__*/ messageDes
  *
  * @generated from message cityio.entity.v1.Battle
  */
-export type Battle = Message<'cityio.entity.v1.Battle'> & {
+export type Battle = Message<"cityio.entity.v1.Battle"> & {
   /**
    * @generated from field: cityio.entity.v1.BattleId battle_id = 1;
    */
@@ -159,4 +164,5 @@ export type Battle = Message<'cityio.entity.v1.Battle'> & {
  * Describes the message cityio.entity.v1.Battle.
  * Use `create(BattleSchema)` to create a new message.
  */
-export const BattleSchema: GenMessage<Battle> = /*@__PURE__*/ messageDesc(file_cityio_entity_v1_battle, 2);
+export const BattleSchema: GenMessage<Battle> = /*@__PURE__*/
+  messageDesc(file_cityio_entity_v1_battle, 2);

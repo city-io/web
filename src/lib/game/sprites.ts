@@ -4,7 +4,7 @@ import { tileHash } from './colors';
 
 export type TerrainKind = 'grassland' | 'plains' | 'forest' | 'hills' | 'mountains' | 'desert' | 'marsh' | 'water' | 'fog';
 export type TerrainNeighbors = readonly [TerrainKind | null, TerrainKind | null, TerrainKind | null, TerrainKind | null];
-export type StructureKind = 'house' | 'farm' | 'mine' | 'barracks' | 'city_center' | 'town_center';
+export type StructureKind = 'house' | 'farm' | 'mine' | 'barracks' | 'watchtower' | 'fort' | 'city_center' | 'town_center';
 
 const PAD = 2;
 const W = 2 * HW + PAD * 2;
@@ -52,6 +52,8 @@ const STRUCTURE_HEADROOM: Record<StructureKind, number> = {
   mine: 14,
   house: 24,
   barracks: 28,
+  watchtower: 42,
+  fort: 30,
   town_center: 32,
   city_center: 42
 };
@@ -320,6 +322,48 @@ function drawBarracks(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   ctx.fillRect(cx - 2, baseY - 5, 4, 7);
 }
 
+function drawWatchtower(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+  const baseY = cy - 2;
+  drawStructureShadow(ctx, cx, cy, 10);
+  ctx.fillStyle = '#76563c';
+  ctx.fillRect(cx - 7, baseY - 27, 4, 29);
+  ctx.fillRect(cx + 3, baseY - 27, 4, 29);
+  ctx.strokeStyle = '#4d3524';
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(cx - 6, baseY - 20);
+  ctx.lineTo(cx + 6, baseY - 5);
+  ctx.moveTo(cx + 6, baseY - 20);
+  ctx.lineTo(cx - 6, baseY - 5);
+  ctx.stroke();
+  ctx.fillStyle = '#9a7650';
+  ctx.fillRect(cx - 11, baseY - 31, 22, 7);
+  pitchedRoof(ctx, cx, baseY - 31, 13, 8, 0x5c3926);
+  ctx.fillStyle = '#32251a';
+  ctx.fillRect(cx - 2, baseY - 29, 4, 3);
+}
+
+function drawFort(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
+  const baseY = cy - 2;
+  drawStructureShadow(ctx, cx, cy, 17);
+  ctx.fillStyle = '#8f8b7c';
+  ctx.fillRect(cx - 16, baseY - 16, 32, 18);
+  ctx.fillStyle = '#777568';
+  ctx.fillRect(cx + 3, baseY - 16, 13, 18);
+  ctx.fillStyle = '#aaa594';
+  for (let x = -16; x <= 11; x += 9) ctx.fillRect(cx + x, baseY - 21, 6, 6);
+  ctx.fillStyle = '#4c4438';
+  ctx.fillRect(cx - 4, baseY - 7, 8, 9);
+  ctx.strokeStyle = 'rgba(55,52,45,.55)';
+  ctx.lineWidth = 1;
+  for (let y = baseY - 12; y < baseY; y += 5) {
+    ctx.beginPath();
+    ctx.moveTo(cx - 15, y);
+    ctx.lineTo(cx + 15, y);
+    ctx.stroke();
+  }
+}
+
 function drawTownCenter(ctx: CanvasRenderingContext2D, cx: number, cy: number) {
   const baseY = cy - 2;
   drawStructureShadow(ctx, cx, cy, 16);
@@ -437,6 +481,12 @@ function renderStructure(kind: StructureKind): HTMLCanvasElement {
       break;
     case 'barracks':
       drawBarracks(ctx, cx, cy);
+      break;
+    case 'watchtower':
+      drawWatchtower(ctx, cx, cy);
+      break;
+    case 'fort':
+      drawFort(ctx, cx, cy);
       break;
     case 'town_center':
       drawTownCenter(ctx, cx, cy);

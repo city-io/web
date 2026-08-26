@@ -7,6 +7,7 @@ import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/ids.proto";
 
 message CreateBuildingRequest {
+  // Required for city buildings and omitted for standalone watchtowers/forts.
   cityio.entity.v1.CityId city_id = 1;
   cityio.entity.v1.BuildingType type = 2;
   cityio.entity.v1.Coordinates coords = 3;
@@ -33,6 +34,7 @@ message DeleteBuildingRequest {
 message DeleteBuildingResponse {}
 
 message ListBuildingsRequest {
+  // When omitted, returns the caller's standalone structures.
   cityio.entity.v1.CityId city_id = 1;
 }
 message ListBuildingsResponse {

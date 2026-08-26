@@ -6,7 +6,7 @@ import type { GenFile, GenMessage } from "@bufbuild/protobuf/codegenv2";
 import { fileDesc, messageDesc } from "@bufbuild/protobuf/codegenv2";
 import type { BuildingType, Coordinates } from "./common_pb";
 import { file_cityio_entity_v1_common } from "./common_pb";
-import type { BuildingId, CityId } from "./ids_pb";
+import type { BuildingId, CityId, UserId } from "./ids_pb";
 import { file_cityio_entity_v1_ids } from "./ids_pb";
 import type { Timestamp } from "@bufbuild/protobuf/wkt";
 import { file_google_protobuf_timestamp } from "@bufbuild/protobuf/wkt";
@@ -16,10 +16,10 @@ import type { Message } from "@bufbuild/protobuf";
  * Describes the file cityio/entity/v1/building.proto.
  */
 export const file_cityio_entity_v1_building: GenFile = /*@__PURE__*/
-  fileDesc("Ch9jaXR5aW8vZW50aXR5L3YxL2J1aWxkaW5nLnByb3RvEhBjaXR5aW8uZW50aXR5LnYxIo4DCghCdWlsZGluZxIxCgtidWlsZGluZ19pZBgBIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdJZBIpCgdjaXR5X2lkGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQSLAoEdHlwZRgDIAEoDjIeLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdUeXBlEg0KBWxldmVsGAQgASgFEhQKDHRhcmdldF9sZXZlbBgFIAEoBRItCgZjb29yZHMYBiABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEjsKEmNvbnN0cnVjdGlvbl9zdGFydBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAIgBARI5ChBjb25zdHJ1Y3Rpb25fZW5kGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBQhUKE19jb25zdHJ1Y3Rpb25fc3RhcnRCEwoRX2NvbnN0cnVjdGlvbl9lbmRiBnByb3RvMw", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
+  fileDesc("Ch9jaXR5aW8vZW50aXR5L3YxL2J1aWxkaW5nLnByb3RvEhBjaXR5aW8uZW50aXR5LnYxIsYDCghCdWlsZGluZxIxCgtidWlsZGluZ19pZBgBIAEoCzIcLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdJZBIpCgdjaXR5X2lkGAIgASgLMhguY2l0eWlvLmVudGl0eS52MS5DaXR5SWQSLAoEdHlwZRgDIAEoDjIeLmNpdHlpby5lbnRpdHkudjEuQnVpbGRpbmdUeXBlEg0KBWxldmVsGAQgASgFEhQKDHRhcmdldF9sZXZlbBgFIAEoBRItCgZjb29yZHMYBiABKAsyHS5jaXR5aW8uZW50aXR5LnYxLkNvb3JkaW5hdGVzEjsKEmNvbnN0cnVjdGlvbl9zdGFydBgHIAEoCzIaLmdvb2dsZS5wcm90b2J1Zi5UaW1lc3RhbXBIAIgBARI5ChBjb25zdHJ1Y3Rpb25fZW5kGAggASgLMhouZ29vZ2xlLnByb3RvYnVmLlRpbWVzdGFtcEgBiAEBEiwKBW93bmVyGAkgASgLMhguY2l0eWlvLmVudGl0eS52MS5Vc2VySWRIAogBAUIVChNfY29uc3RydWN0aW9uX3N0YXJ0QhMKEV9jb25zdHJ1Y3Rpb25fZW5kQggKBl9vd25lcmIGcHJvdG8z", [file_cityio_entity_v1_common, file_cityio_entity_v1_ids, file_google_protobuf_timestamp]);
 
 /**
- * Building is a structure within a city.
+ * Building is either part of a city or a standalone player-owned structure.
  *
  * @generated from message cityio.entity.v1.Building
  */
@@ -63,6 +63,14 @@ export type Building = Message<"cityio.entity.v1.Building"> & {
    * @generated from field: optional google.protobuf.Timestamp construction_end = 8;
    */
   constructionEnd?: Timestamp | undefined;
+
+  /**
+   * Set only for standalone structures. City buildings inherit ownership from
+   * their city and continue to use city_id.
+   *
+   * @generated from field: optional cityio.entity.v1.UserId owner = 9;
+   */
+  owner?: UserId | undefined;
 };
 
 /**
