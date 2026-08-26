@@ -1200,16 +1200,16 @@
     return 'move';
   };
 
-  const routeVisuals = (intent: ArmyOrderIntent) => {
+  const routeVisuals = (intent: ArmyOrderIntent, confirmed = false) => {
     switch (intent) {
       case 'attack':
-        return { route: 0xf87171, direction: 0xfecaca, endpoint: 0xef4444, width: 4 };
+        return { route: 0xf87171, direction: 0xef4444, endpoint: 0xef4444, width: 4 };
       case 'siege':
         return { route: 0xe7ad48, direction: 0xfde68a, endpoint: 0xf59e0b, width: 4 };
       case 'retreat':
         return { route: 0x67d5d2, direction: 0xcffafe, endpoint: 0x22d3c5, width: 3 };
       default:
-        return { route: 0x7eb5ec, direction: 0xe2f1fb, endpoint: 0x60a5d9, width: 3 };
+        return confirmed ? { route: 0x4ade80, direction: 0x86efac, endpoint: 0x22c55e, width: 3 } : { route: 0x7eb5ec, direction: 0xe2f1fb, endpoint: 0x60a5d9, width: 3 };
     }
   };
 
@@ -1242,11 +1242,11 @@
     moveConfirmationGfx = indicator;
   };
 
-  const drawMovePreview = async (destination: { x: number; y: number } | null, streamedOrder?: ArmyOrder): Promise<MovePreviewResult> => {
+  const drawMovePreview = async (destination: { x: number; y: number } | null, streamedOrder?: ArmyOrder, reuseCurrentRoute = false, intentOverride?: ArmyOrderIntent): Promise<MovePreviewResult> => {
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
     moveRouteError = '';
     if (!cont || !army?.armyId || !army.coords || !destination) return 'failed';
-    const intent = moveIntentAtDestination(destination, streamedOrder);
+    const intent = intentOverride ?? moveIntentAtDestination(destination, streamedOrder);
     moveOrderIntent = intent;
 
     const refreshing = movePreviewDestination?.x === destination.x && movePreviewDestination.y === destination.y && moveRoute !== null;
@@ -1259,11 +1259,12 @@
       movePreviewDestination = null;
     }
 
+    const useCachedRoute = reuseCurrentRoute && refreshing;
     const request = ++movePreviewRequest;
-    moveRouteLoading = !refreshing;
+    moveRouteLoading = !refreshing && !useCachedRoute;
     let routeProjection = streamedOrder?.remainingRoute;
     let estimatedDuration = streamedOrder?.estimatedRemainingDuration;
-    if (!streamedOrder) {
+    if (!streamedOrder && !useCachedRoute) {
       try {
         const preview = await armyClient.previewArmyRoute({ armyId: army.armyId, destination });
         routeProjection = preview.route;
@@ -1279,15 +1280,17 @@
     if (request !== movePreviewRequest || moveArmyId !== army.armyId.value) return 'superseded';
     moveRouteLoading = false;
     moveRouteError = '';
-    moveRoute = (routeProjection?.knownSteps ?? []).flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y }] : []));
-    moveHiddenSegmentEnd = routeProjection?.hiddenSegmentEnd ? { x: routeProjection.hiddenSegmentEnd.x, y: routeProjection.hiddenSegmentEnd.y } : null;
-    const routeEnd = moveHiddenSegmentEnd ?? moveRoute.at(-1);
+    if (!useCachedRoute) {
+      moveRoute = (routeProjection?.knownSteps ?? []).flatMap((step) => (step.coords ? [{ x: step.coords.x, y: step.coords.y }] : []));
+      moveHiddenSegmentEnd = routeProjection?.hiddenSegmentEnd ? { x: routeProjection.hiddenSegmentEnd.x, y: routeProjection.hiddenSegmentEnd.y } : null;
+      moveRouteDurationMs = durationSeconds(estimatedDuration) * 1000;
+    }
+    const routeEnd = moveHiddenSegmentEnd ?? moveRoute?.at(-1);
     moveRouteComplete = (army.coords.x === destination.x && army.coords.y === destination.y) || (routeEnd?.x === destination.x && routeEnd?.y === destination.y);
-    moveRouteDurationMs = durationSeconds(estimatedDuration) * 1000;
     const points = [army.coords, ...(moveRoute ?? [])].map((step) => tileToScreen(step.x, step.y));
 
     const route = new Graphics();
-    const visuals = routeVisuals(intent);
+    const visuals = routeVisuals(intent, moveOrderActive);
     const routeColor = visuals.route;
     const directionColor = visuals.direction;
     if (moveRoute) {
@@ -1483,6 +1486,7 @@
       const hostile = destinationState?.armies?.find((candidate) => candidate.owner?.value && candidate.owner.value !== $userId);
       const settlement = destinationState?.city;
       const settlementCenter = settlement?.start && destination.x === settlement.start.x + Math.floor(settlement.size / 2) && destination.y === settlement.start.y + Math.floor(settlement.size / 2);
+      const issuedIntent: ArmyOrderIntent = hostile ? 'attack' : settlement?.cityId && settlement.owner?.value !== $userId && settlementCenter ? 'siege' : 'move';
       if (hostile?.armyId) {
         await armyClient.attackArmy({ armyId: army.armyId, targetArmyId: hostile.armyId });
       } else if (settlement?.cityId && settlement.owner?.value !== $userId && settlementCenter) {
@@ -1507,6 +1511,10 @@
         moveHover = moveTarget;
         moveOrderActive = true;
         moveDestinationObserved = false;
+        moveOrderIntent = issuedIntent;
+        const latestArmy = $armies.find((candidate) => candidate.armyId?.value === army.armyId?.value);
+        const activeOrder = orderForArmy(latestArmy);
+        void drawMovePreview(moveTarget, activeOrder, !activeOrder, issuedIntent);
       }
     } catch (e: unknown) {
       err = errorText(e, 'Movement order failed');
@@ -2301,15 +2309,6 @@
     }, 750);
   };
 
-  const tileIntersectsViewport = (col: number, row: number, scale: number): boolean => {
-    const point = tileToScreen(col, row);
-    const screenX = point.sx * scale + cont.x;
-    const screenY = point.sy * scale + cont.y;
-    // Include generous room for city labels and tall mountains while excluding
-    // the large corner triangles introduced by the tile-space AABB.
-    return screenX >= -192 * scale && screenX <= cw + 192 * scale && screenY >= -112 * scale && screenY <= ch + 64 * scale;
-  };
-
   const loadVisible = () => {
     if (!cont) return;
     const s = cont.scale.x;
@@ -2351,7 +2350,6 @@
     const nextVisibleTileKeys = new Set<string>();
     for (let col = firstCol; col <= lastCol; col++) {
       for (let row = firstRow; row <= lastRow; row++) {
-        if (!tileIntersectsViewport(col, row, s)) continue;
         const key = tileKey(col, row);
         nextVisibleTileKeys.add(key);
         if (!visibleTileKeys.has(key)) renderTile(col, row);
