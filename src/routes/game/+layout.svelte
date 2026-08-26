@@ -17,7 +17,8 @@
     mapCenter,
     tileVisibility as tileVisibilityStore,
     tiles as tilesStore,
-    userId
+    userId,
+    username as usernameStore
   } from '$lib/stores';
   import { tileKey } from '$lib/game/iso';
   import type { Tile } from '$lib/gen/cityio/entity/v1/tile_pb';
@@ -45,6 +46,7 @@
   const setResources = (bag?: EntityBag) => {
     const u = bag?.users[0];
     if (!u) return;
+    usernameStore.set(u.username);
     gold.set(u.gold);
     food.set(u.food);
     foodIncomePerHour.set(ratePerHour(u.foodIncome));
