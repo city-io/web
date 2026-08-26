@@ -13,7 +13,7 @@
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
   import { ArmyCompositionVisibility, type Army } from '$lib/gen/cityio/entity/v1/army_pb';
-  import type { ArmyOrder } from '$lib/gen/cityio/entity/v1/army_order_pb';
+  import type { ArmyOrder, ArmyRoute } from '$lib/gen/cityio/entity/v1/army_order_pb';
   import type { Battle, BattleLossSummary, BattleSide } from '$lib/gen/cityio/entity/v1/battle_pb';
   import {
     BattleReportEngagement,
@@ -142,7 +142,8 @@
   let moveRouteDurationMs = 0;
   let movePreviewDestination: { x: number; y: number } | null = null;
   let moveOrderActive = false;
-  let moveDestinationObserved = false;
+  let movePreviousOrderId: string | null = null;
+  let moveObservedOrderId: string | null = null;
   let moveOrderIntent: ArmyOrderIntent = 'move';
   let moveGfx: Graphics | null = null;
   let moveConfirmationGfx: Graphics | null = null;
@@ -421,6 +422,14 @@
   $: splitTotal = Object.values(splitCounts).reduce((total, count) => total + (count ?? 0), 0);
   $: orderById = new Map($armyOrders.map((order) => [order.armyOrderId?.value, order]));
   const orderForArmy = (army?: Army): ArmyOrder | undefined => (army?.orderId?.value ? orderById.get(army.orderId.value) : undefined);
+  const projectedRouteHasPath = (route?: ArmyRoute): boolean => !!route && (route.knownSteps.some((step) => !!step.coords) || !!route.hiddenSegmentEnd);
+  const currentMoveOrder = (army?: Army): ArmyOrder | undefined => {
+    if (!moveOrderActive) return undefined;
+    const order = orderForArmy(army);
+    const orderId = order?.armyOrderId?.value;
+    if (!orderId || (!moveObservedOrderId && orderId === movePreviousOrderId)) return undefined;
+    return order;
+  };
   const orderDestination = (order?: ArmyOrder) => {
     if (!order) return undefined;
     switch (order.objective.case) {
@@ -658,17 +667,28 @@
       const y = tracked.coords.y;
       sel = { x, y, ...tileData.get(tileKey(x, y)) };
       if (moveOrderActive && moveArmyId === tracked.armyId?.value && moveTarget) {
-        const order = orderForArmy(tracked);
-        if (x === moveTarget.x && y === moveTarget.y) {
+        const order = currentMoveOrder(tracked);
+        const destination = orderDestination(order);
+        if (order?.armyOrderId?.value && destination) {
+          moveObservedOrderId = order.armyOrderId.value;
+          movePreviousOrderId = null;
+          if (x === destination.x && y === destination.y) {
+            cancelMoveMode();
+          } else {
+            moveTarget = { x: destination.x, y: destination.y };
+            moveHover = moveTarget;
+            void drawMovePreview(moveTarget, order, true);
+          }
+        } else if (x === moveTarget.x && y === moveTarget.y) {
           cancelMoveMode();
-        } else if (orderDestination(order)) {
-          const destination = orderDestination(order)!;
-          moveDestinationObserved = true;
-          moveTarget = { x: destination.x, y: destination.y };
-          moveHover = moveTarget;
-          void drawMovePreview(moveTarget, order);
-        } else if (moveDestinationObserved) {
+        } else if (moveObservedOrderId && !tracked.orderId) {
           cancelMoveMode();
+        } else if (tracked.battleId && !tracked.orderId) {
+          cancelMoveMode();
+        } else {
+          // The army and its replacement order can arrive in separate state
+          // updates. Keep the accepted local route until both are available.
+          void drawMovePreview(moveTarget, undefined, true, moveOrderIntent);
         }
       }
     } else if (trackedArmyId) {
@@ -1259,12 +1279,14 @@
       movePreviewDestination = null;
     }
 
-    const useCachedRoute = reuseCurrentRoute && refreshing;
+    const streamedRouteAvailable = projectedRouteHasPath(streamedOrder?.remainingRoute);
+    const cachedRouteAvailable = refreshing && ((moveRoute?.length ?? 0) > 0 || !!moveHiddenSegmentEnd);
+    const useCachedRoute = reuseCurrentRoute && cachedRouteAvailable && !streamedRouteAvailable;
     const request = ++movePreviewRequest;
     moveRouteLoading = !refreshing && !useCachedRoute;
     let routeProjection = streamedOrder?.remainingRoute;
     let estimatedDuration = streamedOrder?.estimatedRemainingDuration;
-    if (!streamedOrder && !useCachedRoute) {
+    if (!streamedRouteAvailable && !useCachedRoute) {
       try {
         const preview = await armyClient.previewArmyRoute({ armyId: army.armyId, destination });
         routeProjection = preview.route;
@@ -1409,7 +1431,8 @@
     moveRouteDurationMs = 0;
     movePreviewDestination = null;
     moveOrderActive = false;
-    moveDestinationObserved = false;
+    movePreviousOrderId = null;
+    moveObservedOrderId = null;
     moveOrderIntent = 'move';
     moveConfirmationPending = false;
     moveConfirmationPreview = null;
@@ -1447,7 +1470,8 @@
       moveTarget = { x: destination.x, y: destination.y };
       moveHover = moveTarget;
       moveOrderActive = true;
-      moveDestinationObserved = true;
+      movePreviousOrderId = null;
+      moveObservedOrderId = order?.armyOrderId?.value ?? null;
       void drawMovePreview(moveTarget, order);
     }
     scheduleRender();
@@ -1474,6 +1498,7 @@
   const issueMove = async (destination: { x: number; y: number }) => {
     const army = moveArmyId ? $armies.find((candidate) => candidate.armyId?.value === moveArmyId) : undefined;
     if (!army?.armyId || !army.coords || busy) return;
+    const previousOrderId = army.orderId?.value ?? null;
     moveConfirmationPending = false;
     moveConfirmationPreview = null;
     clearMoveConfirmation();
@@ -1510,11 +1535,16 @@
         moveTarget = { ...destination };
         moveHover = moveTarget;
         moveOrderActive = true;
-        moveDestinationObserved = false;
+        movePreviousOrderId = previousOrderId;
+        moveObservedOrderId = null;
         moveOrderIntent = issuedIntent;
         const latestArmy = $armies.find((candidate) => candidate.armyId?.value === army.armyId?.value);
-        const activeOrder = orderForArmy(latestArmy);
-        void drawMovePreview(moveTarget, activeOrder, !activeOrder, issuedIntent);
+        const activeOrder = currentMoveOrder(latestArmy);
+        if (activeOrder?.armyOrderId?.value) {
+          moveObservedOrderId = activeOrder.armyOrderId.value;
+          movePreviousOrderId = null;
+        }
+        void drawMovePreview(moveTarget, activeOrder, true, issuedIntent);
       }
     } catch (e: unknown) {
       err = errorText(e, 'Movement order failed');
@@ -2289,7 +2319,7 @@
     }
     dirtyTileKeys.clear();
     if (sel) drawSel(sel.x, sel.y);
-    if (moveArmyId) void drawMovePreview(moveTarget ?? moveHover, moveOrderActive ? orderForArmy(movingArmy) : undefined);
+    if (moveArmyId) void drawMovePreview(moveTarget ?? moveHover, currentMoveOrder(movingArmy), moveOrderActive, moveOrderIntent);
   };
 
   const scheduleTileCachePrune = () => {
@@ -4029,10 +4059,41 @@
               </div>
 
               {#if demographicsKnown(sel.city)}
-                <div class="inspector-row">
-                  <span>Population trend</span>
-                  <span class="text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</span>
-                </div>
+                {#if sel.city.owner?.value === $userId}
+                  {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
+                  <!-- Food economy is owner-only intel; non-owners receive these unset -->
+                  <div class="border border-[#465a5f] bg-black/[0.08]">
+                    <div class="grid grid-cols-3 divide-x divide-white/[0.07]">
+                      <div class="px-2.5 py-2">
+                        <span class="block text-[8px] uppercase tracking-wide text-[#718083]">Population trend</span>
+                        <span class="mt-1 block text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</span>
+                      </div>
+                      <div class="px-2.5 py-2">
+                        <span class="block text-[8px] uppercase tracking-wide text-[#718083]">Tax revenue</span>
+                        <strong class="mt-1 block text-[11px] tabular-nums text-amber-200">+{Math.round(ratePerHour(sel.city.taxIncome)).toLocaleString()}/hr</strong>
+                      </div>
+                      <div class="px-2.5 py-2">
+                        <span class="block text-[8px] uppercase tracking-wide text-[#718083]">Food balance</span>
+                        <strong class="mt-1 block text-[11px] tabular-nums {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerHour(netFlow)}/hr</strong>
+                      </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-3 border-t border-white/[0.07] px-2.5 py-1.5 text-[9px]">
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-[#7f8c8d]">Harvest</span>
+                        <span class="tabular-nums text-emerald-300">+{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
+                      </div>
+                      <div class="flex items-center justify-between gap-2">
+                        <span class="text-[#7f8c8d]">Rations</span>
+                        <span class="tabular-nums text-red-300/80">{fmtPerHour(-ratePerHour(sel.city.foodUpkeep))}/hr</span>
+                      </div>
+                    </div>
+                  </div>
+                {:else}
+                  <div class="inspector-row">
+                    <span>Population trend</span>
+                    <span class="text-[11px]">{@render popChip(ratePerHour(sel.city.populationGrowth))}</span>
+                  </div>
+                {/if}
 
                 {#if sel.city.starving}
                   <div class="mt-2 flex items-center gap-1.5 border border-red-300/15 bg-red-300/[0.05] px-2 py-1.5 text-[10px] text-red-300">
@@ -4052,7 +4113,6 @@
                 </div>
               {/if}
 
-              <!-- Food economy is owner-only intel; non-owners receive these unset -->
               {#if sel.city.owner?.value === $userId}
                 {@const policy = $gameConfig.populationPolicy}
                 {@const minMilitia = policy?.minMilitiaPercent ?? 5}
@@ -4170,25 +4230,6 @@
                         >
                       </div>
                     </div>
-                  </div>
-                </div>
-                {@const netFlow = ratePerHour(sel.city.netFoodFlow)}
-                <div class="mt-2.5 border-t border-[#465a5f] pt-2">
-                  <div class="inspector-row">
-                    <span>Tax revenue</span>
-                    <span class="text-amber-200">+{Math.round(ratePerHour(sel.city.taxIncome)).toLocaleString()}/hr</span>
-                  </div>
-                  <div class="inspector-row">
-                    <span>Harvest</span>
-                    <span class="text-emerald-300">{Math.round(ratePerHour(sel.city.foodProduction)).toLocaleString()}/hr</span>
-                  </div>
-                  <div class="inspector-row">
-                    <span>Rations</span>
-                    <span class="text-red-300/80">{fmtPerHour(-ratePerHour(sel.city.foodUpkeep))}/hr</span>
-                  </div>
-                  <div class="inspector-row mt-1 border-t border-white/[0.05] pt-2">
-                    <span>{netFlow >= 0 ? 'To the stores' : 'From the stores'}</span>
-                    <span class="font-semibold {netFlow >= 0 ? 'text-emerald-300' : 'text-red-400'}">{fmtPerHour(netFlow)}/hr</span>
                   </div>
                 </div>
               {/if}
