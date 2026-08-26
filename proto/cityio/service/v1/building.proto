@@ -7,7 +7,8 @@ import "cityio/entity/v1/common.proto";
 import "cityio/entity/v1/ids.proto";
 
 message CreateBuildingRequest {
-  // Required for city buildings and omitted for standalone watchtowers/forts.
+  // Required for city buildings and omitted for standalone watchtowers/forts,
+  // which require one of the caller's armies on the target tile.
   cityio.entity.v1.CityId city_id = 1;
   cityio.entity.v1.BuildingType type = 2;
   cityio.entity.v1.Coordinates coords = 3;

@@ -354,7 +354,8 @@
     return Math.max(dx, dy);
   };
   const canPlaceStandaloneStructure = (selection: typeof sel) => {
-    if (!selection?.tile || selection.city || selection.building || selection.armies?.length || terrainAt(selection.x, selection.y) === TerrainType.WATER) return false;
+    if (!selection?.tile || selection.city || selection.building || terrainAt(selection.x, selection.y) === TerrainType.WATER) return false;
+    if (!selection.armies?.some((army) => army.owner?.value === $userId)) return false;
     const radius = $gameConfig.structurePlacementRadius || 10;
     return $cities.some((city) => city.owner?.value === $userId && distanceToSettlement(city, selection.x, selection.y) <= radius);
   };
@@ -1475,6 +1476,24 @@
     clearMoveTarget();
   };
 
+  const focusTile = (x: number, y: number, openBuild = false, openBuildingManagement = false) => {
+    cancelMoveMode();
+    trackedArmyId = null;
+    selectedArmyId = null;
+    selectedBattleId = null;
+    sel = { x, y, ...tileData.get(tileKey(x, y)) };
+    err = '';
+    notice = '';
+    showBuild = openBuild;
+    if (openBuild) openBuildPanel(!sel.city);
+    showCityManagement = false;
+    showBattlePanel = false;
+    recruitCount = 1;
+    drawSel(x, y);
+    if (openBuildingManagement) openSelectedManagement();
+    scheduleRender();
+  };
+
   const focusArmy = (army: Army, center = true) => {
     const id = army.armyId?.value;
     if (!id || !army.coords) return;
@@ -1504,6 +1523,16 @@
       void drawMovePreview(moveTarget, order);
     }
     scheduleRender();
+  };
+
+  const toggleTileArmySelection = () => {
+    if (!sel?.armies?.length) return;
+    if (selectedArmy) {
+      focusTile(sel.x, sel.y);
+      return;
+    }
+    const army = sel.armies.find((candidate) => candidate.owner?.value === $userId) ?? sel.armies[0];
+    focusArmy(army, false);
   };
 
   const prepareMove = (army: Army) => {
@@ -2190,18 +2219,11 @@
         if (event.button !== 0) return;
         event.stopPropagation();
         if (visibleArmies.length === 1) {
-          focusArmy(army, false);
+          if (selectedArmyId === army.armyId?.value && sel?.x === col && sel?.y === row) focusTile(col, row);
+          else focusArmy(army, false);
           return;
         }
-        cancelMoveMode();
-        trackedArmyId = null;
-        selectedArmyId = null;
-        sel = { x: col, y: row, ...tileData.get(k) };
-        err = '';
-        notice = '';
-        showBuild = false;
-        showCityManagement = false;
-        drawSel(col, row);
+        focusTile(col, row);
       });
       tc.addChild(marker);
     }
@@ -2518,20 +2540,10 @@
           lastTileClickKey = clickedKey;
           lastTileClickAt = clickedAt;
           if (t?.armies?.length === 1 && !t.building) {
-            focusArmy(t.armies[0], false);
+            if (selectedArmyId === t.armies[0].armyId?.value && sel?.x === mc.x && sel?.y === mc.y) focusTile(mc.x, mc.y, openConstruction);
+            else focusArmy(t.armies[0], false);
           } else {
-            trackedArmyId = null;
-            selectedArmyId = null;
-            sel = selection;
-            err = '';
-            notice = '';
-            showBuild = openConstruction;
-            if (openStandaloneConstruction) buildType = BuildingType.WATCHTOWER;
-            else if (openCityConstruction && standalonePlaceTypes.includes(buildType)) buildType = BuildingType.HOUSE;
-            showCityManagement = false;
-            recruitCount = 1;
-            drawSel(mc.x, mc.y);
-            if (openBuildingManagement) openSelectedManagement();
+            focusTile(mc.x, mc.y, openConstruction, openBuildingManagement);
           }
         }
       } else if (!easeMotion || performance.now() - lastMoveT > 80) {
@@ -3699,7 +3711,7 @@
         <div class="inspector-header flex items-center justify-between gap-3">
           <div class="flex min-w-0 items-center gap-2.5">
             <span class="selection-crest">
-              {#if selectedArmy || sel.armies?.length}
+              {#if selectedArmy}
                 {@render managementGlyph('armies')}
               {:else if sel.building}
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linejoin="round" aria-hidden="true">
@@ -3717,12 +3729,10 @@
                   {armyDisplayName(selectedArmy)}
                 {:else if sel.building}
                   {bName(sel.building.type)}
-                {:else if sel.armies?.length}
-                  {sel.armies.length === 1 ? 'Army' : `${sel.armies.length} armies`}
                 {:else if sel.city}
                   {sel.city.name}
                 {:else}
-                  {selectedTerrain.name}
+                  {selectedTerrain.name} tile
                 {/if}
               </h2>
               {#if selectedArmy}
@@ -3749,15 +3759,27 @@
               {/if}
             </div>
           </div>
-          <button
-            aria-label="Close"
-            class="flex h-7 w-7 shrink-0 items-center justify-center border border-white/[0.12] text-[#c6c8bb] transition-colors duration-150 hover:border-white/30 hover:text-white"
-            on:click={() => (showCityManagement ? (showCityManagement = false) : deselect())}
-          >
-            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
-              <path d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z" />
-            </svg>
-          </button>
+          <div class="flex shrink-0 items-center gap-1.5">
+            {#if sel.armies?.length && !showCityManagement}
+              <button
+                class="h-7 border border-white/[0.12] px-2 text-[8px] font-bold uppercase tracking-[0.08em] text-[#c6c8bb] transition-colors duration-150 hover:border-white/30 hover:text-white"
+                on:click={toggleTileArmySelection}
+              >
+                {selectedArmy ? 'View tile' : 'View army'}
+              </button>
+            {/if}
+            <button
+              aria-label="Close"
+              class="flex h-7 w-7 items-center justify-center border border-white/[0.12] text-[#c6c8bb] transition-colors duration-150 hover:border-white/30 hover:text-white"
+              on:click={() => (showCityManagement ? (showCityManagement = false) : deselect())}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
+                <path
+                  d="M6.28 5.22a.75.75 0 00-1.06 1.06L8.94 10l-3.72 3.72a.75.75 0 101.06 1.06L10 11.06l3.72 3.72a.75.75 0 101.06-1.06L11.06 10l3.72-3.72a.75.75 0 00-1.06-1.06L10 8.94 6.28 5.22z"
+                />
+              </svg>
+            </button>
+          </div>
         </div>
 
         {#if err}
@@ -4678,7 +4700,7 @@
                   </div>
                 {/if}
                 {#if standalonePlacement}
-                  <div class="mt-3 text-[9px] text-[#7e8982]">Must remain within {$gameConfig.structurePlacementRadius || 10} tiles of an owned settlement.</div>
+                  <div class="mt-3 text-[9px] text-[#7e8982]">Requires one of your armies here and must remain within {$gameConfig.structurePlacementRadius || 10} tiles of an owned settlement.</div>
                 {/if}
               </section>
               <div class="inspector-actions">
