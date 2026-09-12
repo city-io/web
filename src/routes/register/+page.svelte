@@ -1,7 +1,7 @@
 <script lang="ts">
   import { goto } from '$app/navigation';
   import { userClient } from '$lib/api/client';
-  import { token as tokenStore, userId as userIdStore } from '$lib/stores';
+  import { token as tokenStore, userId as userIdStore, tutorialPendingUserId } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import Brand from '$lib/components/Brand.svelte';
   import Button from '$lib/components/Button.svelte';
@@ -28,6 +28,7 @@
       const response = await userClient.register({ username, email, password });
       tokenStore.set(response.token);
       userIdStore.set(response.userId?.value);
+      tutorialPendingUserId.set(response.userId?.value);
 
       goto('/game');
     } catch (error: unknown) {

@@ -1,5 +1,5 @@
 <script lang="ts">
-  import { armies, armyOrders, battles, buildings, cities, mailboxMessages, mapCenter, tiles, tileVisibility, username, gold, food, userId, gameConfig } from '$lib/stores';
+  import { armies, armyOrders, battles, buildings, cities, mailboxMessages, mapCenter, tiles, tileVisibility, username, gold, food, userId, gameConfig, tutorialPendingUserId } from '$lib/stores';
   import { clearSession } from '$lib/session';
   import { goto } from '$app/navigation';
   import { onMount, onDestroy } from 'svelte';
@@ -9,6 +9,7 @@
   import { getMemoryFogSprite, getStructureSprite, getTerrainSprite, getTerrainTransitionSprite, initSprites, type StructureKind, type TerrainKind, type TerrainNeighbors } from '$lib/game/sprites';
   import { TROOP_STATS, TROOP_TYPES, armyDisplayName, armySize, armyTitle, createArmyMarker, troopName, type ArmyPathStep } from '$lib/game/troops';
   import MiniMap from '$lib/components/MiniMap.svelte';
+  import HowToPlay from '$lib/components/HowToPlay.svelte';
   import { ratePerHour, fmtPerHour, durationSeconds } from '$lib/game/rates';
   import type { City } from '$lib/gen/cityio/entity/v1/city_pb';
   import type { Building } from '$lib/gen/cityio/entity/v1/building_pb';
@@ -243,8 +244,34 @@
 
   // Keyboard navigation
   let showHelp = false;
+  const openHelp = () => {
+    tutorialPendingUserId.set(undefined);
+    showHelp = true;
+  };
   let cityCycleIdx = -1;
-  const PAN_STEP = 110;
+  const PAN_SPEED = 660; // Screen pixels per second, independent of key repeat.
+  const panKeys = new Set<string>();
+  const panDirections: Record<string, readonly [number, number]> = {
+    arrowleft: [1, 0],
+    a: [1, 0],
+    h: [1, 0],
+    arrowright: [-1, 0],
+    d: [-1, 0],
+    l: [-1, 0],
+    arrowup: [0, 1],
+    w: [0, 1],
+    k: [0, 1],
+    arrowdown: [0, -1],
+    s: [0, -1],
+    j: [0, -1]
+  };
+  let panFast = false;
+  const clearPanKeys = () => {
+    panKeys.clear();
+    panFast = false;
+  };
+  const isTypingTarget = (target: EventTarget | null) => target instanceof HTMLElement && (['INPUT', 'TEXTAREA', 'SELECT'].includes(target.tagName) || target.isContentEditable);
+  $: if (showHelp || showCityManagement || showBattlePanel || selectedMailboxMessageId) clearPanKeys();
 
   // Minimap viewport rectangle span (tile units), updated by loadVisible.
   let viewTilesW = 0;
@@ -968,7 +995,7 @@
     drawSel(x, y);
   };
 
-  // Pan the camera by a pixel delta (shared by trackpad scroll + keyboard).
+  // Advance the keyboard pan target by a screen-space pixel delta.
   const panBy = (dx: number, dy: number) => {
     if (!cont) return;
     const c = clampPos(tgtX + dx, tgtY + dy, tgtScale);
@@ -995,6 +1022,16 @@
   const animateCam = (dtMs: number) => {
     if (!cont) return;
     const dt = Math.min(dtMs, 50) / 1000;
+
+    if (panKeys.size && !drag) {
+      const directions = [...panKeys].map((key) => panDirections[key]);
+      // Aliases do not stack speed; opposite directions cancel each other.
+      const dx = Number(directions.some(([x]) => x > 0)) - Number(directions.some(([x]) => x < 0));
+      const dy = Number(directions.some(([, y]) => y > 0)) - Number(directions.some(([, y]) => y < 0));
+      const distance = (PAN_SPEED * (panFast ? 3 : 1) * dt) / (Math.hypot(dx, dy) || 1);
+      velX = velY = 0;
+      panBy(dx * distance, dy * distance);
+    }
 
     // Drag-release glide: coast the target, decay velocity, stop at edges.
     if (easeMotion && !drag && (Math.abs(velX) > 1 || Math.abs(velY) > 1)) {
@@ -2633,33 +2670,27 @@
   };
 
   const onKeydown = (e: KeyboardEvent) => {
-    // Don't hijack browser shortcuts (cmd/ctrl) or typing in form fields.
-    if (e.metaKey || e.ctrlKey || e.altKey) return;
-    const t = e.target as HTMLElement | null;
-    if (t && (t.tagName === 'INPUT' || t.tagName === 'TEXTAREA' || t.tagName === 'SELECT' || t.isContentEditable)) return;
-
-    const step = e.shiftKey ? PAN_STEP * 3 : PAN_STEP;
+    // Preserve browser shortcuts and stop movement when focus leaves the map.
+    if (e.metaKey || e.ctrlKey || e.altKey || isTypingTarget(e.target)) {
+      clearPanKeys();
+      return;
+    }
+    if (showHelp) {
+      if (e.key === '?' && !e.repeat) {
+        showHelp = false;
+        e.preventDefault();
+      }
+      return;
+    }
+    const key = e.key.toLowerCase();
+    panFast = e.shiftKey;
+    if (Object.hasOwn(panDirections, key)) {
+      if (showCityManagement || showBattlePanel || selectedMailboxMessageId) return;
+      panKeys.add(key);
+      e.preventDefault();
+      return;
+    }
     switch (e.key) {
-      case 'ArrowRight':
-      case 'd':
-      case 'D':
-        panBy(-step, 0);
-        break;
-      case 'ArrowLeft':
-      case 'a':
-      case 'A':
-        panBy(step, 0);
-        break;
-      case 'ArrowDown':
-      case 's':
-      case 'S':
-        panBy(0, -step);
-        break;
-      case 'ArrowUp':
-      case 'w':
-      case 'W':
-        panBy(0, step);
-        break;
       case '=':
       case '+':
         zoomAt(cw / 2, ch / 2, 1.15);
@@ -2690,9 +2721,7 @@
         cycleCity(-1);
         break;
       case '?':
-      case 'h':
-      case 'H':
-        showHelp = !showHelp;
+        openHelp();
         break;
       case 'Escape':
         if (moveArmyId) cancelMoveMode();
@@ -2713,9 +2742,19 @@
   <title>Game - city.io</title>
 </svelte:head>
 
+<svelte:document on:visibilitychange={clearPanKeys} />
+
 <!-- Keyboard shortcuts; close pinned menus when clicking outside them -->
 <svelte:window
   on:keydown={onKeydown}
+  on:keyup={(e) => {
+    panKeys.delete(e.key.toLowerCase());
+    panFast = e.shiftKey;
+  }}
+  on:blur={clearPanKeys}
+  on:focusin={(e) => {
+    if (isTypingTarget(e.target)) clearPanKeys();
+  }}
   on:click={(e) => {
     if (ratesOpen && ratesEl && !ratesEl.contains(e.target as Node)) ratesOpen = false;
   }}
@@ -3280,7 +3319,24 @@
 
   <!-- Separate HUD clusters keep the map from feeling boxed in by one navbar. -->
   <div class="pointer-events-none absolute inset-x-3 top-3 z-10 flex items-start justify-between gap-2 sm:inset-x-4 sm:top-4">
-    <div class="hud-surface pointer-events-auto flex h-12 min-w-10 items-center">
+    <div class="hud-surface pointer-events-auto relative flex h-12 min-w-10 items-center">
+      <button
+        class="flex h-12 w-9 shrink-0 items-center justify-center border-r border-white/[0.08] text-[#9ba79e] transition-colors hover:bg-white/[0.05] hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-emerald-300"
+        title="How to play (?)"
+        aria-label="How to play"
+        aria-haspopup="dialog"
+        on:click={openHelp}><span class="flex h-5 w-5 items-center justify-center rounded-full border border-current text-xs font-medium" aria-hidden="true">?</span></button
+      >
+      {#if $userId && $tutorialPendingUserId === $userId && !showHelp}
+        <aside class="absolute left-0 top-full z-20 mt-3 w-[min(18rem,calc(100vw-1.5rem))] border border-[#465a5f] bg-[#172427] p-4 shadow-xl" aria-label="Welcome to city.io">
+          <p class="text-sm font-medium text-[#e0e9df]">Your city starts here.</p>
+          <p class="mt-1.5 text-xs leading-relaxed text-[#a5b2aa]">New to city.io? The ? beside your name has everything you need for your first few moves.</p>
+          <div class="mt-3 flex items-center gap-4">
+            <button class="text-xs font-medium text-emerald-200 underline underline-offset-4 hover:text-white" on:click={openHelp}>Show me how to play</button>
+            <button class="text-xs text-[#a5b2aa] hover:text-white" on:click={() => tutorialPendingUserId.set(undefined)}>Not now</button>
+          </div>
+        </aside>
+      {/if}
       <div class="flex min-w-0 items-center gap-2.5 px-3">
         <span class="h-2 w-2 shrink-0 rounded-sm bg-emerald-400"></span>
         <span class="hidden max-w-32 truncate text-xs font-medium text-[#d5dbd6] sm:block">{$username}</span>
@@ -3298,7 +3354,7 @@
     </div>
 
     <!-- Resources (hover for per-hour rates, click to pin) -->
-    <div class="hud-surface group pointer-events-auto absolute left-1/2 -translate-x-1/2" bind:this={ratesEl}>
+    <div class="hud-surface group pointer-events-auto absolute left-1/2 top-14 -translate-x-1/2 md:top-0" bind:this={ratesEl}>
       <button type="button" class="flex h-12 items-center text-left" on:click={() => (ratesOpen = !ratesOpen)} aria-expanded={ratesOpen} aria-label="Treasury and food stores">
         <span class="resource-counter">
           <span class="resource-medallion text-[#d9bd58]">{@render resourceGlyph('gold')}</span>
@@ -4809,36 +4865,7 @@
     <MiniMap onPan={(col, row) => centerCam(col, row)} viewCols={viewTilesW} viewRows={viewTilesH} />
   </div>
 
-  <!-- Keyboard shortcuts toggle -->
-  <button
-    class="hud-surface pointer-events-auto absolute bottom-4 left-[186px] h-8 w-8 items-center justify-center text-xs font-medium text-white/70 transition-colors hover:text-white {sel
-      ? 'hidden'
-      : 'flex'}"
-    title="Keyboard shortcuts (?)"
-    on:click={() => (showHelp = !showHelp)}>?</button
-  >
-
-  <!-- Keyboard shortcuts overlay -->
   {#if showHelp}
-    <div
-      class="pointer-events-auto absolute inset-0 z-20 flex items-center justify-center bg-black/40"
-      on:click={() => (showHelp = false)}
-      on:keydown={() => {}}
-      role="presentation"
-      transition:fade={{ duration: 150 }}
-    >
-      <div class="panel w-72 p-5" on:click|stopPropagation on:keydown|stopPropagation role="presentation">
-        <div class="panel-title mb-3 text-[11px]">Keyboard Shortcuts</div>
-        <div class="space-y-1.5 text-xs text-stone-200">
-          {#each [['Pan', 'Click + drag / WASD'], ['Pan faster', 'Shift + move'], ['Zoom', 'Wheel / + / −'], ['Reset zoom', '0'], ['Center capital', 'C'], ['Cycle cities', '[ / ]'], ['Select army', 'Click formation / card'], ['Preview movement', 'Move button / M'], ['Issue movement', 'Right-click map'], ['Cancel move / deselect', 'Esc'], ['Toggle this help', '?']] as [label, keys]}
-            <div class="flex items-center justify-between gap-4">
-              <span class="text-gray-400">{label}</span>
-              <kbd class="rounded bg-white/[0.06] px-1.5 py-0.5 font-mono text-[10px] text-gray-300">{keys}</kbd>
-            </div>
-          {/each}
-        </div>
-        <div class="mt-3 border-t border-white/[0.06] pt-2 text-[10px] text-gray-600">Zoom centers on the cursor. Drag anywhere on the map to move.</div>
-      </div>
-    </div>
+    <HowToPlay onClose={() => (showHelp = false)} />
   {/if}
 </div>

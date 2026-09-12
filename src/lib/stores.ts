@@ -26,6 +26,7 @@ export const token = persisted('jwt-token');
 export const userId = persisted('user-id');
 export const email = persisted('user-email');
 export const username = persisted('user-name');
+export const tutorialPendingUserId = persisted('tutorial-pending-user-id');
 
 // Resources
 export const gold = writable<bigint>(0n);
