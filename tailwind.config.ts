@@ -6,6 +6,17 @@ export default {
   theme: {
     extend: {
       colors: {
+        ui: {
+          surface: '#18212a',
+          inset: '#121a23',
+          raised: '#202c37',
+          hover: '#263441',
+          line: '#33404b',
+          muted: '#91a0ac',
+          secondary: '#bdc8d0',
+          text: '#edf0ed',
+          accent: '#d5bd8b'
+        },
         // Warm Civ2 parchment/stone greys — the backbone of every panel.
         stone: {
           50: '#f6efe0',
