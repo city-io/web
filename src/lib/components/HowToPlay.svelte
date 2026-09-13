@@ -82,16 +82,18 @@
   on:close={onClose}
   aria-labelledby="how-to-play-title"
   aria-describedby="how-to-play-description"
-  class="m-auto max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-1.5rem))] max-w-none overflow-y-auto border border-[#465a5f] bg-[#172427] p-0 text-[#dce5df] shadow-2xl backdrop:bg-black/65"
+  class="game-guide m-auto max-h-[calc(100dvh-2rem)] w-[min(44rem,calc(100vw-1.5rem))] max-w-none overflow-y-auto rounded-xl border border-ui-line bg-ui-inset p-0 text-ui-text shadow-2xl backdrop:bg-black/65"
 >
   <header class="flex items-start justify-between gap-4 border-b border-white/[0.09] p-5 sm:px-7">
     <div>
-      <p class="mb-1 text-[10px] font-medium uppercase tracking-[0.18em] text-emerald-200/70">Field guide</p>
+      <p class="mb-1 text-[12px] font-medium tracking-normal text-emerald-200/70">Field guide</p>
       <h1 id="how-to-play-title" class="text-xl font-semibold">How to play</h1>
-      <p id="how-to-play-description" class="mt-1 text-xs text-[#9aaba2]">A quick start to life in city.io.</p>
+      <p id="how-to-play-description" class="mt-1 text-xs text-ui-muted">A quick start to life in city.io.</p>
     </div>
-    <button class="flex h-9 w-9 shrink-0 items-center justify-center border border-white/10 text-xl text-[#a5b2aa] hover:bg-white/5 hover:text-white" aria-label="Close how to play" on:click={onClose}
-      >×</button
+    <button
+      class="flex h-9 w-9 shrink-0 items-center justify-center border border-white/10 text-xl text-ui-secondary hover:bg-white/5 hover:text-white"
+      aria-label="Close how to play"
+      on:click={onClose}>×</button
     >
   </header>
 
@@ -99,8 +101,8 @@
     {#each ['Start here', 'Your city', 'Training', 'The map', 'Controls'] as label, index}
       <button
         class="border px-3 py-2 text-xs transition-colors {chapter === index
-          ? 'border-emerald-200/30 bg-emerald-200/10 text-emerald-100'
-          : 'border-transparent text-[#9aaba2] hover:bg-white/5 hover:text-white'}"
+          ? 'border-ui-accent/30 bg-ui-accent/10 text-ui-accent'
+          : 'border-transparent text-ui-muted hover:bg-white/5 hover:text-white'}"
         aria-current={chapter === index ? 'step' : undefined}
         on:click={() => (chapter = index)}>{label}</button
       >
@@ -111,27 +113,27 @@
     {#if chapter < chapters.length}
       {@const current = chapters[chapter]}
       <h2 class="text-lg font-medium">{current.title}</h2>
-      <p class="mt-2 text-sm leading-relaxed text-[#a5b2aa]">{current.intro}</p>
+      <p class="mt-2 text-sm leading-relaxed text-ui-secondary">{current.intro}</p>
       <ol class="mt-6 space-y-5">
         {#each current.steps as [title, description], index}
           <li class="flex gap-3">
-            <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-emerald-200/20 text-[11px] text-emerald-200" aria-hidden="true">{index + 1}</span>
+            <span class="flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-emerald-200/20 text-[12px] text-emerald-200" aria-hidden="true">{index + 1}</span>
             <div>
               <h3 class="text-sm font-medium">{title}</h3>
-              <p class="mt-1 text-sm leading-relaxed text-[#a5b2aa]">{description}</p>
+              <p class="mt-1 text-sm leading-relaxed text-ui-secondary">{description}</p>
             </div>
           </li>
         {/each}
       </ol>
-      <p class="mt-6 border-l-2 border-emerald-200/40 bg-emerald-200/[0.04] px-3 py-2.5 text-xs leading-relaxed text-[#b8c8bf]">{current.tip}</p>
+      <p class="mt-6 border-l-2 border-emerald-200/40 bg-emerald-200/[0.04] px-3 py-2.5 text-xs leading-relaxed text-ui-secondary">{current.tip}</p>
     {:else}
       <h2 class="text-lg font-medium">Make yourself at home</h2>
-      <p class="mt-2 text-sm text-[#a5b2aa]">Hold movement keys for a continuous pan. Zoom follows your mouse cursor.</p>
+      <p class="mt-2 text-sm text-ui-secondary">Hold movement keys for a continuous pan. Zoom follows your mouse cursor.</p>
       <dl class="mt-5 divide-y divide-white/[0.07]">
         {#each controls as [label, keys]}
           <div class="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 py-2.5 text-xs">
-            <dt class="text-[#a5b2aa]">{label}</dt>
-            <dd class="text-right text-[#e0e9df]">{keys}</dd>
+            <dt class="text-ui-secondary">{label}</dt>
+            <dd class="text-right text-ui-text">{keys}</dd>
           </div>
         {/each}
       </dl>
@@ -139,10 +141,10 @@
   </div>
 
   <footer class="flex items-center justify-between gap-3 border-t border-white/[0.09] px-5 py-4 sm:px-7">
-    <span class="text-xs text-[#9aaba2]">{chapter + 1} / 5</span>
+    <span class="text-xs text-ui-muted">{chapter + 1} / 5</span>
     <div class="flex gap-2">
       {#if chapter > 0}<button class="border border-white/10 px-4 py-2 text-xs hover:bg-white/5" on:click={() => (chapter -= 1)}>Back</button>{/if}
-      <button class="border border-emerald-200/30 bg-emerald-200/10 px-4 py-2 text-xs font-medium text-emerald-100 hover:bg-emerald-200/20" on:click={() => (chapter < 4 ? (chapter += 1) : onClose())}>
+      <button class="border border-ui-accent/30 bg-ui-accent/10 px-4 py-2 text-xs font-medium text-ui-accent hover:bg-ui-accent/20" on:click={() => (chapter < 4 ? (chapter += 1) : onClose())}>
         {chapter < 4 ? 'Next' : 'Back to my city'}
       </button>
     </div>
