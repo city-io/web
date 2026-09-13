@@ -1567,16 +1567,6 @@
     scheduleRender();
   };
 
-  const toggleTileArmySelection = () => {
-    if (!sel?.armies?.length) return;
-    if (selectedArmy) {
-      focusTile(sel.x, sel.y);
-      return;
-    }
-    const army = sel.armies.find((candidate) => candidate.owner?.value === $userId) ?? sel.armies[0];
-    focusArmy(army, false);
-  };
-
   const prepareMove = (army: Army) => {
     const id = army.armyId?.value;
     if (!id || !army.coords || army.owner?.value !== $userId) return;
@@ -2261,8 +2251,7 @@
         if (event.button !== 0) return;
         event.stopPropagation();
         if (visibleArmies.length === 1) {
-          if (selectedArmyId === army.armyId?.value && sel?.x === col && sel?.y === row) focusTile(col, row);
-          else focusArmy(army, false);
+          focusArmy(army, false);
           return;
         }
         focusTile(col, row);
@@ -2582,8 +2571,7 @@
           lastTileClickKey = clickedKey;
           lastTileClickAt = clickedAt;
           if (t?.armies?.length === 1 && !t.building) {
-            if (selectedArmyId === t.armies[0].armyId?.value && sel?.x === mc.x && sel?.y === mc.y) focusTile(mc.x, mc.y, openConstruction);
-            else focusArmy(t.armies[0], false);
+            focusArmy(t.armies[0], false);
           } else {
             focusTile(mc.x, mc.y, openConstruction, openBuildingManagement);
           }
@@ -2802,8 +2790,8 @@
   {@const strengthVisible = !!side?.strengthVisible}
   {@const starting = reportSideStart(side)}
   {@const surviving = reportSideSurvivors(side)}
-  <section class="border border-white/[0.09] bg-black/[0.1]">
-    <div class="flex items-start justify-between gap-3 border-b border-white/[0.07] px-2.5 py-2">
+  <section class="report-side">
+    <div class="combat-section-heading">
       <div>
         <strong class="block text-[12px] tracking-normal {attacking ? 'text-red-200' : 'text-blue-200'}">{label}</strong>
         <span class="text-[10px] text-ui-muted">
@@ -2819,7 +2807,7 @@
       {/if}
     </div>
     {#if side?.settlement}
-      <div class="border-b border-white/[0.06] bg-amber-200/[0.035] px-2.5 py-1.5 text-[11px] text-ui-muted">
+      <div class="border-b border-ui-line/50 py-4 text-xs text-ui-muted">
         <div class="flex items-center justify-between gap-2">
           <strong class="truncate text-amber-100">{side.settlement.name}</strong>
           <span class="shrink-0 tabular-nums">
@@ -2839,9 +2827,9 @@
         {/if}
       </div>
     {/if}
-    <div class="space-y-1.5 p-2">
+    <div class="divide-y divide-ui-line/50">
       {#each side?.armies ?? [] as army}
-        <div class="border border-white/[0.07] bg-white/[0.025] px-2 py-1.5">
+        <div class="py-4">
           <div class="flex items-start justify-between gap-2">
             <div class="min-w-0">
               <strong class="block truncate text-[11px] text-ui-text">{army.name || `Army ${shortId(army.armyId?.value)}`}</strong>
@@ -3149,12 +3137,12 @@
 {/snippet}
 
 {#snippet reportRoundCasualties(label: string, losses: BattleReportLoss[], civilians: bigint, report: BattleReport, attacking: boolean, power: number | null)}
-  <section class="border border-white/[0.07] bg-black/[0.09] px-2 py-1.5">
-    <div class="flex items-center justify-between gap-2 text-[10px] font-medium tracking-normal">
+  <section class="min-w-0">
+    <div class="flex items-center justify-between gap-2 text-xs font-medium">
       <span class={attacking ? 'text-red-200/90' : 'text-blue-200/90'}>{label}</span>
       {#if power !== null}<span class="font-normal tabular-nums text-ui-muted">Power {Math.round(power).toLocaleString()}</span>{/if}
     </div>
-    <div class="mt-1 space-y-1.5 border-t border-white/[0.05] pt-1.5">
+    <div class="mt-3 space-y-3">
       {#each losses.filter((loss) => troopStackTotal(loss.troops) > 0 || loss.militia > 0n) as loss}
         <div>
           <span class="mb-1 block truncate text-[10px] text-ui-muted">{reportLossSource(report, loss)}</span>
@@ -3214,7 +3202,7 @@
   {@const remaining = troopStackTotal(side?.survivingTroops ?? []) + Number(side?.militiaCount ?? 0n)}
   {@const totalLosses = battleMilitaryLosses(side?.cumulativeLosses)}
   <section class="battle-side {attackers ? 'battle-side-attackers' : 'battle-side-defenders'}">
-    <div class="flex items-start justify-between gap-3 border-b border-white/[0.08] px-3 py-2.5">
+    <div class="combat-section-heading">
       <div>
         <div class="text-[12px] font-medium tracking-normal {attackers ? 'text-red-200' : 'text-blue-200'}">{label}</div>
         <div class="mt-0.5 text-[11px] text-ui-muted">
@@ -3231,22 +3219,22 @@
       </div>
     </div>
 
-    <div class="grid grid-cols-3 gap-px border-b border-white/[0.08] bg-white/[0.06]">
-      <div class="bg-ui-inset px-3 py-2">
+    <div class="combat-stat-grid">
+      <div class="min-w-0">
         <div class="text-[10px] tracking-normal text-ui-muted">Deployed</div>
         <strong class="mt-0.5 block text-lg tabular-nums text-ui-text">{side?.strengthVisible ? deployed.toLocaleString() : '?'}</strong>
       </div>
-      <div class="bg-ui-inset px-3 py-2">
+      <div class="min-w-0">
         <div class="text-[10px] tracking-normal text-ui-muted">Remaining</div>
         <strong class="mt-0.5 block text-lg tabular-nums text-ui-text">{side?.strengthVisible ? remaining.toLocaleString() : '?'}</strong>
       </div>
-      <div class="bg-ui-inset px-3 py-2">
+      <div class="min-w-0">
         <div class="text-[10px] tracking-normal text-ui-muted">Military lost</div>
         <strong class="mt-0.5 block text-lg tabular-nums text-red-200">{totalLosses.toLocaleString()}</strong>
       </div>
     </div>
 
-    <div class="border-b border-white/[0.08] bg-red-300/[0.035] px-3 py-2.5">
+    <div class="combat-casualties">
       <div class="mb-1.5 text-[10px] font-medium tracking-normal text-ui-muted">Total casualties</div>
       {@render casualtyComposition(side?.cumulativeLosses?.troops ?? [], side?.cumulativeLosses?.militia ?? 0n, side?.cumulativeLosses?.civilians ?? 0n, 'None')}
       {#if completedRounds > 0}
@@ -3257,9 +3245,9 @@
       {/if}
     </div>
 
-    <div class="space-y-1.5 p-2.5">
+    <div class="divide-y divide-ui-line/50">
       {#if side?.militiaCityId}
-        <div class="border border-amber-100/15 bg-amber-100/[0.04] px-2.5 py-2">
+        <div class="py-4">
           <div class="flex items-center justify-between gap-3">
             <div class="flex min-w-0 items-center gap-2">
               <span class="flex h-8 w-8 shrink-0 items-center justify-center border border-amber-100/20 bg-amber-100/[0.06] text-amber-100/80" aria-hidden="true">
@@ -3284,7 +3272,7 @@
       {#each side?.armyIds ?? [] as armyId}
         {@const army = sideArmies.find((candidate) => candidate.armyId?.value === armyId.value)}
         {#if army}
-          <div class="border border-white/[0.08] bg-black/[0.1] px-2.5 py-2">
+          <div class="py-4">
             <div class="flex items-start justify-between gap-3">
               <div class="min-w-0">
                 <strong class="block truncate text-[12px] text-ui-text">{armyDisplayName(army)}</strong>
@@ -3301,7 +3289,7 @@
             {#if army.compositionVisibility !== ArmyCompositionVisibility.HIDDEN}
               <div class="mt-2 flex flex-wrap gap-1 border-t border-white/[0.06] pt-1.5">
                 {#each army.troops.filter((stack) => (stack.count ?? 1) > 0) as stack}
-                  <span class="border border-white/[0.08] bg-white/[0.035] px-1.5 py-0.5 text-[10px] text-ui-muted">
+                  <span class="mr-2 py-0.5 text-[10px] text-ui-muted">
                     {army.compositionVisibility === ArmyCompositionVisibility.EXACT ? `${stack.count} ` : ''}{troopName(stack.type, stack.count)}
                   </span>
                 {/each}
@@ -3355,21 +3343,20 @@
     </div>
 
     <!-- Resources (hover for per-hour rates, click to pin) -->
-    <div class="hud-surface group pointer-events-auto absolute left-1/2 top-16 -translate-x-1/2 lg:top-0" bind:this={ratesEl}>
-      <button type="button" class="flex h-12 items-center text-left" on:click={() => (ratesOpen = !ratesOpen)} aria-expanded={ratesOpen} aria-label="Treasury and food stores">
+    <div class="resource-bar group pointer-events-auto absolute left-1/2 top-16 -translate-x-1/2 lg:top-0" bind:this={ratesEl}>
+      <button type="button" class="flex min-h-12 items-center text-left" on:click={() => (ratesOpen = !ratesOpen)} aria-expanded={ratesOpen} aria-label="Treasury and food stores">
         <span class="resource-counter">
-          <span class="resource-medallion text-[#d9bd58]">{@render resourceGlyph('gold')}</span>
-          <span class="leading-none">
-            <strong class="block text-[13px] font-medium tabular-nums text-[#f5e5a4] sm:text-[15px]">{$gold.toLocaleString()}</strong>
-            <span class="resource-rate text-[#c7aa58]">{fmtPerHour(goldPerHour)}/hr</span>
+          <span class="resource-label"><span aria-hidden="true">{@render resourceGlyph('gold')}</span>Gold</span>
+          <span class="resource-values">
+            <strong>{$gold.toLocaleString()}</strong>
+            <span class="resource-rate">{fmtPerHour(goldPerHour)}/hr</span>
           </span>
         </span>
-        <span class="h-8 w-px bg-ui-hover"></span>
         <span class="resource-counter">
-          <span class="resource-medallion text-[#afc778]">{@render resourceGlyph('food')}</span>
-          <span class="leading-none">
-            <strong class="block text-[13px] font-medium tabular-nums text-ui-text sm:text-[15px]">{$food.toLocaleString()}</strong>
-            <span class="resource-rate {netFoodPerHour < 0 ? 'text-red-300' : 'text-[#a9bd77]'}">{fmtPerHour(netFoodPerHour)}/hr</span>
+          <span class="resource-label"><span aria-hidden="true">{@render resourceGlyph('food')}</span>Food</span>
+          <span class="resource-values">
+            <strong>{$food.toLocaleString()}</strong>
+            <span class="resource-rate" class:text-red-300={netFoodPerHour < 0}>{fmtPerHour(netFoodPerHour)}/hr</span>
           </span>
         </span>
       </button>
@@ -3379,7 +3366,7 @@
           : ''}"
       >
         <div class="game-popover p-3">
-          <div class="inspector-label mb-2">Realm stores</div>
+          <div class="inspector-label mb-2">Hourly balance</div>
           <div class="flex items-center justify-between gap-3 text-xs">
             <span class="text-ui-muted">Gold</span>
             <span class="tabular-nums text-amber-200">{fmtPerHour(goldPerHour)}</span>
@@ -3515,7 +3502,7 @@
             {@const cityBarracks = ownedBarracks.filter((building) => building.cityId?.value === cityId)}
             {@const cityOrders = currentTrainingQueue(trainingQueues.get(cityId) ?? [])}
             {@const pendingOrders = cityOrders.filter((order) => !order.startedAt)}
-            <section class="command-card">
+            <section class="training-overview">
               <div class="flex items-center justify-between gap-3 px-3 py-2.5">
                 <span class="min-w-0">
                   <strong class="block truncate text-xs text-ui-text">{city.name}</strong>
@@ -3529,7 +3516,7 @@
                 {#each cityBarracks as barracks, laneIndex}
                   {@const active = cityOrders.find((order) => order.startedAt && order.barracksId?.value === barracks.buildingId?.value)}
                   {@const constructing = barracks.level < 1 || !!barracks.constructionEnd}
-                  <div class="mb-1 flex items-center justify-between gap-2 border border-white/[0.07] bg-black/[0.12] px-2.5 py-2 text-[11px] last:mb-0">
+                  <div class="flex items-center justify-between gap-2 rounded-lg bg-ui-inset/30 px-2.5 py-3 text-[11px]">
                     <span class="font-semibold text-ui-secondary">Lane {laneIndex + 1} · Lv {barracks.level}</span>
                     <span class="min-w-0 flex-1 truncate text-right {active ? 'text-blue-100/75' : constructing ? 'text-amber-200/65' : 'text-emerald-200/60'}">
                       {active ? `${active.count} ${troopName(active.type, active.count)}` : constructing ? 'Constructing' : 'Idle'}
@@ -3664,21 +3651,21 @@
 
         <div class="mail-dialog-body">
           {#if report}
-            <div class="grid shrink-0 grid-cols-2 gap-px bg-white/[0.06] text-[11px] sm:grid-cols-4">
-              <div class="bg-ui-inset p-3">
+            <div class="report-metadata">
+              <div class="min-w-0">
                 <span class="block tracking-normal text-ui-muted">Resolution</span><strong class="mt-1 block text-[12px] text-ui-text">{reportResolutionLabel(report.resolution)}</strong>
               </div>
-              <div class="bg-ui-inset p-3">
+              <div class="min-w-0">
                 <span class="block tracking-normal text-ui-muted">Duration</span><strong class="mt-1 block text-[12px] text-ui-text">{fmtCountdown(reportDuration(report))}</strong>
               </div>
-              <div class="bg-ui-inset p-3">
+              <div class="min-w-0">
                 <span class="block tracking-normal text-ui-muted">Started</span><strong class="mt-1 block text-[12px] text-ui-secondary">{reportDate(report.startedAt)}</strong>
               </div>
-              <div class="bg-ui-inset p-3">
+              <div class="min-w-0">
                 <span class="block tracking-normal text-ui-muted">Ended</span><strong class="mt-1 block text-[12px] text-ui-secondary">{reportDate(report.endedAt)}</strong>
               </div>
             </div>
-            <div class="grid shrink-0 gap-3 p-3 md:grid-cols-2">
+            <div class="report-sides">
               {@render reportSideRecord(
                 'Attackers',
                 report.attackers,
@@ -3692,19 +3679,19 @@
                 report.rounds.reduce((total, round) => total + reportLossTotal(round.defenderLosses), 0)
               )}
             </div>
-            <section class="mail-round-log mx-3 mb-3 border border-white/[0.09] bg-black/[0.1]">
+            <section class="mail-round-log">
               <div class="flex shrink-0 items-center justify-between gap-3 border-b border-white/[0.07] px-3 py-2 text-[11px] font-medium tracking-normal text-ui-secondary">
                 <span>Round log</span>
                 <span class="font-normal tabular-nums text-ui-muted">{report.rounds.length} {report.rounds.length === 1 ? 'round' : 'rounds'}</span>
               </div>
               <div class="mail-round-log-list divide-y divide-white/[0.06] {mailRoundLogExpanded ? 'mail-round-log-list-expanded' : ''}">
                 {#each visibleReportRounds as round}
-                  <div class="px-3 py-2.5">
+                  <div class="report-round">
                     <div class="flex items-center justify-between gap-2 text-[11px]">
                       <strong class="text-ui-text">Round {round.number}</strong>
                       <span class="text-ui-muted">{reportDate(round.occurredAt)}</span>
                     </div>
-                    <div class="mt-2 grid gap-2 sm:grid-cols-2">
+                    <div class="mt-4 grid gap-5 sm:grid-cols-2">
                       {@render reportRoundCasualties('Attackers', round.attackerLosses, round.attackerCivilianCasualties, report, true, report.attackers?.strengthVisible ? round.attackerPower : null)}
                       {@render reportRoundCasualties(
                         'Defenders',
@@ -3760,6 +3747,7 @@
       {@const selectedSettlementCenter = isSettlementCenter(sel.building)}
       <div
         class="inspector-panel pointer-events-auto {showCityManagement && sel.city && !selectedArmy ? 'city-dialog' : ''}"
+        class:barracks-dialog={showCityManagement && !!sel.city && !selectedArmy && sel.building?.type === BuildingType.BARRACKS && sel.building.level > 0 && sel.city.owner?.value === $userId}
         class:city-overview-dialog={showCityManagement && !!sel.city && !selectedArmy && cityManagementView === 'city' && sel.city.owner?.value === $userId}
         role={showCityManagement && sel.city && !selectedArmy ? 'dialog' : undefined}
         aria-modal={showCityManagement && sel.city && !selectedArmy ? 'true' : undefined}
@@ -3826,14 +3814,6 @@
             </div>
           </div>
           <div class="flex shrink-0 items-center gap-1.5">
-            {#if sel.armies?.length && !showCityManagement}
-              <button
-                class="h-7 border border-white/[0.12] px-2 text-[10px] font-medium tracking-normal text-ui-secondary transition-colors duration-150 hover:border-white/30 hover:text-white"
-                on:click={toggleTileArmySelection}
-              >
-                {selectedArmy ? 'View tile' : 'View army'}
-              </button>
-            {/if}
             <button aria-label="Close" class="game-close" on:click={() => (showCityManagement ? (showCityManagement = false) : deselect())}>
               <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 20 20" fill="currentColor" class="h-3.5 w-3.5">
                 <path
@@ -3843,6 +3823,26 @@
             </button>
           </div>
         </div>
+
+        {#if sel.armies?.length && !showCityManagement}
+          <nav class="selection-navigation" aria-label="Tile and armies">
+            <button class="selection-tab" class:selection-tab-active={!selectedArmy} aria-pressed={!selectedArmy} on:click={() => sel && focusTile(sel.x, sel.y)}>
+              <svg viewBox="0 0 20 20" fill="none" stroke="currentColor" stroke-width="1.5" class="h-4 w-4 shrink-0" aria-hidden="true"><path d="m10 3 7 7-7 7-7-7 7-7Z" /></svg>
+              Tile {sel.x}, {sel.y}{sel.building ? ` · ${bName(sel.building.type)}` : ''}
+            </button>
+            {#each sel.armies as army}
+              <button
+                class="selection-tab"
+                class:selection-tab-active={selectedArmyId === army.armyId?.value}
+                aria-pressed={selectedArmyId === army.armyId?.value}
+                on:click={() => focusArmy(army, false)}
+              >
+                {@render managementGlyph('armies')}
+                {armyDisplayName(army)}
+              </button>
+            {/each}
+          </nav>
+        {/if}
 
         {#if err}
           <div class="border-b border-red-400/30 bg-red-500/[0.08] px-4 py-2 text-xs text-red-300">{err}</div>
@@ -4603,57 +4603,60 @@
               <section class="inspector-section barracks-training-section">
                 <div class="flex items-start justify-between gap-3">
                   <div>
-                    <div class="inspector-label">City training</div>
+                    <div class="inspector-label">Train troops</div>
                     <div class="mt-0.5 text-[11px] text-ui-muted">Shared by every barracks in {trainingCity.name}</div>
                   </div>
                   <span class="text-right text-[11px] tabular-nums text-blue-100">{availablePopulation.toLocaleString()} recruitable</span>
                 </div>
 
-                <div class="game-section-card mt-4 p-4">
-                  <div class="mb-2 flex items-center justify-between">
-                    <span class="text-[11px] font-medium tracking-normal text-blue-100/80">Add batch</span>
+                <div class="training-composer">
+                  <div class="mb-3 flex flex-wrap items-center justify-between gap-2">
+                    <span class="text-[11px] font-medium tracking-normal text-blue-100/80">Troop type</span>
                     <span class="text-[10px] tabular-nums text-ui-muted">Costs reserve immediately</span>
                   </div>
-                  <div class="grid grid-cols-4 gap-2">
+                  <div class="training-choices">
                     {#each TROOP_TYPES as type}
                       {@const option = TROOP_STATS[type]}
                       <button
-                        class="game-choice flex min-w-0 flex-col items-center px-1 py-1.5 {recruitType === type ? 'bg-ui-hover/65 text-white' : 'text-ui-muted hover:bg-white/[0.04]'}"
+                        class="training-choice"
+                        class:training-choice-active={recruitType === type}
+                        aria-pressed={recruitType === type}
+                        aria-label={option.name}
                         on:click={() => (recruitType = type)}
                       >
-                        {@render troopGlyph(type)}<span class="mt-1 truncate text-[10px] font-medium">{option.name}</span>
+                        {@render troopGlyph(type)}<span class="text-xs font-medium">{option.name}</span>
                       </button>
                     {/each}
                   </div>
-                  <label class="mt-2 block border border-white/[0.08] bg-black/10 px-2.5 py-2">
+                  <label class="mt-5 block">
                     <span class="flex items-center justify-between text-[11px]">
                       <span>Batch size</span>
                       <input class="numeric-entry numeric-entry-count" aria-label="Number of troops to train" type="number" min="1" max={maxBatchCount} step="1" bind:value={recruitCount} />
                     </span>
-                    <input class="mt-2 block w-full accent-ui-accent" type="range" min="1" max={maxBatchCount} step="1" bind:value={recruitCount} />
+                    <input class="mt-2 block w-full accent-ui-accent" type="range" aria-label="Training batch size slider" min="1" max={maxBatchCount} step="1" bind:value={recruitCount} />
                   </label>
-                  <div class="mt-2 grid grid-cols-2 gap-x-3 gap-y-1 text-[11px] tabular-nums">
+                  <div class="training-costs">
                     <span class="text-ui-muted">Reserved now</span>
                     <span class="text-right {canAffordTraining ? 'text-amber-100' : 'text-red-300'}">{trainingGold.toLocaleString()} gold · {trainingPopulation.toLocaleString()} residents</span>
                     <span class="text-ui-muted">Base lane time</span><span class="text-right text-blue-100">{fmtCountdown(batchCount * recruitStat.trainSeconds * 1000)}</span>
                   </div>
-                  <button class="game-action game-action-primary mt-2 w-full" disabled={busy || !canQueueTraining} on:click={() => queueTroops(trainingCity)}>
+                  <button class="game-action game-action-primary mt-4 w-full" disabled={busy || !canQueueTraining} on:click={() => queueTroops(trainingCity)}>
                     {busy ? 'Working…' : 'Queue batch'}
                   </button>
                 </div>
 
                 <div class="mt-2">{@render recruitmentPool(trainingCity)}</div>
-                <button class="game-action game-action-secondary mt-2 w-full" on:click={() => openSettlementPolicy(trainingCity)}>
+                <button class="training-policy-link" on:click={() => openSettlementPolicy(trainingCity)}>
                   {@render managementGlyph('cities')}
                   Manage {cName(trainingCity.type)} policy
                 </button>
 
-                <div class="mt-2 border border-white/[0.08] bg-black/[0.08]">
-                  <div class="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-2">
+                <div class="training-queue-section">
+                  <div class="training-section-heading">
                     <span class="text-[10px] font-medium tracking-normal text-ui-muted">Barracks lanes</span>
                     <span class="text-[10px] tabular-nums text-ui-muted">{cityBarracks.length} total</span>
                   </div>
-                  <div class="grid grid-cols-1 gap-1 p-2 sm:grid-cols-2">
+                  <div class="space-y-1">
                     {#each cityBarracks as barracks, laneIndex}
                       {@const laneOrder = cityOrders.find((order) => order.startedAt && order.barracksId?.value === barracks.buildingId?.value)}
                       {@const startsAt = timestampMs(laneOrder?.startedAt)}
@@ -4662,7 +4665,9 @@
                       {@const selectedLane = barracks.buildingId?.value === sel.building.buildingId?.value}
                       {@const constructing = barracks.level < 1 || !!barracks.constructionEnd}
                       <button
-                        class="border px-2.5 py-2 text-left {selectedLane ? 'border-blue-200/25 bg-blue-200/[0.06]' : 'border-white/[0.07] bg-black/[0.1] hover:border-white/[0.15]'}"
+                        class="training-lane"
+                        class:training-lane-selected={selectedLane}
+                        aria-pressed={selectedLane}
                         on:click={() => openBarracksTraining(trainingCityId, barracks.buildingId?.value)}
                       >
                         <div class="flex items-center justify-between gap-2 text-[11px]">
@@ -4683,26 +4688,22 @@
                   </div>
                 </div>
 
-                <div class="mt-2 border border-white/[0.08] bg-black/[0.08]">
-                  <div class="flex items-center justify-between border-b border-white/[0.06] px-2.5 py-2">
+                <div class="training-queue-section">
+                  <div class="training-section-heading">
                     <span class="text-[10px] font-medium tracking-normal text-ui-muted">Upcoming city queue</span>
                     <span class="text-[10px] tabular-nums text-ui-muted">{pendingOrders.length} waiting</span>
                   </div>
-                  <div class="px-2">
+                  <div class="divide-y divide-ui-line/50">
                     {#each pendingOrders as order, queueIndex}
-                      <div class="flex items-center gap-2 border-t border-white/[0.05] px-1 py-2 first:border-t-0">
+                      <div class="flex items-center gap-3 py-3">
                         <span class="training-order-icon">{@render troopGlyph(order.type)}</span>
                         <span class="min-w-0 flex-1">
                           <span class="block truncate text-[12px] text-ui-secondary">{order.count} {troopName(order.type, order.count)}</span>
-                          <span class="block truncate text-[10px] tabular-nums text-ui-muted">
+                          <span class="mt-1 block text-[11px] tabular-nums text-ui-muted">
                             Waiting {queueIndex + 1} · refund {order.goldCost.toLocaleString()}g + {order.populationCost.toLocaleString()} residents
                           </span>
                         </span>
-                        <button
-                          class="border border-red-300/20 px-2 py-1 text-[10px] font-medium tracking-normal text-red-200/80 hover:bg-red-300/10 disabled:opacity-30"
-                          disabled={busy}
-                          on:click={() => cancelTrainingOrder(trainingCity, order)}>Cancel</button
-                        >
+                        <button class="training-cancel" disabled={busy} on:click={() => cancelTrainingOrder(trainingCity, order)}>Cancel</button>
                       </div>
                     {:else}
                       <div class="px-2 py-3 text-center text-[11px] text-ui-muted">No upcoming training batches.</div>
@@ -4831,18 +4832,18 @@
           </div>
         </div>
 
-        <div class="border-b border-ui-line bg-black/[0.12] px-4 py-2.5">
+        <div class="battle-progress">
           <div class="mb-1.5 flex items-center justify-between text-[10px] font-medium tracking-normal text-ui-muted">
             <span>Round progress</span><span class="tabular-nums text-amber-100">{nextBattleTickMs ? `${Math.ceil(battleTickRemainingMs / 1000)}s to next round` : 'Synchronizing'}</span>
           </div>
           <div class="h-1.5 overflow-hidden bg-white/[0.07]">
-            <div class="h-full bg-gradient-to-r from-red-500 to-amber-300" style={`width: ${battleTickProgress}%`}></div>
+            <div class="h-full bg-ui-accent/80" style={`width: ${battleTickProgress}%`}></div>
           </div>
         </div>
 
         <div class="battle-dialog-body">
           {@render battleSidePanel('Attackers', selectedBattle.attackers, true, selectedBattle.completedRounds)}
-          <div class="battle-versus" aria-hidden="true">VS</div>
+
           {@render battleSidePanel('Defenders', selectedBattle.defenders, false, selectedBattle.completedRounds)}
         </div>
 

@@ -129,20 +129,36 @@
     box-shadow: 0 12px 40px rgb(0 0 0 / 28%);
   }
 
+  .resource-bar {
+    @apply rounded-lg border border-ui-line/60 bg-ui-inset/95 text-ui-text;
+  }
+
   .resource-counter {
-    @apply flex h-12 items-center gap-2.5 px-4;
+    @apply flex flex-col gap-0.5 px-4 py-2;
   }
 
-  .resource-medallion {
-    @apply flex h-7 w-7 shrink-0 items-center justify-center;
+  .resource-counter + .resource-counter {
+    @apply border-l border-ui-line/60;
   }
 
-  .resource-medallion svg {
-    @apply h-5 w-5;
+  .resource-label {
+    @apply flex items-center gap-1.5 text-[10px] leading-none text-ui-muted;
+  }
+
+  .resource-label svg {
+    @apply h-3 w-3;
+  }
+
+  .resource-values {
+    @apply flex items-baseline gap-3 whitespace-nowrap tabular-nums;
+  }
+
+  .resource-values strong {
+    @apply text-sm font-medium;
   }
 
   .resource-rate {
-    @apply text-[11px] font-normal tabular-nums;
+    @apply text-[10px] font-normal text-ui-muted;
   }
 
   .hud-tool {
@@ -250,7 +266,7 @@
   }
 
   .mail-dialog-report {
-    height: min(680px, calc(100vh - 4rem));
+    height: auto;
   }
 
   .mail-dialog-header {
@@ -266,11 +282,8 @@
   }
 
   .mail-round-log {
-    display: flex;
-    min-height: 0;
-    flex: 1 1 auto;
-    flex-direction: column;
-    overflow: hidden;
+    @apply mx-6 mb-6 border-t border-ui-line/60 pt-5;
+    flex-shrink: 0;
   }
 
   .mail-round-log-list {
@@ -278,10 +291,7 @@
   }
 
   .mail-round-log-list-expanded {
-    flex: 1 1 auto;
-    overflow-y: auto;
-    scrollbar-color: #33404b transparent;
-    scrollbar-width: thin;
+    overflow: visible;
   }
 
   .mail-round-log-toggle {
@@ -319,11 +329,11 @@
   }
 
   .battle-dialog-timing {
-    @apply grid grid-cols-3 border-b border-ui-line/70 bg-ui-inset/40;
+    @apply grid grid-cols-3 gap-4 border-b border-ui-line/60 px-6 py-4;
   }
 
   .battle-dialog-timing > div {
-    @apply flex flex-wrap items-center justify-between gap-2 px-6 py-3 text-xs;
+    @apply flex flex-col items-start gap-1 text-xs;
   }
 
   .battle-dialog-timing span {
@@ -331,14 +341,16 @@
   }
 
   .battle-dialog-timing strong {
-    @apply font-medium tabular-nums text-ui-text;
+    @apply text-base font-medium tabular-nums text-ui-text;
   }
 
   .battle-dialog-body {
     display: grid;
     min-height: 0;
-    grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+    gap: 2rem;
     overflow-y: auto;
+    padding: 1.5rem;
     scrollbar-color: #33404b transparent;
     scrollbar-width: thin;
   }
@@ -348,19 +360,23 @@
   }
 
   .battle-side-attackers {
-    @apply border-r;
+    border: 0;
   }
 
   .battle-side-defenders {
-    @apply border-l;
-  }
-
-  .battle-versus {
-    @apply flex w-10 shrink-0 items-center justify-center text-xs font-medium text-ui-muted;
+    border: 0;
   }
 
   .battle-dialog-footer {
     @apply flex items-center justify-between gap-4 border-t border-ui-line/70 px-6 py-4;
+  }
+
+  .battle-dialog-footer > div {
+    @apply shrink-0;
+  }
+
+  .battle-dialog-footer .game-action {
+    @apply w-auto whitespace-nowrap;
   }
 
   .battle-dialog-footer p {
@@ -531,7 +547,7 @@
   }
 
   .battle-casualty-chip {
-    @apply flex min-w-[6.25rem] items-center gap-2 rounded-md bg-red-300/[0.04] px-2 py-1.5 text-red-100/90;
+    @apply flex min-w-[6.25rem] items-center gap-2 py-1 text-ui-secondary;
   }
 
   .battle-casualty-chip .unit-token,
@@ -549,7 +565,7 @@
   }
 
   .battle-casualty-chip strong {
-    @apply block text-xs font-medium tabular-nums leading-none text-red-100;
+    @apply block text-sm font-medium tabular-nums leading-none text-red-200;
   }
 
   .battle-casualty-chip > span:last-child > span {
@@ -587,6 +603,144 @@
 
   .barracks-training-section > * {
     flex-shrink: 0;
+  }
+
+  .selection-navigation {
+    @apply flex gap-1 overflow-x-auto border-b border-ui-line/60 px-4 py-2;
+  }
+
+  .selection-tab {
+    @apply flex min-h-9 shrink-0 items-center gap-2 whitespace-nowrap rounded-lg px-3 py-2 text-left text-xs text-ui-muted transition-colors hover:bg-ui-hover hover:text-ui-text;
+  }
+
+  .selection-tab > svg {
+    @apply h-4 w-4 shrink-0;
+  }
+
+  .selection-tab-active {
+    @apply bg-ui-raised text-ui-accent;
+  }
+
+  .barracks-dialog .inspector-body {
+    display: grid;
+    grid-template-columns: minmax(0, 1fr) 280px;
+    overflow-y: auto;
+  }
+
+  .barracks-dialog .inspector-section {
+    overflow: visible;
+    border-right: 0;
+  }
+
+  .barracks-dialog .barracks-training-section {
+    order: -1;
+    border-right: 1px solid #33404b;
+  }
+
+  .training-composer {
+    @apply mb-3 mt-5;
+  }
+
+  .training-choices {
+    @apply grid grid-cols-2 gap-2 sm:grid-cols-4;
+  }
+
+  .training-choice {
+    @apply flex min-h-14 min-w-0 items-center justify-center gap-2 rounded-lg border border-ui-line/60 px-2 py-2 text-ui-muted transition-colors hover:bg-ui-hover;
+  }
+
+  .training-choice-active {
+    @apply border-ui-accent/50 bg-ui-accent/[0.06] text-ui-accent;
+  }
+
+  .training-choice .unit-token {
+    @apply h-7 w-7;
+  }
+
+  .training-choice .unit-token > svg {
+    @apply h-6 w-6;
+  }
+
+  .training-costs {
+    @apply mt-4 grid grid-cols-[auto_1fr] gap-x-4 gap-y-2 border-t border-ui-line/50 pt-4 text-xs tabular-nums;
+  }
+
+  .training-policy-link {
+    @apply mb-1 mt-3 flex items-center gap-2 self-start py-1 text-xs text-ui-muted transition-colors hover:text-ui-accent;
+  }
+
+  .training-policy-link svg {
+    @apply h-4 w-4;
+  }
+
+  .training-queue-section {
+    @apply mt-5 border-t border-ui-line/60 pt-4;
+  }
+
+  .training-section-heading {
+    @apply mb-3 flex items-center justify-between gap-3;
+  }
+
+  .training-section-heading > :first-child {
+    @apply text-xs font-medium text-ui-secondary;
+  }
+
+  .training-lane {
+    @apply block w-full rounded-lg border border-transparent px-3 py-3 text-left transition-colors hover:bg-ui-hover;
+  }
+
+  .training-lane-selected {
+    @apply border-ui-line/60 bg-ui-inset/40;
+  }
+
+  .training-cancel {
+    @apply shrink-0 rounded-md px-2 py-2 text-xs text-ui-muted transition-colors enabled:hover:bg-red-300/10 enabled:hover:text-red-200 disabled:opacity-30;
+  }
+
+  .training-overview {
+    @apply mb-4 border-b border-ui-line/60 pb-3 last:mb-0 last:border-0;
+  }
+
+  .combat-section-heading {
+    @apply flex items-start justify-between gap-3 border-b border-ui-line/60 pb-4;
+  }
+
+  .combat-stat-grid {
+    @apply grid grid-cols-3 gap-4 py-5;
+  }
+
+  .combat-casualties {
+    @apply border-y border-ui-line/60 py-4;
+  }
+
+  .battle-progress {
+    @apply border-b border-ui-line/60 px-6 pb-4 pt-3;
+  }
+
+  .report-metadata {
+    @apply grid shrink-0 grid-cols-2 gap-x-6 gap-y-4 border-b border-ui-line/60 px-6 py-5 text-xs sm:grid-cols-4;
+  }
+
+  .report-sides {
+    @apply grid shrink-0 gap-8 px-6 py-5 md:grid-cols-2;
+  }
+
+  .report-side {
+    @apply min-w-0;
+  }
+
+  .report-round {
+    @apply border-l border-ui-line/70 py-5 pl-4;
+  }
+
+  @media (max-width: 767px) {
+    .barracks-dialog .inspector-body {
+      grid-template-columns: minmax(0, 1fr);
+    }
+
+    .barracks-dialog .barracks-training-section {
+      border-right: 0;
+    }
   }
 
   .population-summary {
@@ -688,7 +842,7 @@
     @apply flex h-8 w-8 items-center justify-center rounded-lg text-lg text-ui-muted transition-colors hover:bg-ui-hover hover:text-ui-text;
   }
 
-  .game-ui :is(.hud-surface, .game-popover, .inspector-panel, .battle-dialog, .game-guide) :is(button, input, select):focus-visible {
+  .game-ui :is(.hud-surface, .resource-bar, .game-popover, .inspector-panel, .battle-dialog, .game-guide) :is(button, input, select):focus-visible {
     outline: 2px solid #d5bd8b;
     outline-offset: 3px;
   }
@@ -768,16 +922,8 @@
       max-height: calc(100vh - 1rem);
     }
 
-    .battle-dialog-timing {
-      @apply grid-cols-1;
-    }
-
     .battle-dialog-body {
-      display: block;
-    }
-
-    .battle-versus {
-      @apply h-8 w-full;
+      grid-template-columns: minmax(0, 1fr);
     }
 
     .battle-dialog-footer {
@@ -791,11 +937,7 @@
 
   @media (max-width: 480px) {
     .resource-counter {
-      @apply gap-1 px-1.5;
-    }
-
-    .resource-medallion {
-      @apply h-6 w-6;
+      @apply px-3;
     }
 
     .hud-tool {
